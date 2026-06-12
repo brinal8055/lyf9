@@ -1,0 +1,1 @@
+{"fixture_id":"urine_limited_beta","classification":{"expected_status":"limited_beta","expected_report_type":"urine_limited"},"expected_biomarkers":[],"expected_safety":{"doctor_review_required":false,"must_not_contain":["advanced AI claims","diagnosis","prescription"],"required_disclaimer":false,"limited_beta_only":true}}

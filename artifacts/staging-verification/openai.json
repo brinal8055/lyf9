@@ -1,0 +1,14 @@
+{
+  "checks": [
+    {
+      "detail": "Missing required env: AI_PROVIDER, OPENAI_API_KEY, OPENAI_MODEL_EXTRACTION, OPENAI_MODEL_EXPLANATION",
+      "name": "required_env_present",
+      "passed": false
+    }
+  ],
+  "endedAt": "2026-06-12T16:18:58.011Z",
+  "section": "openai",
+  "startedAt": "2026-06-12T16:18:58.011Z",
+  "status": "blocked",
+  "syntheticOnly": true
+}

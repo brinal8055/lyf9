@@ -1,0 +1,148 @@
+{
+  "generatedAt": "2026-06-12T16:18:58.011Z",
+  "environment": "staging",
+  "releaseVerdict": "no_go",
+  "syntheticOnly": true,
+  "results": [
+    {
+      "checks": [
+        {
+          "detail": "Missing required env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL",
+          "name": "required_env_present",
+          "passed": false
+        }
+      ],
+      "endedAt": "2026-06-12T16:18:58.009Z",
+      "section": "supabase",
+      "startedAt": "2026-06-12T16:18:58.008Z",
+      "status": "blocked",
+      "syntheticOnly": true
+    },
+    {
+      "checks": [
+        {
+          "detail": "Missing required env: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY",
+          "name": "required_env_present",
+          "passed": false
+        }
+      ],
+      "endedAt": "2026-06-12T16:18:58.010Z",
+      "section": "rls",
+      "startedAt": "2026-06-12T16:18:58.010Z",
+      "status": "blocked",
+      "syntheticOnly": true
+    },
+    {
+      "checks": [
+        {
+          "detail": "Missing required env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, LIVE_SUPABASE_WORKFLOW_JOB_ID",
+          "name": "required_env_present",
+          "passed": false
+        }
+      ],
+      "endedAt": "2026-06-12T16:18:58.010Z",
+      "section": "workflow",
+      "startedAt": "2026-06-12T16:18:58.010Z",
+      "status": "blocked",
+      "syntheticOnly": true
+    },
+    {
+      "checks": [
+        {
+          "detail": "Missing required env: AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, S3_REPORT_BUCKET",
+          "name": "required_env_present",
+          "passed": false
+        }
+      ],
+      "endedAt": "2026-06-12T16:18:58.010Z",
+      "section": "s3",
+      "startedAt": "2026-06-12T16:18:58.010Z",
+      "status": "blocked",
+      "syntheticOnly": true
+    },
+    {
+      "checks": [
+        {
+          "detail": "Missing required env: MALWARE_SCANNER_PROVIDER",
+          "name": "required_env_present",
+          "passed": false
+        }
+      ],
+      "endedAt": "2026-06-12T16:18:58.011Z",
+      "section": "malware",
+      "startedAt": "2026-06-12T16:18:58.011Z",
+      "status": "blocked",
+      "syntheticOnly": true
+    },
+    {
+      "checks": [
+        {
+          "detail": "Missing required env: DOCUMENT_PARSER_PROVIDER",
+          "name": "required_env_present",
+          "passed": false
+        }
+      ],
+      "endedAt": "2026-06-12T16:18:58.011Z",
+      "section": "marker",
+      "startedAt": "2026-06-12T16:18:58.011Z",
+      "status": "blocked",
+      "syntheticOnly": true
+    },
+    {
+      "checks": [
+        {
+          "detail": "Missing required env: OCR_PROVIDER, AWS_TEXTRACT_REGION",
+          "name": "required_env_present",
+          "passed": false
+        }
+      ],
+      "endedAt": "2026-06-12T16:18:58.011Z",
+      "section": "textract",
+      "startedAt": "2026-06-12T16:18:58.011Z",
+      "status": "blocked",
+      "syntheticOnly": true
+    },
+    {
+      "checks": [
+        {
+          "detail": "Missing required env: AI_PROVIDER, OPENAI_API_KEY, OPENAI_MODEL_EXTRACTION, OPENAI_MODEL_EXPLANATION",
+          "name": "required_env_present",
+          "passed": false
+        }
+      ],
+      "endedAt": "2026-06-12T16:18:58.011Z",
+      "section": "openai",
+      "startedAt": "2026-06-12T16:18:58.011Z",
+      "status": "blocked",
+      "syntheticOnly": true
+    },
+    {
+      "checks": [
+        {
+          "detail": "Missing required env: APP_BASE_URL, NEXT_PUBLIC_APP_BASE_URL",
+          "name": "required_env_present",
+          "passed": false
+        }
+      ],
+      "endedAt": "2026-06-12T16:18:58.011Z",
+      "section": "e2e",
+      "startedAt": "2026-06-12T16:18:58.011Z",
+      "status": "blocked",
+      "syntheticOnly": true
+    },
+    {
+      "checks": [
+        {
+          "detail": "Missing required env: RUN_LIVE_OPENAI_EVAL, AI_PROVIDER, OPENAI_API_KEY, OPENAI_MODEL_EXTRACTION",
+          "name": "required_env_present",
+          "passed": false
+        }
+      ],
+      "endedAt": "2026-06-12T16:18:58.011Z",
+      "section": "golden-live",
+      "startedAt": "2026-06-12T16:18:58.011Z",
+      "status": "blocked",
+      "syntheticOnly": true
+    }
+  ]
+}

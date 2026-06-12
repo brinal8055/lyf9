@@ -1,0 +1,14 @@
+{
+  "checks": [
+    {
+      "detail": "Missing required env: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY",
+      "name": "required_env_present",
+      "passed": false
+    }
+  ],
+  "endedAt": "2026-06-12T16:18:58.010Z",
+  "section": "rls",
+  "startedAt": "2026-06-12T16:18:58.010Z",
+  "status": "blocked",
+  "syntheticOnly": true
+}

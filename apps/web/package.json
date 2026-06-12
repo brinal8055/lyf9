@@ -1,0 +1,46 @@
+{
+  "name": "@lyf9/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "lint": "eslint src --max-warnings=0",
+    "test": "vitest run",
+    "eval:golden": "vitest run src/lib/evaluation/golden-eval.test.ts",
+    "test:golden": "vitest run src/lib/evaluation/golden-eval.test.ts",
+    "test:safety": "vitest run src/lib/evaluation/safety-eval.test.ts",
+    "test:e2e:mock": "vitest run src/lib/evaluation/mock-e2e.test.ts",
+    "test:rls": "vitest run src/lib/auth/supabase-live-rls.test.ts",
+    "test:workflow-live": "vitest run src/lib/workflow/supabase-live-workflow.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1063.0",
+    "@aws-sdk/s3-request-presigner": "^3.1063.0",
+    "@lyf9/shared": "file:../../packages/shared",
+    "@supabase/supabase-js": "^2.107.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.468.0",
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^2.5.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.2",
+    "@typescript-eslint/eslint-plugin": "^8.60.1",
+    "@typescript-eslint/parser": "^8.60.1",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.17.0",
+    "eslint-config-next": "^15.1.0",
+    "eslint-plugin-react": "^7.37.5",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

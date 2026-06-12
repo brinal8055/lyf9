@@ -1,0 +1,41 @@
+{
+  "name": "lyf9",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "packages/shared"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace apps/web run dev",
+    "build:web": "npm --workspace apps/web run build",
+    "lint": "npm --workspace apps/web run lint",
+    "copy:scan": "node scripts/copy-scan.mjs",
+    "typecheck": "npm --workspace apps/web run typecheck",
+    "test": "npm --workspace packages/shared run test && npm --workspace apps/web run test",
+    "eval:golden": "npm --workspace apps/web run eval:golden",
+    "test:golden": "npm --workspace apps/web run test:golden",
+    "test:safety": "npm --workspace apps/web run test:safety",
+    "test:e2e:mock": "npm --workspace apps/web run test:e2e:mock",
+    "eval:golden:live": "node scripts/verify-staging.mjs --section=golden-live",
+    "verify:staging": "node scripts/verify-staging.mjs --section=all",
+    "verify:staging:supabase": "node scripts/verify-staging.mjs --section=supabase",
+    "verify:staging:rls": "node scripts/verify-staging.mjs --section=rls",
+    "verify:staging:workflow": "node scripts/verify-staging.mjs --section=workflow",
+    "verify:staging:s3": "node scripts/verify-staging.mjs --section=s3",
+    "verify:staging:malware": "node scripts/verify-staging.mjs --section=malware",
+    "verify:staging:marker": "node scripts/verify-staging.mjs --section=marker",
+    "verify:staging:textract": "node scripts/verify-staging.mjs --section=textract",
+    "verify:staging:openai": "node scripts/verify-staging.mjs --section=openai",
+    "verify:staging:e2e": "node scripts/verify-staging.mjs --section=e2e",
+    "test:rls": "npm --workspace apps/web run test:rls",
+    "test:workflow-live": "npm --workspace apps/web run test:workflow-live",
+    "api:dev": "cd apps/api && python3 -m uvicorn app.main:app --reload --port 8000",
+    "api:health": "cd apps/api && python3 -m app.main",
+    "api:test": "cd apps/api && python3 -m pytest",
+    "worker:health": "cd apps/worker && python3 -m app.worker health",
+    "worker:process-once": "cd apps/worker && python3 -m app.worker process-once",
+    "infra:up": "docker compose -f infra/docker-compose.yml up -d",
+    "infra:down": "docker compose -f infra/docker-compose.yml down"
+  }
+}

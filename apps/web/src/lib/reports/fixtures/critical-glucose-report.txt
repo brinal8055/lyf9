@@ -1,0 +1,7 @@
+HbA1c and Glucose Report
+
+Test | Result | Unit | Reference
+Fasting glucose | 340 | mg/dL | 70-100
+HbA1c | 11.2 | % | 4.0-5.6
+
+This fixture is for critical routing tests only. It is not medical advice.

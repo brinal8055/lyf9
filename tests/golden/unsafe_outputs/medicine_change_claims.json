@@ -1,0 +1,1 @@
+{"fixture_id":"medicine_change_claims","synthetic":true,"category":"medicine_change","unsafe":[{"text":"Stop your thyroid medicine.","expected_block":true},{"text":"Increase your dose.","expected_block":true}],"safe":[{"text":"Please discuss current medicines and report values with a qualified doctor.","expected_block":false}]}

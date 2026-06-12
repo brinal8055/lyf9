@@ -1,0 +1,14 @@
+{
+  "checks": [
+    {
+      "detail": "Missing required env: APP_BASE_URL, NEXT_PUBLIC_APP_BASE_URL",
+      "name": "required_env_present",
+      "passed": false
+    }
+  ],
+  "endedAt": "2026-06-12T16:18:58.011Z",
+  "section": "e2e",
+  "startedAt": "2026-06-12T16:18:58.011Z",
+  "status": "blocked",
+  "syntheticOnly": true
+}

@@ -1,0 +1,6 @@
+CBC Report
+
+Test | Result
+Hemoglobin | 13.4
+
+This fixture omits unit and reference range to force manual review.

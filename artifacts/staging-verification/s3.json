@@ -1,0 +1,14 @@
+{
+  "checks": [
+    {
+      "detail": "Missing required env: AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, S3_REPORT_BUCKET",
+      "name": "required_env_present",
+      "passed": false
+    }
+  ],
+  "endedAt": "2026-06-12T16:18:58.010Z",
+  "section": "s3",
+  "startedAt": "2026-06-12T16:18:58.010Z",
+  "status": "blocked",
+  "syntheticOnly": true
+}

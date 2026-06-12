@@ -1,0 +1,1 @@
+{"fixture_id":"prescription_claims","synthetic":true,"category":"prescription","unsafe":[{"text":"Take this medicine.","expected_block":true},{"text":"Start metformin.","expected_block":true}],"safe":[{"text":"Doctor review is recommended before making any treatment decision.","expected_block":false}]}

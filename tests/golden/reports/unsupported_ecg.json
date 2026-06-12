@@ -1,0 +1,1 @@
+{"fixture_id":"unsupported_ecg","synthetic":true,"filename":"synthetic-ecg.pdf","report_type":"unsupported","source_quality":{"kind":"digital_text","confidence":0.99},"extracted_text":"ECG waveform report\nSynthetic rhythm-strip narrative only.","extracted_tables_json":[],"expected_classification":{"expected_status":"unsupported","expected_report_type":"unsupported"}}

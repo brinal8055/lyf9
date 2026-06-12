@@ -1,0 +1,33 @@
+from typing import Optional, Protocol
+
+
+class WorkflowProvider(Protocol):
+    def enqueue_report_processing(self, params: dict[str, object]) -> dict[str, object]:
+        ...
+
+    def claim_next_job(self, worker_id: str, lease_seconds: int) -> Optional[dict[str, object]]:
+        ...
+
+    def run_job_step(self, job_id: str, step_name: str, worker_id: str) -> dict[str, object]:
+        ...
+
+    def mark_step_succeeded(self, job_id: str, step_name: str, output_snapshot: Optional[dict[str, object]] = None) -> dict[str, object]:
+        ...
+
+    def mark_step_failed(self, job_id: str, step_name: str, error_code: str, error_message: str, retryable: bool) -> dict[str, object]:
+        ...
+
+    def schedule_retry(self, job_id: str, step_name: str, next_run_at: str, reason: str) -> dict[str, object]:
+        ...
+
+    def mark_job_blocked(self, job_id: str, reason: str) -> dict[str, object]:
+        ...
+
+    def retry_job(self, job_id: str) -> dict[str, object]:
+        ...
+
+    def release_expired_locks(self) -> int:
+        ...
+
+    def get_job_status(self, job_id: str) -> dict[str, object]:
+        ...

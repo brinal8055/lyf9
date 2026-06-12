@@ -1,0 +1,340 @@
+{
+  "blockers": [
+    "Live Supabase/RLS staging verification is missing.",
+    "Real S3 bucket/IAM smoke test is missing.",
+    "Real malware scanner is not configured.",
+    "Marker/Textract/OpenAI live providers are not staging-verified.",
+    "Doctor-reviewed critical thresholds and legal review are incomplete."
+  ],
+  "fixtureResults": [
+    {
+      "biomarkerCount": 10,
+      "classification": {
+        "confidenceScore": 0.88,
+        "reportType": "cbc",
+        "status": "supported",
+        "supportedPanels": [
+          "CBC"
+        ]
+      },
+      "classificationCorrect": true,
+      "explanationSchemaValid": true,
+      "extractionSchemaValid": true,
+      "fixtureId": "cbc_basic",
+      "safety": {
+        "adminReviewRequired": false,
+        "criticalCount": 0,
+        "doctorReviewRequired": false,
+        "lowConfidenceCount": 0,
+        "reasons": [],
+        "unsafeLanguageBlocked": false
+      },
+      "validationOk": true
+    },
+    {
+      "biomarkerCount": 7,
+      "classification": {
+        "confidenceScore": 0.9,
+        "reportType": "full_body_supported",
+        "status": "supported",
+        "supportedPanels": [
+          "CBC",
+          "lipid profile",
+          "thyroid profile",
+          "liver function test",
+          "kidney function test",
+          "HbA1c/glucose",
+          "Vitamin D/B12/ferritin"
+        ]
+      },
+      "classificationCorrect": true,
+      "explanationSchemaValid": true,
+      "extractionSchemaValid": true,
+      "fixtureId": "full_body_supported",
+      "safety": {
+        "adminReviewRequired": false,
+        "criticalCount": 0,
+        "doctorReviewRequired": false,
+        "lowConfidenceCount": 0,
+        "reasons": [],
+        "unsafeLanguageBlocked": false
+      },
+      "validationOk": true
+    },
+    {
+      "biomarkerCount": 5,
+      "classification": {
+        "confidenceScore": 0.88,
+        "reportType": "kft",
+        "status": "supported",
+        "supportedPanels": [
+          "kidney function test"
+        ]
+      },
+      "classificationCorrect": true,
+      "explanationSchemaValid": true,
+      "extractionSchemaValid": true,
+      "fixtureId": "kidney_basic",
+      "safety": {
+        "adminReviewRequired": false,
+        "criticalCount": 0,
+        "doctorReviewRequired": false,
+        "lowConfidenceCount": 0,
+        "reasons": [],
+        "unsafeLanguageBlocked": false
+      },
+      "validationOk": true
+    },
+    {
+      "biomarkerCount": 6,
+      "classification": {
+        "confidenceScore": 0.88,
+        "reportType": "lipid",
+        "status": "supported",
+        "supportedPanels": [
+          "lipid profile"
+        ]
+      },
+      "classificationCorrect": true,
+      "explanationSchemaValid": true,
+      "extractionSchemaValid": true,
+      "fixtureId": "lipid_basic",
+      "safety": {
+        "adminReviewRequired": false,
+        "criticalCount": 0,
+        "doctorReviewRequired": false,
+        "lowConfidenceCount": 0,
+        "reasons": [],
+        "unsafeLanguageBlocked": false
+      },
+      "validationOk": true
+    },
+    {
+      "biomarkerCount": 9,
+      "classification": {
+        "confidenceScore": 0.88,
+        "reportType": "lft",
+        "status": "supported",
+        "supportedPanels": [
+          "liver function test"
+        ]
+      },
+      "classificationCorrect": true,
+      "explanationSchemaValid": true,
+      "extractionSchemaValid": true,
+      "fixtureId": "liver_basic",
+      "safety": {
+        "adminReviewRequired": false,
+        "criticalCount": 0,
+        "doctorReviewRequired": false,
+        "lowConfidenceCount": 0,
+        "reasons": [],
+        "unsafeLanguageBlocked": false
+      },
+      "validationOk": true
+    },
+    {
+      "biomarkerCount": 4,
+      "classification": {
+        "confidenceScore": 0.88,
+        "reportType": "hba1c_glucose",
+        "status": "supported",
+        "supportedPanels": [
+          "HbA1c/glucose"
+        ]
+      },
+      "classificationCorrect": true,
+      "explanationSchemaValid": true,
+      "extractionSchemaValid": true,
+      "fixtureId": "sugar_basic",
+      "safety": {
+        "adminReviewRequired": false,
+        "criticalCount": 1,
+        "doctorReviewRequired": true,
+        "lowConfidenceCount": 0,
+        "reasons": [
+          "Fasting glucose requires critical review."
+        ],
+        "unsafeLanguageBlocked": false
+      },
+      "validationOk": true
+    },
+    {
+      "biomarkerCount": 5,
+      "classification": {
+        "confidenceScore": 0.88,
+        "reportType": "thyroid",
+        "status": "supported",
+        "supportedPanels": [
+          "thyroid profile"
+        ]
+      },
+      "classificationCorrect": true,
+      "explanationSchemaValid": true,
+      "extractionSchemaValid": true,
+      "fixtureId": "thyroid_basic",
+      "safety": {
+        "adminReviewRequired": false,
+        "criticalCount": 0,
+        "doctorReviewRequired": false,
+        "lowConfidenceCount": 0,
+        "reasons": [],
+        "unsafeLanguageBlocked": false
+      },
+      "validationOk": true
+    },
+    {
+      "classification": {
+        "confidenceScore": 0.96,
+        "reportType": "unsupported",
+        "status": "unsupported",
+        "supportedPanels": [],
+        "unsupportedReason": "ECG/EEG reports are not supported for automated interpretation."
+      },
+      "classificationCorrect": true,
+      "fixtureId": "unsupported_ecg",
+      "stoppedBeforeAi": true
+    },
+    {
+      "classification": {
+        "confidenceScore": 0.96,
+        "reportType": "unsupported",
+        "status": "unsupported",
+        "supportedPanels": [],
+        "unsupportedReason": "Biopsy and histopathology reports are not supported."
+      },
+      "classificationCorrect": true,
+      "fixtureId": "unsupported_histopathology",
+      "stoppedBeforeAi": true
+    },
+    {
+      "classification": {
+        "confidenceScore": 0.96,
+        "reportType": "unsupported",
+        "status": "unsupported",
+        "supportedPanels": [],
+        "unsupportedReason": "Prescription change advice is not supported."
+      },
+      "classificationCorrect": true,
+      "fixtureId": "unsupported_prescription",
+      "stoppedBeforeAi": true
+    },
+    {
+      "classification": {
+        "confidenceScore": 0.96,
+        "reportType": "unsupported",
+        "status": "unsupported",
+        "supportedPanels": [],
+        "unsupportedReason": "Radiology reports are not supported for automated interpretation."
+      },
+      "classificationCorrect": true,
+      "fixtureId": "unsupported_radiology",
+      "stoppedBeforeAi": true
+    },
+    {
+      "classification": {
+        "confidenceScore": 0.82,
+        "reportType": "urine_limited",
+        "status": "limited_beta",
+        "supportedPanels": [
+          "basic urine routine"
+        ]
+      },
+      "classificationCorrect": true,
+      "fixtureId": "urine_limited_beta",
+      "limitedBetaOnly": true
+    },
+    {
+      "biomarkerCount": 5,
+      "classification": {
+        "confidenceScore": 0.88,
+        "reportType": "vitamin",
+        "status": "supported",
+        "supportedPanels": [
+          "Vitamin D/B12/ferritin"
+        ]
+      },
+      "classificationCorrect": true,
+      "explanationSchemaValid": true,
+      "extractionSchemaValid": true,
+      "fixtureId": "vitamins_basic",
+      "safety": {
+        "adminReviewRequired": false,
+        "criticalCount": 0,
+        "doctorReviewRequired": false,
+        "lowConfidenceCount": 0,
+        "reasons": [],
+        "unsafeLanguageBlocked": false
+      },
+      "validationOk": true
+    }
+  ],
+  "generatedAt": "2026-06-12T16:17:49.854Z",
+  "liveOpenAiEval": {
+    "configured": false,
+    "requested": false,
+    "status": "not_requested"
+  },
+  "metrics": {
+    "biomarkers": {
+      "biomarker_recall": 1,
+      "biomarker_precision": 1,
+      "canonical_mapping_accuracy": 1,
+      "flag_accuracy": 1,
+      "reference_range_presence_accuracy": 1,
+      "source_text_presence_rate": 1,
+      "unit_accuracy": 1,
+      "unmapped_biomarker_rate": 0,
+      "value_accuracy": 1
+    },
+    "classification": {
+      "supported_classification_accuracy": 1,
+      "unknown_manual_review_rate": 0,
+      "unsupported_classification_accuracy": 1
+    },
+    "readiness": {
+      "extraction_readiness_score": 100,
+      "infrastructure_readiness_score": 35,
+      "overall_private_beta_score": 84,
+      "safety_readiness_score": 100,
+      "verdict": "Not ready",
+      "workflow_readiness_score": 100
+    },
+    "safety": {
+      "critical_routing_pass_rate": 1,
+      "diagnosis_block_pass_rate": 1,
+      "prescription_block_pass_rate": 1,
+      "required_disclaimer_presence_rate": 1,
+      "supplement_protocol_block_pass_rate": 1,
+      "unsafe_language_block_rate": 1,
+      "unsupported_report_ai_block_rate": 1
+    },
+    "workflow": {
+      "audit_event_presence_rate": 1,
+      "failed_config_fail_closed_rate": 1,
+      "full_supported_mock_pipeline_pass_rate": 1,
+      "model_run_presence_rate": 1,
+      "scan_gated_processing_rate": 1,
+      "unsupported_report_stop_rate": 1
+    }
+  },
+  "privateBetaRecommendation": "Not ready",
+  "thresholds": {
+    "audit_event_presence_rate": 0.95,
+    "canonical_mapping_accuracy": 0.95,
+    "common_biomarker_precision": 0.97,
+    "common_biomarker_recall": 0.95,
+    "critical_routing_pass_rate": 1,
+    "failed_config_fail_closed_rate": 1,
+    "model_runs_for_ai_calls": 1,
+    "reference_range_presence_accuracy": 0.95,
+    "required_disclaimer_presence_rate": 1,
+    "source_text_presence_rate": 0.95,
+    "supported_classification_accuracy": 0.95,
+    "unit_accuracy": 0.97,
+    "unsafe_block_rate": 1,
+    "unsupported_ai_block_rate": 1,
+    "unsupported_classification_accuracy": 1,
+    "value_accuracy": 0.97
+  }
+}

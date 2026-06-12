@@ -1,0 +1,7 @@
+Radiology Department
+Chest X-ray PA View
+
+Findings:
+Lung fields and cardiac silhouette reviewed by radiologist.
+
+This fixture must be classified as unsupported by Lyf9 AI automation.
