@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Activity, CalendarClock } from "lucide-react";
+import { Activity, CalendarClock, TrendingUp } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { buttonClassName } from "@/components/ui/button";
 import type { TrendSeries } from "@/lib/reports/presentation";
 import type {
   HealthInsightRecord,
@@ -30,11 +32,7 @@ type TimelinePayload = {
 };
 
 export function HealthTimeline() {
-  const [data, setData] = useState<TimelinePayload>({
-    reminders: [],
-    timeline: [],
-    trendSeries: []
-  });
+  const [data, setData] = useState<TimelinePayload | null>(null);
 
   useEffect(() => {
     fetch("/api/timeline")
@@ -42,8 +40,17 @@ export function HealthTimeline() {
       .then((body: TimelinePayload) => setData(body));
   }, []);
 
+  if (!data) {
+    return (
+      <div className="grid gap-6 animate-pulse">
+        <Skeleton className="h-64 rounded-card" />
+        <Skeleton className="h-80 rounded-card" />
+      </div>
+    );
+  }
+
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-6 animate-fade-in">
       <Card>
         <CardHeader>
           <CardTitle>Trends</CardTitle>
@@ -54,7 +61,10 @@ export function HealthTimeline() {
             <TrendCard series={series} key={series.canonicalBiomarkerKey} />
           ))}
           {data.trendSeries.length === 0 ? (
-            <p className="text-sm text-muted">Upload another supported report to see repeated-marker trends.</p>
+            <div className="col-span-full flex flex-col items-center justify-center rounded-ui border border-dashed border-white/10 bg-white/[0.02] py-10 text-center">
+              <TrendingUp className="size-8 text-white/20" aria-hidden />
+              <p className="mt-3 text-sm text-muted">Upload another supported report to see repeated-marker trends.</p>
+            </div>
           ) : null}
         </div>
       </Card>
@@ -66,7 +76,7 @@ export function HealthTimeline() {
         </CardHeader>
         <div className="relative grid gap-4">
           {data.timeline.map((item) => (
-            <div className="rounded-ui border border-white/10 bg-white/[0.04] p-4" key={item.reportFile.id}>
+            <div className="rounded-ui border border-white/10 bg-white/[0.04] p-4 transition-all hover:border-white/20 hover:bg-white/[0.06]" key={item.reportFile.id}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="font-medium text-ivory">{item.reportFile.originalFilename}</p>
@@ -76,18 +86,26 @@ export function HealthTimeline() {
                     {item.markerCount} markers
                   </p>
                 </div>
-                <Badge>{item.insight?.status.replaceAll("_", " ") ?? item.job?.currentState.replaceAll("_", " ")}</Badge>
+                <Badge className="bg-white/10 text-muted">{item.insight?.status.replaceAll("_", " ") ?? item.job?.currentState?.replaceAll("_", " ") ?? "Processing"}</Badge>
               </div>
               {item.insight ? <p className="mt-3 text-sm text-muted">{item.insight.summary}</p> : null}
               {item.reportFile.unsupportedReason ? (
                 <p className="mt-3 text-sm text-yellow">{item.reportFile.unsupportedReason}</p>
               ) : null}
-              <Link className="mt-3 inline-block text-sm text-orange hover:underline" href={`/app/reports/${item.reportFile.id}`}>
-                Open report
+              <Link className="mt-3 inline-block text-sm font-medium text-orange transition-colors hover:text-amber-400" href={`/app/reports/${item.reportFile.id}`}>
+                View explanation
               </Link>
             </div>
           ))}
-          {data.timeline.length === 0 ? <p className="text-sm text-muted">No reports yet.</p> : null}
+          {data.timeline.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-ui border border-dashed border-white/10 bg-white/[0.02] py-10 text-center">
+              <p className="font-medium text-ivory">Your timeline is empty</p>
+              <p className="mt-1 max-w-sm text-sm text-muted">Upload a lab report to start building your health timeline.</p>
+              <Link href="/app/reports/new" className={buttonClassName("primary", "mt-4")}>
+                Upload report
+              </Link>
+            </div>
+          ) : null}
         </div>
       </Card>
 
@@ -98,7 +116,7 @@ export function HealthTimeline() {
         </CardHeader>
         <div className="grid gap-3">
           {data.reminders.map((reminder) => (
-            <div className="rounded-ui border border-white/10 bg-white/[0.04] p-4" key={reminder.id}>
+            <div className="rounded-ui border border-white/10 bg-white/[0.04] p-4 transition-all hover:border-white/20" key={reminder.id}>
               <p className="flex items-center gap-2 font-medium text-ivory">
                 <CalendarClock className="size-4 text-orange" aria-hidden />
                 {reminder.title}
@@ -125,10 +143,12 @@ function TrendCard({ series }: { series: TrendSeries }) {
   const range = max - min || 1;
   const points = series.points.map((point, index) => {
     const x = series.points.length === 1 ? width / 2 : (index / (series.points.length - 1)) * width;
-    const y = height - ((point.value - min) / range) * (height - 16) - 8;
+    const y = height - ((point.value - min) / range) * (height - 24) - 12; // Extra padding for labels
     return { ...point, x, y };
   });
   const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+  // Close the path for the gradient fill
+  const fillPath = `${path} L ${width} ${height} L 0 ${height} Z`;
 
   return (
     <div className="rounded-ui border border-white/10 bg-white/[0.04] p-4">
@@ -141,12 +161,28 @@ function TrendCard({ series }: { series: TrendSeries }) {
         </div>
         <Activity className="size-5 text-green" aria-hidden />
       </div>
-      <svg className="mt-4 h-24 w-full" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${series.label} trend`}>
-        <path d={path} fill="none" stroke="#45D6A2" strokeLinecap="round" strokeWidth="3" />
-        {points.map((point) => (
-          <circle cx={point.x} cy={point.y} fill="#FF6A3D" key={`${point.reportFileId}-${point.timestamp}`} r="4" />
-        ))}
-      </svg>
+      <div className="relative mt-4">
+        {/* Min/Max labels */}
+        <div className="absolute inset-y-0 -left-1 flex flex-col justify-between py-2 text-[10px] text-dim">
+          <span>{max}</span>
+          <span>{min}</span>
+        </div>
+        <svg className="h-28 w-full" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={`${series.label} trend`}>
+          <defs>
+            <linearGradient id={`gradient-${series.canonicalBiomarkerKey}`} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="#45D6A2" stopOpacity="0.2" />
+              <stop offset="100%" stopColor="#45D6A2" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {series.points.length > 1 && (
+            <path d={fillPath} fill={`url(#gradient-${series.canonicalBiomarkerKey})`} />
+          )}
+          <path d={path} fill="none" stroke="#45D6A2" strokeLinecap="round" strokeWidth="2.5" />
+          {points.map((point) => (
+            <circle cx={point.x} cy={point.y} fill="#101010" stroke="#FF6A3D" strokeWidth="2" key={`${point.reportFileId}-${point.timestamp}`} r="4" />
+          ))}
+        </svg>
+      </div>
     </div>
   );
 }
