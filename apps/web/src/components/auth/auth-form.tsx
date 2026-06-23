@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
 import { PRODUCT_NAME } from "@lyf9/shared";
@@ -19,6 +20,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const next = searchParams.get("next") ?? "/app";
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (mode !== "signup") {
@@ -56,7 +58,8 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     setIsSubmitting(false);
 
     if (!response.ok) {
-      setError("Check your details and try again.");
+      const body = await response.json().catch(() => ({})) as { error?: string };
+      setError(body.error ?? "Please check your details and try again.");
       return;
     }
 
@@ -72,8 +75,8 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         <CardTitle>{isSignup ? "Join the private beta" : "Welcome back"}</CardTitle>
         <CardContent>
           {isSignup
-            ? "Create your Phase 1 onboarding session for Lyf9 AI."
-            : "Log in to continue your Lyf9 AI onboarding."}
+            ? `Get early access to AI-assisted blood report explanations from ${PRODUCT_NAME}.`
+            : `Log in to continue your ${PRODUCT_NAME} health dashboard.`}
         </CardContent>
       </CardHeader>
       <form className="grid gap-4" onSubmit={onSubmit}>
@@ -89,35 +92,54 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         </label>
         {isSignup ? (
           <label className="grid gap-2 text-sm text-muted">
-            Private beta invite code
+            Beta invite code
             <Input name="inviteCode" placeholder="LYF9-..." />
+            <span className="text-xs text-dim">Optional during early access.</span>
           </label>
         ) : null}
         <label className="grid gap-2 text-sm text-muted">
           Password
-          <Input
-            minLength={8}
-            name="password"
-            placeholder="At least 8 characters"
-            required
-            type="password"
-          />
+          <div className="relative">
+            <Input
+              minLength={8}
+              name="password"
+              placeholder="At least 8 characters"
+              required
+              type={showPassword ? "text" : "password"}
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-dim hover:text-muted transition-colors"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? (
+                <EyeOff className="size-4" aria-hidden />
+              ) : (
+                <Eye className="size-4" aria-hidden />
+              )}
+            </button>
+          </div>
         </label>
-        {error ? <Alert>{error}</Alert> : null}
-        <Button disabled={isSubmitting} type="submit">
-          {isSubmitting ? "Please wait" : isSignup ? "Create account" : "Log in"}
+        {error ? <Alert variant="error" role="alert">{error}</Alert> : null}
+        <Button isLoading={isSubmitting} type="submit">
+          {isSignup ? "Create account" : "Log in"}
         </Button>
       </form>
       <p className="mt-5 text-sm text-muted">
-        {isSignup ? "Already have an account?" : "New to Lyf9 AI?"}{" "}
+        {isSignup ? "Already have an account?" : `New to ${PRODUCT_NAME}?`}{" "}
         <Link className="text-orange hover:underline" href={isSignup ? "/login" : "/signup"}>
           {isSignup ? "Log in" : "Join beta"}
         </Link>
       </p>
-      <p className="mt-4 text-xs leading-5 text-dim">
-        Phase 1 uses a signed local auth skeleton for {PRODUCT_NAME}. Replace it
-        with Clerk, Supabase Auth, or Auth.js before real beta users.
-      </p>
+      {!isSignup && (
+        <p className="mt-3 text-sm text-muted">
+          <button type="button" className="text-muted hover:text-ivory underline transition-colors">
+            Forgot password?
+          </button>
+        </p>
+      )}
     </Card>
   );
 }
