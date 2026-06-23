@@ -3,6 +3,7 @@ import {
   Activity,
   ArrowRight,
   CheckCircle2,
+  ChevronDown,
   FileText,
   Lock,
   MessageCircleQuestion,
@@ -28,22 +29,22 @@ const steps = [
   {
     icon: FileText,
     title: "Upload your blood report",
-    text: "Phase 2 will add private PDF, JPG, and PNG upload for supported lab reports."
+    text: "Private PDF, JPG, and PNG upload for supported lab reports. Your files never become public."
   },
   {
     icon: Activity,
     title: "See what changed",
-    text: "Lyf9 AI is designed around source-linked biomarkers and trends over time."
+    text: "Source-linked biomarkers and trend tracking across repeated tests over time."
   },
   {
     icon: MessageCircleQuestion,
     title: "Prepare better questions",
-    text: "The product helps organize what to discuss with a qualified doctor."
+    text: "Lyf9 AI helps organise what to discuss with a qualified doctor — not replace them."
   },
   {
     icon: TimerReset,
     title: "Plan retests",
-    text: "Retest reminders will keep follow-up timing visible without overclaiming."
+    text: "Retest reminders keep follow-up timing visible without overclaiming outcomes."
   }
 ];
 
@@ -62,16 +63,26 @@ const faqs = [
     question: "Can unsupported reports be interpreted?",
     answer:
       "No. Unsupported report types are blocked from automated interpretation and should be reviewed by a qualified doctor."
+  },
+  {
+    question: "How is my data kept private?",
+    answer:
+      "Reports are stored in a private bucket and never exposed via public URLs. Signed short-lived download links are audited. No report data is used for model training."
   }
 ];
 
 export default function Home() {
   return (
     <main className="min-h-screen bg-ink text-ivory">
+      {/* Announcement bar */}
       <div className="border-b border-white/10 bg-orange py-2 text-center text-sm font-medium text-ink">
-        Private beta foundation now open for early onboarding.
+        Private beta is now open —{" "}
+        <Link href="/signup" className="underline underline-offset-2">
+          join the waitlist →
+        </Link>
       </div>
 
+      {/* Sticky header */}
       <header className="sticky top-0 z-30 border-b border-white/10 bg-ink/85 backdrop-blur-xl">
         <div className="mx-auto flex h-[72px] max-w-shell items-center justify-between px-5 sm:px-8">
           <Link href="/" className="flex flex-col">
@@ -79,16 +90,16 @@ export default function Home() {
             <span className="text-xs text-muted">{PRODUCT_DOMAIN}</span>
           </Link>
           <nav className="hidden items-center gap-6 text-sm text-muted md:flex">
-            <a className="hover:text-ivory" href="#how-it-works">
+            <a className="transition-colors hover:text-ivory" href="#how-it-works">
               How it works
             </a>
-            <a className="hover:text-ivory" href="#reports">
+            <a className="transition-colors hover:text-ivory" href="#reports">
               Reports
             </a>
-            <a className="hover:text-ivory" href="#safety">
+            <a className="transition-colors hover:text-ivory" href="#safety">
               Safety
             </a>
-            <a className="hover:text-ivory" href="#faq">
+            <a className="transition-colors hover:text-ivory" href="#faq">
               FAQ
             </a>
           </nav>
@@ -103,23 +114,25 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Hero */}
       <SectionContainer className="grid min-h-[calc(100vh-108px)] items-center gap-12 pb-20 pt-16 lg:grid-cols-[1fr_0.9fr]">
-        <div className="space-y-8">
+        <div className="space-y-8 animate-fade-in">
           <Badge>Source-linked report explanations</Badge>
           <div className="space-y-5">
             <h1 className="max-w-4xl text-[44px] font-semibold leading-[1.04] sm:text-[68px] lg:text-[82px]">
               Your body has data.{" "}
-              <span className="text-orange">We turn it into direction.</span>
+              <span className="bg-gradient-to-r from-orange via-amber-400 to-orange bg-clip-text text-transparent">
+                We turn it into direction.
+              </span>
             </h1>
             <p className="max-w-2xl text-lg leading-8 text-muted sm:text-xl">
-              Upload your blood report. Lyf9 AI explains what changed, what
-              needs attention, what questions to ask your doctor, and when to
-              retest.
+              Upload your blood report. Lyf9 AI explains what changed, what needs
+              attention, what questions to ask your doctor, and when to retest.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <Link className={buttonClassName("primary")} href="/signup">
-              Start onboarding <ArrowRight className="ml-2 size-4" aria-hidden />
+              Get early access <ArrowRight className="ml-2 size-4" aria-hidden />
             </Link>
             <Link className={buttonClassName("secondary")} href="#safety">
               Read safety promise
@@ -141,6 +154,7 @@ export default function Home() {
         <HealthGraphVisual />
       </SectionContainer>
 
+      {/* Trust bar */}
       <SectionContainer className="border-t border-white/10 py-10">
         <div className="grid gap-4 text-sm text-muted sm:grid-cols-3">
           <p className="flex items-center gap-2">
@@ -148,25 +162,36 @@ export default function Home() {
             preventive-health users
           </p>
           <p className="flex items-center gap-2">
-            <CheckCircle2 className="size-4 text-green" aria-hidden /> Supported panels
-            only
+            <CheckCircle2 className="size-4 text-green" aria-hidden /> Supported panels only
           </p>
           <p className="flex items-center gap-2">
-            <CheckCircle2 className="size-4 text-green" aria-hidden /> Medical decisions
-            need doctors
+            <CheckCircle2 className="size-4 text-green" aria-hidden /> Medical decisions need
+            doctors
           </p>
         </div>
       </SectionContainer>
 
+      {/* How it works */}
       <SectionContainer id="how-it-works">
         <SectionHeading
           eyebrow="How it works"
           title="A safer path from report data to useful doctor conversations."
         />
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-          {steps.map((step) => (
-            <Card key={step.title}>
-              <step.icon className="mb-5 size-6 text-orange" aria-hidden />
+          {steps.map((step, index) => (
+            <Card
+              key={step.title}
+              className="group transition-all duration-300 hover:-translate-y-1 hover:border-orange/30 hover:shadow-[0_32px_80px_rgba(0,0,0,0.4)]"
+            >
+              <div className="mb-5 flex items-center gap-3">
+                <span className="flex size-8 items-center justify-center rounded-full bg-orange/15 text-sm font-bold text-orange">
+                  {index + 1}
+                </span>
+                <step.icon
+                  className="size-5 text-orange transition-transform duration-300 group-hover:scale-110"
+                  aria-hidden
+                />
+              </div>
               <CardTitle>{step.title}</CardTitle>
               <CardContent className="mt-3">{step.text}</CardContent>
             </Card>
@@ -174,6 +199,7 @@ export default function Home() {
         </div>
       </SectionContainer>
 
+      {/* Supported reports */}
       <SectionContainer id="reports" className="bg-cream text-ink">
         <SectionHeading
           className="text-ink"
@@ -183,15 +209,17 @@ export default function Home() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {SUPPORTED_REPORT_TYPES.map((type) => (
             <div
-              className="rounded-ui border border-black/10 bg-lightCard px-4 py-3 text-sm font-medium"
+              className="flex items-center gap-3 rounded-ui border border-black/10 bg-lightCard px-4 py-3 text-sm font-medium transition-all hover:border-orange/30 hover:bg-orange/5"
               key={type}
             >
+              <CheckCircle2 className="size-4 flex-shrink-0 text-green" aria-hidden />
               {type}
             </div>
           ))}
         </div>
       </SectionContainer>
 
+      {/* Product preview */}
       <SectionContainer>
         <SectionHeading
           eyebrow="Product preview"
@@ -202,19 +230,16 @@ export default function Home() {
             <CardHeader>
               <CardTitle>Health timeline</CardTitle>
               <CardContent>
-                Phase 1 captures profile, questionnaire, and consent so report
-                upload can start safely in Phase 2.
+                Profile, questionnaire, and consent unlock report upload so your results stay safe.
               </CardContent>
             </CardHeader>
             <div className="space-y-4">
-              {["Consent complete", "Profile ready", "Questionnaire ready"].map(
-                (item) => (
-                  <div className="flex items-center gap-3" key={item}>
-                    <span className="size-3 rounded-full bg-green" />
-                    <span className="text-sm text-muted">{item}</span>
-                  </div>
-                )
-              )}
+              {["Consent complete", "Profile ready", "Questionnaire ready"].map((item) => (
+                <div className="flex items-center gap-3" key={item}>
+                  <span className="size-3 rounded-full bg-green" />
+                  <span className="text-sm text-muted">{item}</span>
+                </div>
+              ))}
             </div>
           </Card>
           <Card className="rounded-panel bg-charcoal">
@@ -224,7 +249,10 @@ export default function Home() {
                 ["HbA1c", "Monitor", "Track trend"],
                 ["LDL", "Attention", "Discuss risk"]
               ].map(([name, status, note]) => (
-                <div className="rounded-card border border-white/10 bg-white/[0.04] p-5" key={name}>
+                <div
+                  className="rounded-card border border-white/10 bg-white/[0.04] p-5 transition-all hover:border-orange/20 hover:bg-white/[0.07]"
+                  key={name}
+                >
                   <p className="text-sm text-muted">{name}</p>
                   <p className="mt-4 text-2xl font-semibold text-ivory">{status}</p>
                   <p className="mt-3 text-sm text-muted">{note}</p>
@@ -235,6 +263,7 @@ export default function Home() {
         </div>
       </SectionContainer>
 
+      {/* Safety */}
       <SectionContainer id="safety" className="bg-cream text-ink">
         <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
           <div>
@@ -245,50 +274,90 @@ export default function Home() {
           </div>
           <div className="space-y-5">
             <p className="text-lg leading-8 text-dim">
-              Lyf9 AI is designed to explain supported report data in plain
-              language, show source values, and help users prepare better
-              questions. It does not replace qualified medical care.
+              Lyf9 AI is designed to explain supported report data in plain language, show source
+              values, and help users prepare better questions. It does not replace qualified medical
+              care.
             </p>
-            <Alert className="border-black/10 bg-lightCard text-ink">
+            <Alert variant="info" className="border-blue/20 bg-blue/10 text-ink">
               {ENTRY_FLOW_DISCLAIMER}
             </Alert>
           </div>
         </div>
       </SectionContainer>
 
+      {/* FAQ */}
       <SectionContainer id="faq">
         <SectionHeading eyebrow="FAQ" title="Built carefully before it grows." />
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           {faqs.map((faq) => (
-            <Card key={faq.question}>
-              <CardTitle>{faq.question}</CardTitle>
-              <CardContent className="mt-3">{faq.answer}</CardContent>
-            </Card>
+            <details
+              key={faq.question}
+              className="group rounded-card border border-white/10 bg-card transition-all hover:border-white/20"
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between p-6 text-left">
+                <span className="text-base font-semibold text-ivory">{faq.question}</span>
+                <ChevronDown
+                  className="size-4 flex-shrink-0 text-muted transition-transform duration-200 group-open:rotate-180"
+                  aria-hidden
+                />
+              </summary>
+              <div className="px-6 pb-6 text-base leading-7 text-muted">{faq.answer}</div>
+            </details>
           ))}
         </div>
       </SectionContainer>
 
+      {/* CTA */}
       <SectionContainer className="pb-12">
         <div className="rounded-panel border border-white/10 bg-charcoal p-8 text-center sm:p-12">
           <h2 className="text-[34px] font-semibold leading-tight sm:text-[52px]">
             Start with profile, questionnaire, and consent.
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg leading-8 text-muted">
-            Phase 1 prepares the safe entry flow before uploads, AI extraction,
-            and doctor review are added.
+            Complete your health profile and consent before reports, AI extraction, and doctor
+            review are enabled.
           </p>
           <Link className={buttonClassName("primary", "mt-7")} href="/signup">
-            Join Lyf9 AI private beta
+            Join {PRODUCT_NAME} private beta
           </Link>
         </div>
       </SectionContainer>
 
-      <footer className="border-t border-white/10 px-5 py-8 text-sm text-muted sm:px-8">
-        <div className="mx-auto flex max-w-shell flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            {PRODUCT_NAME} · {PRODUCT_DOMAIN}
-          </p>
-          <p>Private beta. Medical decisions require qualified doctors.</p>
+      {/* Footer */}
+      <footer className="border-t border-white/10 px-5 py-12 text-sm text-muted sm:px-8">
+        <div className="mx-auto grid max-w-shell gap-8 sm:grid-cols-3">
+          <div>
+            <p className="font-semibold text-ivory">{PRODUCT_NAME}</p>
+            <p className="mt-2 text-dim">{PRODUCT_DOMAIN}</p>
+            <p className="mt-3 text-xs text-dim">
+              Private beta · Medical decisions require qualified doctors.
+            </p>
+          </div>
+          <div>
+            <p className="font-medium text-ivory">Legal</p>
+            <nav className="mt-3 grid gap-2">
+              <Link href="/privacy" className="transition-colors hover:text-ivory">
+                Privacy Policy
+              </Link>
+              <Link href="/terms" className="transition-colors hover:text-ivory">
+                Terms of Service
+              </Link>
+            </nav>
+          </div>
+          <div>
+            <p className="font-medium text-ivory">Product</p>
+            <nav className="mt-3 grid gap-2">
+              <a href="#how-it-works" className="transition-colors hover:text-ivory">
+                How it works
+              </a>
+              <a href="#safety" className="transition-colors hover:text-ivory">
+                Safety promise
+              </a>
+              <Link href="/signup" className="transition-colors hover:text-ivory">
+                Join beta
+              </Link>
+            </nav>
+          </div>
         </div>
       </footer>
     </main>
@@ -307,9 +376,7 @@ function SectionHeading({
   return (
     <div className={`mb-10 max-w-3xl ${className ?? ""}`}>
       <Badge>{eyebrow}</Badge>
-      <h2 className="mt-5 text-[34px] font-semibold leading-tight sm:text-[52px]">
-        {title}
-      </h2>
+      <h2 className="mt-5 text-[34px] font-semibold leading-tight sm:text-[52px]">{title}</h2>
     </div>
   );
 }
@@ -325,14 +392,14 @@ function HealthGraphVisual() {
           <Activity className="size-16 text-orange" aria-hidden />
         </div>
         {[
-          ["Blood reports", "top-8 left-6"],
-          ["Thyroid", "right-5 top-20"],
-          ["Vitamin D", "bottom-24 left-3"],
-          ["HbA1c", "bottom-10 right-16"],
-          ["Doctor review", "left-1/2 top-4 -translate-x-1/2"]
-        ].map(([label, position]) => (
+          ["Blood reports", "top-8 left-6", "animate-float"],
+          ["Thyroid", "right-5 top-20", "animate-float-delayed"],
+          ["Vitamin D", "bottom-24 left-3", "animate-float-delayed-2"],
+          ["HbA1c", "bottom-10 right-16", "animate-float"],
+          ["Doctor review", "left-1/2 top-4 -translate-x-1/2", "animate-float-delayed"]
+        ].map(([label, position, animation]) => (
           <div
-            className={`absolute ${position} rounded-full border border-white/10 bg-white/[0.08] px-4 py-2 text-sm text-ivory backdrop-blur`}
+            className={`absolute ${position} ${animation} rounded-full border border-white/10 bg-white/[0.08] px-4 py-2 text-sm text-ivory backdrop-blur`}
             key={label}
           >
             {label}

@@ -29,13 +29,39 @@ const config: Config = {
         panel: "36px"
       },
       fontFamily: {
-        sans: ["Inter", "Satoshi", "Geist Sans", "system-ui", "sans-serif"]
+        sans: ["var(--font-inter)", "Inter", "system-ui", "sans-serif"]
       },
       maxWidth: {
         shell: "1280px"
       },
       transitionTimingFunction: {
         lyf9: "cubic-bezier(0.22, 1, 0.36, 1)"
+      },
+      keyframes: {
+        float: {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "50%": { transform: "translateY(-8px)" }
+        },
+        "fade-in": {
+          from: { opacity: "0", transform: "translateY(6px)" },
+          to: { opacity: "1", transform: "translateY(0)" }
+        },
+        "slide-in": {
+          from: { opacity: "0", transform: "translateX(-12px)" },
+          to: { opacity: "1", transform: "translateX(0)" }
+        },
+        shimmer: {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" }
+        }
+      },
+      animation: {
+        float: "float 3s ease-in-out infinite",
+        "float-delayed": "float 3s ease-in-out infinite 0.6s",
+        "float-delayed-2": "float 3s ease-in-out infinite 1.2s",
+        "fade-in": "fade-in 0.4s ease-out both",
+        "slide-in": "slide-in 0.3s ease-out both",
+        shimmer: "shimmer 1.5s linear infinite"
       }
     }
   },
