@@ -14,33 +14,33 @@ const trustPoints = [
 
 export function AuthPage({ mode }: { mode: "login" | "signup" }) {
   return (
-    <div className="min-h-screen bg-ink text-ivory lg:grid lg:grid-cols-2">
+    <div className="min-h-screen bg-sand text-forest font-hanken lg:grid lg:grid-cols-2">
       {/* Left panel — brand & value prop */}
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-charcoal p-12 lg:flex">
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-forest-deep p-12 lg:flex">
         {/* Background glow */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_60%,rgba(255,106,61,0.12),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_60%,rgba(31,132,114,0.15),transparent_60%)]" />
 
         {/* Logo */}
         <Link href="/" className="relative flex flex-col">
-          <span className="text-lg font-semibold text-ivory">{PRODUCT_NAME}</span>
-          <span className="text-sm text-muted">{PRODUCT_DOMAIN}</span>
+          <span className="text-lg font-extrabold text-sand tracking-tight">{PRODUCT_NAME}</span>
+          <span className="text-sm font-medium text-fog">{PRODUCT_DOMAIN}</span>
         </Link>
 
         {/* Value prop */}
         <div className="relative">
-          <h2 className="text-[40px] font-semibold leading-[1.1] text-ivory">
-            Your health data,{" "}
-            <span className="bg-gradient-to-r from-orange to-amber-400 bg-clip-text text-transparent">
+          <h2 className="text-[40px] font-extrabold leading-[1.05] tracking-tight text-sand">
+            Your health data,<br />
+            <span className="font-newsreader font-medium italic text-terracotta">
               finally explained.
             </span>
           </h2>
-          <p className="mt-5 text-lg leading-8 text-muted">
+          <p className="mt-5 text-lg font-medium leading-[1.6] text-fog">
             Upload a blood report. Get plain-language biomarker explanations with optional doctor review.
           </p>
           <div className="mt-8 grid gap-4">
             {trustPoints.map(({ icon: Icon, text }) => (
-              <div key={text} className="flex items-center gap-3 text-sm text-muted">
-                <Icon className="size-4 text-green flex-shrink-0" aria-hidden />
+              <div key={text} className="flex items-center gap-3 text-[15px] font-medium text-[#CFE3DA]">
+                <Icon className="size-5 text-forest-glow flex-shrink-0" aria-hidden />
                 {text}
               </div>
             ))}
@@ -48,17 +48,17 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
         </div>
 
         {/* Footer note */}
-        <p className="relative text-xs text-dim">
+        <p className="relative text-[13px] font-medium text-[#7E8C84]">
           Private beta · Medical decisions require qualified doctors.
         </p>
       </div>
 
       {/* Right panel — form */}
-      <div className="flex min-h-screen flex-col items-center justify-center px-6 py-12">
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 py-12 relative z-10">
         {/* Mobile logo only */}
         <Link href="/" className="mb-8 flex flex-col items-center lg:hidden">
-          <span className="text-lg font-semibold text-ivory">{PRODUCT_NAME}</span>
-          <span className="text-sm text-muted">{PRODUCT_DOMAIN}</span>
+          <span className="text-xl font-extrabold text-forest tracking-tight">{PRODUCT_NAME}</span>
+          <span className="text-sm font-semibold text-sage">{PRODUCT_DOMAIN}</span>
         </Link>
         <Suspense>
           <AuthForm mode={mode} />
