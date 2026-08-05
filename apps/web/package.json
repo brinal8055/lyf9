@@ -21,6 +21,7 @@
     "@lyf9/shared": "file:../../packages/shared",
     "@supabase/supabase-js": "^2.107.0",
     "clsx": "^2.1.1",
+    "inngest": "^4.11.0",
     "lucide-react": "^0.468.0",
     "next": "^15.1.0",
     "react": "^19.0.0",

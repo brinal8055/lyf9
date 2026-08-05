@@ -5,7 +5,7 @@ import { useState } from "react";
 import { CreditCard } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import type { PaymentProductType } from "@/lib/reports/types";
 
 const products: Array<{
@@ -28,15 +28,45 @@ const products: Array<{
   }
 ];
 
-export function PricingCards({ mode = "public" }: { mode?: "public" | "compact" }) {
+const tokens = {
+  light: {
+    card: "rounded-card border border-sand-border bg-sand-card p-6 shadow-sm",
+    title: "text-[22px] font-semibold leading-tight text-forest-deep",
+    amount: "text-2xl font-bold text-forest-deep",
+    amountMeta: "text-sm text-bark",
+    description: "text-sm leading-6 text-sage",
+    disclaimer: "text-xs leading-5 text-moss",
+    link: "text-sm font-medium text-terracotta hover:underline",
+    status: "text-sm text-fog lg:col-span-2",
+  },
+  dark: {
+    card: "rounded-card border border-white/10 bg-card p-6 text-ivory shadow-[0_24px_80px_rgba(0,0,0,0.28)]",
+    title: "text-[22px] font-semibold leading-tight text-ivory",
+    amount: "text-2xl font-semibold text-ivory",
+    amountMeta: "text-sm text-muted",
+    description: "text-sm leading-6 text-muted",
+    disclaimer: "text-xs leading-5 text-dim",
+    link: "text-sm font-medium text-orange hover:underline",
+    status: "text-sm text-muted lg:col-span-2",
+  },
+} as const;
+
+export function PricingCards({
+  mode = "public",
+  theme = "dark",
+}: {
+  mode?: "public" | "compact";
+  theme?: "light" | "dark";
+}) {
   const [status, setStatus] = useState("");
   const isCompact = mode === "compact";
+  const t = tokens[theme];
 
   async function startSandboxPayment(productType: PaymentProductType) {
     const startResponse = await fetch("/api/payments/start", {
       body: JSON.stringify({ productType, reportFileId: null }),
       headers: { "Content-Type": "application/json" },
-      method: "POST"
+      method: "POST",
     });
 
     if (!startResponse.ok) {
@@ -48,7 +78,7 @@ export function PricingCards({ mode = "public" }: { mode?: "public" | "compact" 
     const completeResponse = await fetch("/api/payments/complete", {
       body: JSON.stringify({ paymentId: started.payment.id }),
       headers: { "Content-Type": "application/json" },
-      method: "POST"
+      method: "POST",
     });
     setStatus(
       completeResponse.ok
@@ -60,17 +90,17 @@ export function PricingCards({ mode = "public" }: { mode?: "public" | "compact" 
   return (
     <section className="grid gap-5 lg:grid-cols-2">
       {products.map((product) => (
-        <Card key={product.productType}>
-          <CardHeader>
-            <CardTitle>{product.title}</CardTitle>
-            <CardContent>
-              <span className="text-2xl font-semibold text-ivory">{product.amount}</span>{" "}
-              <span className="text-sm text-muted">private beta placeholder</span>
-            </CardContent>
-          </CardHeader>
+        <div key={product.productType} className={t.card}>
+          <div className="mb-4 space-y-1">
+            <h3 className={t.title}>{product.title}</h3>
+            <div>
+              <span className={cn(t.amount)}>{product.amount}</span>{" "}
+              <span className={t.amountMeta}>private beta placeholder</span>
+            </div>
+          </div>
           <div className="space-y-4">
-            <p className="text-sm leading-6 text-muted">{product.description}</p>
-            <p className="text-xs leading-5 text-dim">
+            <p className={t.description}>{product.description}</p>
+            <p className={t.disclaimer}>
               Doctor-reviewed output is different from AI-only output. Lyf9 AI provides explanations, not diagnosis or prescription.
             </p>
             {isCompact ? (
@@ -79,14 +109,14 @@ export function PricingCards({ mode = "public" }: { mode?: "public" | "compact" 
                 Start sandbox payment
               </Button>
             ) : (
-              <Link className="text-sm font-medium text-orange hover:underline" href="/signup">
+              <Link className={t.link} href="/signup">
                 Join private beta
               </Link>
             )}
           </div>
-        </Card>
+        </div>
       ))}
-      {status ? <p className="text-sm text-muted lg:col-span-2">{status}</p> : null}
+      {status ? <p className={t.status}>{status}</p> : null}
     </section>
   );
 }

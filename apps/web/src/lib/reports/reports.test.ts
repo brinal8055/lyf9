@@ -1655,7 +1655,15 @@ describe("biomarker extraction and safety", () => {
       process.env.AI_PROVIDER = "openai";
       delete process.env.OPENAI_API_KEY;
       delete process.env.OPENAI_MODEL_EXTRACTION;
-      await expect(new OpenAiStructuredOutputsProvider().extractBiomarkers()).rejects.toThrow("ai_configuration_required");
+      await expect(
+        new OpenAiStructuredOutputsProvider().extractBiomarkers({
+          extractedDocumentId: "doc-1",
+          extractedText: "Hemoglobin 13.5 g/dL",
+          labReportId: "report-1",
+          reportFileId: "file-1",
+          userId: "user-1"
+        })
+      ).rejects.toThrow("ai_configuration_required");
     } finally {
       restoreEnv("APP_ENV", previousAppEnv);
       restoreEnv("AI_PROVIDER", previousProvider);

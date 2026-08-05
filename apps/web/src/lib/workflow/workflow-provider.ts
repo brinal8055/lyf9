@@ -2,6 +2,14 @@ import { randomUUID } from "crypto";
 
 import { createSupabaseServiceClient } from "../auth/providers/supabase-server";
 import { writeSupabaseAuditLog } from "../auth/supabase-auth";
+import {
+  markSupabaseJobBlocked,
+  markSupabaseJobCompleted,
+  markSupabaseStepFailed,
+  markSupabaseStepSucceeded,
+  runSupabaseJobStep,
+  scheduleSupabaseRetry
+} from "./supabase-step-runner";
 import type {
   AuditLogRecord,
   ProcessingJobRecord,
@@ -112,23 +120,23 @@ export function createSupabaseAtomicWorkflowProvider(): WorkflowProvider {
     async claimNextJob(params) {
       return claimNextSupabaseJob(params);
     },
-    async runJobStep() {
-      throw new Error("supabase_workflow_step_runner_not_configured");
+    async runJobStep(params) {
+      return runSupabaseJobStep(params);
     },
-    async markStepSucceeded() {
-      throw new Error("supabase_workflow_step_runner_not_configured");
+    async markStepSucceeded(params) {
+      return markSupabaseStepSucceeded(params);
     },
-    async markStepFailed() {
-      throw new Error("supabase_workflow_step_runner_not_configured");
+    async markStepFailed(params) {
+      return markSupabaseStepFailed(params);
     },
-    async scheduleRetry() {
-      throw new Error("supabase_workflow_step_runner_not_configured");
+    async scheduleRetry(params) {
+      return scheduleSupabaseRetry(params);
     },
-    async markJobBlocked() {
-      throw new Error("supabase_workflow_step_runner_not_configured");
+    async markJobBlocked(params) {
+      return markSupabaseJobBlocked(params);
     },
-    async markJobCompleted() {
-      throw new Error("supabase_workflow_step_runner_not_configured");
+    async markJobCompleted(params) {
+      return markSupabaseJobCompleted(params);
     },
     async releaseExpiredLocks(params) {
       return releaseExpiredSupabaseLocks(params);
