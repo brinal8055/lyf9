@@ -4,7 +4,7 @@ import { createSupabaseServiceClient } from "../auth/providers/supabase-server";
 import type { SessionUser } from "../auth/session";
 import { shouldUseSupabaseAuth, writeSupabaseAuditLog } from "../auth/supabase-auth";
 import { trackAnalyticsEvent } from "../reports/repository";
-import { buildConsentRecords, hasRequiredConsent } from "./consent";
+import { buildConsentRecords, hasRequiredConsent, REQUIRED_CONSENT_KEYS } from "./consent";
 import type { ConsentChoices, HealthProfile, QuestionnaireResponse } from "./types";
 
 export async function saveUserHealthProfile(input: {
@@ -156,6 +156,41 @@ export async function saveConsentChoices(input: {
   }
 
   return { persisted: true, records, requiredGranted };
+}
+
+export async function getOnboardingTaskStatus(userId: string) {
+  if (!shouldUseSupabaseAuth()) {
+    return { consentDone: false, profileDone: false, questionnaireDone: false };
+  }
+
+  const serviceClient = createSupabaseServiceClient();
+  const [profileResult, questionnaireResult, consentResult] = await Promise.all([
+    serviceClient.from("user_health_profiles").select("user_id").eq("user_id", userId).maybeSingle(),
+    serviceClient
+      .from("questionnaire_responses")
+      .select("user_id")
+      .eq("user_id", userId)
+      .limit(1)
+      .maybeSingle(),
+    serviceClient
+      .from("user_consents")
+      .select("consent_type")
+      .eq("user_id", userId)
+      .is("revoked_at", null)
+      .eq("granted", true)
+  ]);
+
+  if (profileResult.error) throw new Error(profileResult.error.message);
+  if (questionnaireResult.error) throw new Error(questionnaireResult.error.message);
+  if (consentResult.error) throw new Error(consentResult.error.message);
+
+  const grantedConsentTypes = new Set((consentResult.data ?? []).map((row) => row.consent_type));
+
+  return {
+    consentDone: REQUIRED_CONSENT_KEYS.every((key) => grantedConsentTypes.has(key)),
+    profileDone: Boolean(profileResult.data),
+    questionnaireDone: Boolean(questionnaireResult.data)
+  };
 }
 
 export async function hasRequiredReportUploadConsent(userId: string) {

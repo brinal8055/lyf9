@@ -37,6 +37,20 @@ import {
 const WORKER_ID = "inngest-saga";
 const EXTRACTION_VERSION = 1;
 
+function resolveModelName(providerName: string, task: "extraction" | "explanation") {
+  if (providerName === "gemini_structured_outputs") {
+    return task === "extraction"
+      ? process.env.GEMINI_MODEL_EXTRACTION
+      : process.env.GEMINI_MODEL_EXPLANATION;
+  }
+  if (providerName === "openai_structured_outputs") {
+    return task === "extraction"
+      ? process.env.OPENAI_MODEL_EXTRACTION
+      : process.env.OPENAI_MODEL_EXPLANATION;
+  }
+  return undefined;
+}
+
 export type ReportConfirmedEvent = {
   data: {
     jobId: string;
@@ -241,7 +255,7 @@ export const processReport = inngest.createFunction(
             inputHash: hashModelPayload(aiInput),
             jobId,
             labReportId,
-            modelName: process.env.OPENAI_MODEL_EXTRACTION ?? ai.name,
+            modelName: resolveModelName(ai.name, "extraction") ?? ai.name,
             promptVersion: biomarkerExtractionPromptVersion(),
             provider: ai.name,
             reportFileId,
@@ -258,7 +272,7 @@ export const processReport = inngest.createFunction(
           inputHash: hashModelPayload(aiInput),
           jobId,
           labReportId,
-          modelName: process.env.OPENAI_MODEL_EXTRACTION ?? ai.name,
+          modelName: resolveModelName(ai.name, "extraction") ?? ai.name,
           outputHash: hashModelPayload(output),
           outputJson: output as unknown as Record<string, unknown>,
           promptVersion: biomarkerExtractionPromptVersion(),
@@ -354,7 +368,7 @@ export const processReport = inngest.createFunction(
           inputHash: hashModelPayload({ labReportId, markerCount: withIds.length }),
           jobId,
           labReportId,
-          modelName: process.env.OPENAI_MODEL_EXPLANATION ?? ai.name,
+          modelName: resolveModelName(ai.name, "explanation") ?? ai.name,
           outputHash: hashModelPayload(output),
           outputJson: output as unknown as Record<string, unknown>,
           promptVersion: patientExplanationPromptVersion(),

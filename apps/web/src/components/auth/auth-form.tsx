@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input";
 type AuthMode = "login" | "signup";
 
 export function AuthForm({ mode }: { mode: AuthMode }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/app";
   const [error, setError] = useState("");
@@ -57,13 +56,16 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     setIsSubmitting(false);
 
     if (!response.ok) {
-      const body = await response.json().catch(() => ({})) as { error?: string };
-      setError(body.error ?? "Please check your details and try again.");
+      const body = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        errors?: Record<string, string>;
+      };
+      const firstFieldError = body.errors ? Object.values(body.errors)[0] : undefined;
+      setError(body.error ?? firstFieldError ?? "Please check your details and try again.");
       return;
     }
 
-    router.push(next);
-    router.refresh();
+    window.location.assign(next);
   }
 
   const isSignup = mode === "signup";
