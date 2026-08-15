@@ -5,7 +5,12 @@ import type { SessionUser } from "../auth/session";
 import { shouldUseSupabaseAuth, writeSupabaseAuditLog } from "../auth/supabase-auth";
 import { trackAnalyticsEvent } from "../reports/repository";
 import { buildConsentRecords, hasRequiredConsent, REQUIRED_CONSENT_KEYS } from "./consent";
-import type { ConsentChoices, HealthProfile, QuestionnaireResponse } from "./types";
+import type {
+  ConsentChoices,
+  ConsentRecord,
+  HealthProfile,
+  QuestionnaireResponse
+} from "./types";
 
 export async function saveUserHealthProfile(input: {
   profile: HealthProfile;
@@ -156,6 +161,95 @@ export async function saveConsentChoices(input: {
   }
 
   return { persisted: true, records, requiredGranted };
+}
+
+export async function loadUserHealthProfile(userId: string): Promise<HealthProfile | null> {
+  if (!shouldUseSupabaseAuth()) {
+    return null;
+  }
+
+  const serviceClient = createSupabaseServiceClient();
+  const [profileResult, healthResult] = await Promise.all([
+    serviceClient.from("user_profiles").select("full_name, email").eq("user_id", userId).maybeSingle(),
+    serviceClient
+      .from("user_health_profiles")
+      .select("date_of_birth, age, gender, height_cm, weight_kg, city")
+      .eq("user_id", userId)
+      .maybeSingle()
+  ]);
+
+  if (profileResult.error) throw new Error(profileResult.error.message);
+  if (healthResult.error) throw new Error(healthResult.error.message);
+
+  if (!profileResult.data && !healthResult.data) {
+    return null;
+  }
+
+  const health = healthResult.data;
+  return {
+    ageYears: health?.age != null ? String(health.age) : "",
+    city: health?.city ?? "",
+    dateOfBirth: health?.date_of_birth ?? "",
+    gender: health?.gender ?? "",
+    heightCm: health?.height_cm != null ? String(health.height_cm) : "",
+    name: profileResult.data?.full_name ?? "",
+    weightKg: health?.weight_kg != null ? String(health.weight_kg) : ""
+  };
+}
+
+export async function loadQuestionnaireResponse(
+  userId: string
+): Promise<QuestionnaireResponse | null> {
+  if (!shouldUseSupabaseAuth()) {
+    return null;
+  }
+
+  const serviceClient = createSupabaseServiceClient();
+  const { data, error } = await serviceClient
+    .from("questionnaire_responses")
+    .select("response_json")
+    .eq("user_id", userId)
+    .order("completed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data?.response_json as QuestionnaireResponse | undefined) ?? null;
+}
+
+export async function loadConsentRecordsFromSupabase(userId: string): Promise<ConsentRecord[]> {
+  if (!shouldUseSupabaseAuth()) {
+    return [];
+  }
+
+  const serviceClient = createSupabaseServiceClient();
+  const { data, error } = await serviceClient
+    .from("user_consents")
+    .select(
+      "consent_type, granted, version, purpose, legal_text_hash, granted_at, revoked_at, ip_address, user_agent, created_at"
+    )
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row) => ({
+    consentType: row.consent_type as ConsentRecord["consentType"],
+    createdAt: row.created_at,
+    grantedAt: row.granted_at,
+    granted: row.granted,
+    ipAddress: row.ip_address,
+    legalTextHash: row.legal_text_hash,
+    purpose: row.purpose,
+    revokedAt: row.revoked_at,
+    userAgent: row.user_agent,
+    version: row.version
+  }));
 }
 
 export async function getOnboardingTaskStatus(userId: string) {

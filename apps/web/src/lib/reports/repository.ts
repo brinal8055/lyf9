@@ -47,13 +47,19 @@ import { createDatabaseWorkflowProvider, getBackoffNextRunAt, PIPELINE_STEPS } f
 import { shouldUseSupabaseAuth, writeSupabaseAuditLog } from "../auth/supabase-auth";
 import {
   addSupabaseSignedUrlAudit,
+  applySupabaseDoctorReviewAction,
+  assignSupabaseDoctorReview,
   completeSupabaseUpload,
   createSupabaseFeedbackEvent,
+  createSupabaseRetestReminder,
   createSupabaseSignedDownloadUrl,
   createSupabaseUploadInit,
   deleteSupabaseReportFile,
+  getSupabaseDoctorReviewDetail,
   getSupabaseReportDetails,
   listSupabaseAdminReports,
+  listSupabaseDoctorReviews,
+  listSupabaseHealthTimeline,
   listSupabaseUserReports,
   readAssignedSupabaseDoctorPrivateReport,
   readSupabasePrivateReport,
@@ -738,6 +744,10 @@ export async function getReportDetails(userId: string, reportFileId: string) {
 }
 
 export async function listHealthTimeline(userId: string) {
+  if (shouldUseSupabaseAuth()) {
+    return listSupabaseHealthTimeline(userId);
+  }
+
   const store = await getStore();
   const reportFiles = store.reportFiles
     .filter((report) => report.userId === userId)
@@ -776,6 +786,10 @@ export async function createRetestReminder(input: {
   title: string;
   userId: string;
 }) {
+  if (shouldUseSupabaseAuth()) {
+    return createSupabaseRetestReminder(input);
+  }
+
   const store = await getStore();
   const reportFile = input.reportFileId
     ? store.reportFiles.find(
@@ -1217,6 +1231,10 @@ export async function assignDoctorReview(input: {
   requestId: string | null;
   userAgent: string | null;
 }) {
+  if (shouldUseSupabaseAuth()) {
+    return assignSupabaseDoctorReview(input);
+  }
+
   const store = await getStore();
   const insight = mustFindHealthInsight(store, input.healthInsightId);
   const labReport = mustFindLabReport(store, insight.labReportId);
@@ -1300,6 +1318,10 @@ export async function assignDoctorReview(input: {
 }
 
 export async function listDoctorReviews(doctorEmail: string) {
+  if (shouldUseSupabaseAuth()) {
+    return listSupabaseDoctorReviews(doctorEmail);
+  }
+
   const store = await getStore();
   const normalizedDoctorEmail = doctorEmail.trim().toLowerCase();
   return store.doctorReviews
@@ -1309,6 +1331,10 @@ export async function listDoctorReviews(doctorEmail: string) {
 }
 
 export async function getDoctorReviewDetail(doctorEmail: string, reviewId: string) {
+  if (shouldUseSupabaseAuth()) {
+    return getSupabaseDoctorReviewDetail(doctorEmail, reviewId);
+  }
+
   const store = await getStore();
   const normalizedDoctorEmail = doctorEmail.trim().toLowerCase();
   const review = store.doctorReviews.find(
@@ -1330,6 +1356,10 @@ export async function applyDoctorReviewAction(input: {
   reviewId: string;
   userAgent: string | null;
 }) {
+  if (shouldUseSupabaseAuth()) {
+    return applySupabaseDoctorReviewAction(input);
+  }
+
   const store = await getStore();
   const normalizedDoctorEmail = input.doctorEmail.trim().toLowerCase();
   const review = store.doctorReviews.find(
