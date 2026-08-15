@@ -42,6 +42,7 @@ import {
   validateNormalizedBiomarkers,
   type NormalizedBiomarker
 } from "../biomarkers";
+import { getPaymentProvider } from "../payments";
 import { runMedicalSafetyRules } from "../safety";
 import { createDatabaseWorkflowProvider, getBackoffNextRunAt, PIPELINE_STEPS } from "../workflow";
 import { shouldUseSupabaseAuth, writeSupabaseAuditLog } from "../auth/supabase-auth";
@@ -49,18 +50,21 @@ import {
   addSupabaseSignedUrlAudit,
   applySupabaseDoctorReviewAction,
   assignSupabaseDoctorReview,
+  completeSupabasePayment,
   completeSupabaseUpload,
   createSupabaseFeedbackEvent,
   createSupabaseRetestReminder,
   createSupabaseSignedDownloadUrl,
   createSupabaseUploadInit,
   deleteSupabaseReportFile,
+  findSupabasePayment,
   getSupabaseDoctorReviewDetail,
   getSupabaseReportDetails,
   listSupabaseAdminReports,
   listSupabaseDoctorReviews,
   listSupabaseHealthTimeline,
   listSupabaseUserReports,
+  startSupabasePayment,
   readAssignedSupabaseDoctorPrivateReport,
   readSupabasePrivateReport,
   trackSupabaseAnalyticsEvent
@@ -87,6 +91,7 @@ import type {
   ModelRunRecord,
   NotificationEventType,
   PaymentProductType,
+  PaymentRecord,
   ProcessingJobRecord,
   ProcessingJobState,
   ProcessingJobStepRecord,
@@ -946,36 +951,61 @@ export async function startPayment(input: {
   reportFileId: string | null;
   userId: string;
 }) {
-  const store = await getStore();
   const product = PRIVATE_BETA_PRODUCTS[input.productType];
+
+  if (!product) {
+    throw new Error("unsupported_product");
+  }
+
+  const provider = getPaymentProvider();
+  const paymentId = randomUUID();
+  const order = await provider.createOrder({
+    amountMinorUnits: product.amountMinorUnits,
+    currency: product.currency,
+    productType: input.productType,
+    receiptId: paymentId,
+    userId: input.userId
+  });
+
+  if (shouldUseSupabaseAuth()) {
+    return startSupabasePayment({
+      amountMinorUnits: product.amountMinorUnits,
+      currency: product.currency,
+      legalReviewRequired: !provider.publicLaunchEnabled,
+      productType: input.productType,
+      provider: provider.name,
+      providerOrderId: order.providerOrderId,
+      publicLaunchEnabled: provider.publicLaunchEnabled,
+      reportFileId: input.reportFileId,
+      userId: input.userId
+    });
+  }
+
+  const store = await getStore();
   const reportFile = input.reportFileId
     ? store.reportFiles.find(
         (candidate) => candidate.id === input.reportFileId && candidate.userId === input.userId
       ) ?? null
     : null;
 
-  if (!product) {
-    throw new Error("unsupported_product");
-  }
-
   if (input.reportFileId && !reportFile) {
     throw new Error("report_not_found");
   }
 
   const now = new Date().toISOString();
-  const payment = {
+  const payment: PaymentRecord = {
     amountMinorUnits: product.amountMinorUnits,
     createdAt: now,
     currency: product.currency,
-    id: randomUUID(),
-    legalReviewRequired: true,
-    provider: "razorpay_sandbox_placeholder" as const,
-    providerOrderId: `order_${randomUUID()}`,
+    id: paymentId,
+    legalReviewRequired: !provider.publicLaunchEnabled,
+    provider: provider.name,
+    providerOrderId: order.providerOrderId,
     providerPaymentId: null,
-    publicLaunchEnabled: false as const,
+    publicLaunchEnabled: provider.publicLaunchEnabled,
     productType: input.productType,
     reportId: reportFile?.id ?? null,
-    status: "started" as const,
+    status: "started",
     updatedAt: now,
     userId: input.userId
   };
@@ -1015,8 +1045,42 @@ export async function startPayment(input: {
 export async function completePayment(input: {
   paymentId: string;
   providerPaymentId?: string | null;
+  providerSignature?: string | null;
   userId: string;
 }) {
+  const provider = getPaymentProvider();
+
+  if (shouldUseSupabaseAuth()) {
+    const existingRow = await findSupabasePayment(input.paymentId, input.userId);
+
+    if (!existingRow) {
+      throw new Error("payment_not_found");
+    }
+
+    const existing = toPaymentRecordFlags(existingRow, provider);
+
+    // Idempotent: completing an already-completed payment must not mint a new
+    // provider payment id or re-emit analytics and audit events.
+    if (existing.status === "completed") {
+      return existing;
+    }
+
+    const captured = await provider.capturePayment({
+      paymentId: input.paymentId,
+      providerOrderId: existing.providerOrderId,
+      providerPaymentId: input.providerPaymentId ?? null,
+      providerSignature: input.providerSignature ?? null
+    });
+
+    return completeSupabasePayment({
+      legalReviewRequired: !provider.publicLaunchEnabled,
+      paymentId: input.paymentId,
+      providerPaymentId: captured.providerPaymentId,
+      publicLaunchEnabled: provider.publicLaunchEnabled,
+      userId: input.userId
+    });
+  }
+
   const store = await getStore();
   const payment = store.payments.find(
     (candidate) => candidate.id === input.paymentId && candidate.userId === input.userId
@@ -1026,8 +1090,19 @@ export async function completePayment(input: {
     throw new Error("payment_not_found");
   }
 
+  if (payment.status === "completed") {
+    return payment;
+  }
+
+  const captured = await provider.capturePayment({
+    paymentId: input.paymentId,
+    providerOrderId: payment.providerOrderId,
+    providerPaymentId: input.providerPaymentId ?? null,
+    providerSignature: input.providerSignature ?? null
+  });
+
   payment.status = "completed";
-  payment.providerPaymentId = input.providerPaymentId ?? `pay_${randomUUID()}`;
+  payment.providerPaymentId = captured.providerPaymentId;
   payment.updatedAt = new Date().toISOString();
   trackAnalyticsEventSync(store, {
     eventName: "payment_completed",
@@ -1057,6 +1132,32 @@ export async function completePayment(input: {
   });
   await saveStore(store);
   return payment;
+}
+
+function toPaymentRecordFlags(
+  row: Record<string, unknown>,
+  provider: { publicLaunchEnabled: boolean }
+): PaymentRecord {
+  const readString = (key: string) => (typeof row[key] === "string" ? (row[key] as string) : "");
+  const readNullableString = (key: string) =>
+    typeof row[key] === "string" ? (row[key] as string) : null;
+
+  return {
+    amountMinorUnits: Number(row.amount ?? 0),
+    createdAt: readString("created_at"),
+    currency: (readString("currency") || "INR") as PaymentRecord["currency"],
+    id: readString("id"),
+    legalReviewRequired: !provider.publicLaunchEnabled,
+    productType: readString("product_type") as PaymentProductType,
+    provider: readString("provider") as PaymentRecord["provider"],
+    providerOrderId: readNullableString("provider_order_id"),
+    providerPaymentId: readNullableString("provider_payment_id"),
+    publicLaunchEnabled: provider.publicLaunchEnabled,
+    reportId: readNullableString("report_id"),
+    status: readString("status") as PaymentRecord["status"],
+    updatedAt: readString("updated_at"),
+    userId: readString("user_id")
+  };
 }
 
 export async function createDataExport(input: {

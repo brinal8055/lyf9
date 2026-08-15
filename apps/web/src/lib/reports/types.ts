@@ -339,6 +339,8 @@ export type FeedbackEventRecord = {
   createdAt: string;
 };
 
+export type PaymentProviderName = "razorpay_sandbox_placeholder" | "razorpay";
+
 export type PaymentRecord = {
   id: string;
   userId: string;
@@ -347,11 +349,11 @@ export type PaymentRecord = {
   amountMinorUnits: number;
   currency: "INR";
   status: PaymentStatus;
-  provider: "razorpay_sandbox_placeholder";
+  provider: PaymentProviderName;
   providerOrderId: string | null;
   providerPaymentId: string | null;
   legalReviewRequired: boolean;
-  publicLaunchEnabled: false;
+  publicLaunchEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 };

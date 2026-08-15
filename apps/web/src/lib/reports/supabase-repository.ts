@@ -17,6 +17,9 @@ import type {
   ProcessingJobRecord,
   ProcessingStepName,
   ProcessingJobStepRecord,
+  PaymentProductType,
+  PaymentProviderName,
+  PaymentRecord,
   ReminderRecord,
   ReportFileRecord,
   UserRole
@@ -505,6 +508,124 @@ export async function createSupabaseRetestReminder(input: {
   });
 
   return reminder;
+}
+
+export async function startSupabasePayment(input: {
+  amountMinorUnits: number;
+  currency: "INR";
+  legalReviewRequired: boolean;
+  productType: PaymentProductType;
+  provider: PaymentProviderName;
+  providerOrderId: string;
+  publicLaunchEnabled: boolean;
+  reportFileId: string | null;
+  userId: string;
+}): Promise<PaymentRecord> {
+  const serviceClient = createSupabaseServiceClient();
+
+  if (input.reportFileId) {
+    const ownership = await serviceClient
+      .from("report_files")
+      .select("id")
+      .eq("id", input.reportFileId)
+      .eq("user_id", input.userId)
+      .maybeSingle();
+    throwIfSupabaseError(ownership.error);
+
+    if (!ownership.data) {
+      throw new Error("report_not_found");
+    }
+  }
+
+  const { data, error } = await serviceClient
+    .from("payments")
+    .insert({
+      amount: input.amountMinorUnits,
+      currency: input.currency,
+      product_type: input.productType,
+      provider: input.provider,
+      provider_order_id: input.providerOrderId,
+      report_id: input.reportFileId,
+      status: "started",
+      user_id: input.userId
+    })
+    .select("*")
+    .single();
+
+  throwIfSupabaseError(error);
+
+  await trackSupabaseAnalyticsEvent({
+    eventName: "payment_started",
+    metadata: { amountMinorUnits: input.amountMinorUnits, productType: input.productType },
+    reportFileId: input.reportFileId,
+    userId: input.userId
+  });
+
+  return toPayment(data as DbRow, {
+    legalReviewRequired: input.legalReviewRequired,
+    publicLaunchEnabled: input.publicLaunchEnabled
+  });
+}
+
+export async function findSupabasePayment(
+  paymentId: string,
+  userId: string
+): Promise<DbRow | null> {
+  const serviceClient = createSupabaseServiceClient();
+  const { data, error } = await serviceClient
+    .from("payments")
+    .select("*")
+    .eq("id", paymentId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  throwIfSupabaseError(error);
+  return (data as DbRow | null) ?? null;
+}
+
+export async function completeSupabasePayment(input: {
+  legalReviewRequired: boolean;
+  paymentId: string;
+  providerPaymentId: string;
+  publicLaunchEnabled: boolean;
+  userId: string;
+}): Promise<PaymentRecord> {
+  const serviceClient = createSupabaseServiceClient();
+  const { data, error } = await serviceClient
+    .from("payments")
+    .update({
+      provider_payment_id: input.providerPaymentId,
+      status: "completed",
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", input.paymentId)
+    .eq("user_id", input.userId)
+    .select("*")
+    .single();
+
+  throwIfSupabaseError(error);
+
+  const payment = toPayment(data as DbRow, {
+    legalReviewRequired: input.legalReviewRequired,
+    publicLaunchEnabled: input.publicLaunchEnabled
+  });
+
+  await trackSupabaseAnalyticsEvent({
+    eventName: "payment_completed",
+    metadata: { amountMinorUnits: payment.amountMinorUnits, productType: payment.productType },
+    reportFileId: payment.reportId,
+    userId: input.userId
+  });
+  await writeSupabaseAuditLog({
+    action: "payment_completed",
+    actorRole: "user",
+    actorUserId: input.userId,
+    metadata: { productType: payment.productType, provider: payment.provider },
+    resourceId: payment.id,
+    resourceType: "payment"
+  });
+
+  return payment;
 }
 
 async function findSupabaseUserIdByEmail(email: string): Promise<string | null> {
@@ -1352,6 +1473,28 @@ function toReportFile(row: DbRow): ReportFileRecord {
     unsupportedReason: nullableString(row, "unsupported_reason"),
     updatedAt: stringField(row, "updated_at"),
     uploadedAt: nullableString(row, "uploaded_at") ?? stringField(row, "created_at"),
+    userId: stringField(row, "user_id")
+  };
+}
+
+function toPayment(
+  row: DbRow,
+  flags: { legalReviewRequired: boolean; publicLaunchEnabled: boolean }
+): PaymentRecord {
+  return {
+    amountMinorUnits: numberField(row, "amount"),
+    createdAt: stringField(row, "created_at"),
+    currency: (stringField(row, "currency") || "INR") as PaymentRecord["currency"],
+    id: stringField(row, "id"),
+    legalReviewRequired: flags.legalReviewRequired,
+    productType: stringField(row, "product_type") as PaymentProductType,
+    provider: stringField(row, "provider") as PaymentProviderName,
+    providerOrderId: nullableString(row, "provider_order_id"),
+    providerPaymentId: nullableString(row, "provider_payment_id"),
+    publicLaunchEnabled: flags.publicLaunchEnabled,
+    reportId: nullableString(row, "report_id"),
+    status: stringField(row, "status") as PaymentRecord["status"],
+    updatedAt: stringField(row, "updated_at"),
     userId: stringField(row, "user_id")
   };
 }
