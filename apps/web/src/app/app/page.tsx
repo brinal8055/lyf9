@@ -13,7 +13,6 @@ import {
 } from "@/components/app/onboarding-task-list";
 import { Alert } from "@/components/ui/alert";
 import { DashboardFeedback } from "@/components/feedback/dashboard-feedback";
-import { PricingCards } from "@/components/payments/pricing-cards";
 import {
   getSupabaseUserFromAccessToken,
   shouldUseSupabaseAuth,
@@ -62,9 +61,12 @@ export default async function AppHomePage() {
 
       <section className="space-y-4" aria-labelledby="beta-pricing-title">
         <h2 id="beta-pricing-title" className="text-xl font-semibold text-ivory">
-          Beta pricing
+          Beta access
         </h2>
-        <PricingCards mode="compact" />
+        <Alert variant="success" className="border-green/20 bg-green/10">
+          Everything is free during the private beta. Report uploads, AI-assisted explanations,
+          and doctor review are included at no cost while we validate the product.
+        </Alert>
       </section>
 
       <DashboardFeedback />

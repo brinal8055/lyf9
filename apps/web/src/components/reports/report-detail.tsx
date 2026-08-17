@@ -49,6 +49,10 @@ export function ReportDetail({ reportFileId }: { reportFileId: string }) {
   const [error, setError] = useState("");
   const [reminderStatus, setReminderStatus] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState("");
+  const [doctorReviewState, setDoctorReviewState] = useState<
+    "idle" | "requesting" | "requested" | "error"
+  >("idle");
+  const [doctorReviewMessage, setDoctorReviewMessage] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -70,6 +74,35 @@ export function ReportDetail({ reportFileId }: { reportFileId: string }) {
   }, [reportFileId]);
 
   const groupedMarkers = useMemo(() => groupMarkers(report?.markerCards ?? []), [report]);
+
+  async function requestDoctorReview() {
+    if (!report) return;
+
+    setDoctorReviewState("requesting");
+    setDoctorReviewMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/reports/${report.reportFile.id}/request-doctor-review`,
+        { method: "POST" }
+      );
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+
+      if (!response.ok) {
+        setDoctorReviewState("error");
+        setDoctorReviewMessage(body.error ?? "Doctor review could not be requested.");
+        return;
+      }
+
+      setDoctorReviewState("requested");
+      setDoctorReviewMessage(
+        "Doctor review requested. A doctor will review this report and you will be notified."
+      );
+    } catch {
+      setDoctorReviewState("error");
+      setDoctorReviewMessage("Doctor review could not be requested.");
+    }
+  }
 
   async function createReminder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -191,10 +224,20 @@ export function ReportDetail({ reportFileId }: { reportFileId: string }) {
                 <p className="mt-1 text-sm text-muted">{flag.reason}</p>
               </div>
             ))}
-            <Button variant="secondary">
+            <Button
+              disabled={!report.healthInsight || doctorReviewState === "requesting"}
+              isLoading={doctorReviewState === "requesting"}
+              onClick={requestDoctorReview}
+              variant="secondary"
+            >
               <Stethoscope className="mr-2 size-4" aria-hidden />
               Request doctor review
             </Button>
+            {doctorReviewMessage ? (
+              <Alert variant={doctorReviewState === "error" ? "error" : "success"}>
+                {doctorReviewMessage}
+              </Alert>
+            ) : null}
           </div>
         </Card>
       </section>

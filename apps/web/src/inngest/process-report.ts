@@ -15,6 +15,9 @@ import {
 } from "@/lib/document-extraction";
 import { minExtractedTextChars } from "@/lib/document-extraction/document-parser-provider";
 import { getMalwareScannerProvider, toReportScanStatus } from "@/lib/malware";
+import { logError } from "@/lib/observability/logger";
+import { claimDoctorForReview } from "@/lib/doctors/assignment";
+import { assignDoctorReview } from "@/lib/reports/repository";
 import { runUnsafeLanguageFilter } from "@/lib/reports/safety";
 import type { ReportType } from "@/lib/reports/types";
 import { createSupabaseAtomicWorkflowProvider } from "@/lib/workflow";
@@ -446,7 +449,7 @@ export const processReport = inngest.createFunction(
           userId
         });
 
-        await insertHealthInsight({
+        const healthInsightId = await insertHealthInsight({
           aiModelRunId: explanation.modelRunId,
           disclaimer: explanation.output.disclaimer,
           labReportId,
@@ -456,9 +459,19 @@ export const processReport = inngest.createFunction(
           status: insightStatus,
           userId
         });
+
+        const assignedDoctorId = doctorReviewNeeded
+          ? await autoAssignDoctorReview({
+              healthInsightId,
+              priority: criticalMarkers.length > 0 ? "urgent" : "standard",
+              reportType: (classification.reportType ?? null) as ReportType | null,
+              userId
+            })
+          : null;
+
         await workflow.markStepSucceeded({
           jobId,
-          outputSnapshot: { insightStatus },
+          outputSnapshot: { assignedDoctorId, insightStatus },
           stepName: "route_review"
         });
 
@@ -498,3 +511,54 @@ export const processReport = inngest.createFunction(
     }
   }
 );
+
+/**
+ * Assigns the report to an available approved doctor via the capacity-aware
+ * claim function (continuity -> specialty+load -> any+load -> urgent overflow).
+ *
+ * Deliberately fail-soft: when no doctor has capacity the review is left
+ * unassigned for the admin queue rather than failing the whole report. A
+ * published AI explanation with a pending reviewer beats a failed report.
+ */
+async function autoAssignDoctorReview(input: {
+  healthInsightId: string;
+  priority: "standard" | "urgent";
+  reportType: ReportType | null;
+  userId: string;
+}): Promise<string | null> {
+  try {
+    const claim = await claimDoctorForReview({
+      priority: input.priority,
+      reportType: input.reportType,
+      userId: input.userId
+    });
+
+    if (!claim.assignedDoctorId) {
+      logError("doctor_review_unassigned", {
+        healthInsightId: input.healthInsightId,
+        priority: input.priority,
+        reason: claim.reason,
+        requiredSpecialty: claim.requiredSpecialty
+      });
+      return null;
+    }
+
+    await assignDoctorReview({
+      actorUserId: WORKER_ID,
+      assignedDoctorId: claim.assignedDoctorId,
+      healthInsightId: input.healthInsightId,
+      ipAddress: null,
+      priority: input.priority,
+      requestId: null,
+      userAgent: WORKER_ID
+    });
+
+    return claim.assignedDoctorId;
+  } catch (caught) {
+    logError("doctor_review_auto_assign_failed", {
+      error: caught instanceof Error ? caught.message : "unknown",
+      healthInsightId: input.healthInsightId
+    });
+    return null;
+  }
+}

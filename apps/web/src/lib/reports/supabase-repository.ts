@@ -648,19 +648,37 @@ async function buildSupabaseDoctorReviewDetail(reviewRow: DbRow) {
   const healthInsightId = stringField(reviewRow, "health_insight_id");
   const patientUserId = stringField(reviewRow, "user_id");
 
-  const [labResult, fileResult, insightResult, markerResult, flagResult, patientResult] =
-    await Promise.all([
-      serviceClient.from("lab_reports").select("*").eq("id", labReportId).maybeSingle(),
-      serviceClient.from("report_files").select("*").eq("id", reportFileId).maybeSingle(),
-      serviceClient.from("health_insights").select("*").eq("id", healthInsightId).maybeSingle(),
-      serviceClient.from("biomarker_results").select("*").eq("lab_report_id", labReportId),
-      serviceClient.from("health_risk_flags").select("*").eq("lab_report_id", labReportId),
-      serviceClient
-        .from("user_profiles")
-        .select("email, full_name")
-        .eq("user_id", patientUserId)
-        .maybeSingle()
-    ]);
+  const assignedDoctorId = nullableString(reviewRow, "assigned_doctor_id");
+
+  const [
+    labResult,
+    fileResult,
+    insightResult,
+    markerResult,
+    flagResult,
+    patientResult,
+    doctorResult
+  ] = await Promise.all([
+    serviceClient.from("lab_reports").select("*").eq("id", labReportId).maybeSingle(),
+    serviceClient.from("report_files").select("*").eq("id", reportFileId).maybeSingle(),
+    serviceClient.from("health_insights").select("*").eq("id", healthInsightId).maybeSingle(),
+    serviceClient.from("biomarker_results").select("*").eq("lab_report_id", labReportId),
+    serviceClient.from("health_risk_flags").select("*").eq("lab_report_id", labReportId),
+    serviceClient
+      .from("user_profiles")
+      .select("email, full_name")
+      .eq("user_id", patientUserId)
+      .maybeSingle(),
+    // assigned_doctor_id is a UUID; the record exposes an email field, so
+    // resolve it here rather than leaking the raw UUID into the UI.
+    assignedDoctorId
+      ? serviceClient
+          .from("user_profiles")
+          .select("email")
+          .eq("user_id", assignedDoctorId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null })
+  ]);
 
   throwIfSupabaseError(labResult.error);
   throwIfSupabaseError(fileResult.error);
@@ -668,8 +686,11 @@ async function buildSupabaseDoctorReviewDetail(reviewRow: DbRow) {
   throwIfSupabaseError(markerResult.error);
   throwIfSupabaseError(flagResult.error);
   throwIfSupabaseError(patientResult.error);
+  throwIfSupabaseError(doctorResult.error);
 
   const patientRow = patientResult.data as DbRow | null;
+  const doctorRow = doctorResult.data as DbRow | null;
+  const assignedDoctorEmail = doctorRow ? stringField(doctorRow, "email") : null;
 
   return {
     biomarkers: (markerResult.data ?? []).map(toBiomarkerResult),
@@ -686,7 +707,7 @@ async function buildSupabaseDoctorReviewDetail(reviewRow: DbRow) {
       symptoms: "See the patient onboarding questionnaire."
     },
     reportFile: fileResult.data ? toReportFile(fileResult.data) : null,
-    review: toDoctorReview(reviewRow),
+    review: toDoctorReview(reviewRow, assignedDoctorEmail),
     riskFlags: flagResult.data ?? []
   };
 }
@@ -731,7 +752,8 @@ export async function getSupabaseDoctorReviewDetail(doctorEmail: string, reviewI
 
 export async function assignSupabaseDoctorReview(input: {
   actorUserId: string;
-  assignedDoctorEmail: string;
+  assignedDoctorEmail?: string;
+  assignedDoctorId?: string;
   healthInsightId: string;
   ipAddress: string | null;
   priority?: "standard" | "urgent";
@@ -739,7 +761,13 @@ export async function assignSupabaseDoctorReview(input: {
   userAgent: string | null;
 }) {
   const serviceClient = createSupabaseServiceClient();
-  const doctorId = await findSupabaseUserIdByEmail(input.assignedDoctorEmail);
+  // Prefer the UUID when the caller already resolved a doctor (the capacity-aware
+  // assignment path). The email lookup remains for legacy callers only.
+  const doctorId =
+    input.assignedDoctorId ??
+    (input.assignedDoctorEmail
+      ? await findSupabaseUserIdByEmail(input.assignedDoctorEmail)
+      : null);
 
   if (!doctorId) {
     throw new Error("assigned_doctor_not_found");
@@ -1499,7 +1527,7 @@ function toPayment(
   };
 }
 
-function toDoctorReview(row: DbRow): DoctorReviewRecord {
+function toDoctorReview(row: DbRow, resolvedDoctorEmail?: string | null): DoctorReviewRecord {
   const snapshot = (row.ai_draft_snapshot ?? {}) as Record<string, unknown>;
   const editedOutput = (row.doctor_edited_output ?? null) as Record<string, unknown> | null;
 
@@ -1518,7 +1546,9 @@ function toDoctorReview(row: DbRow): DoctorReviewRecord {
     },
     assignedAt: stringField(row, "assigned_at"),
     assignedBy: stringField(row, "assigned_by"),
-    assignedDoctorEmail: stringField(row, "assigned_doctor_id"),
+    // Falls back to the UUID only when the doctor has no user_profiles row,
+    // which should not happen for an approved doctor.
+    assignedDoctorEmail: resolvedDoctorEmail ?? stringField(row, "assigned_doctor_id"),
     assignedDoctorId: stringField(row, "assigned_doctor_id"),
     completedAt: nullableString(row, "completed_at"),
     createdAt: stringField(row, "created_at"),

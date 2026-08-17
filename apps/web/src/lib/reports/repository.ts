@@ -1325,7 +1325,8 @@ export async function correctBiomarker(input: {
 
 export async function assignDoctorReview(input: {
   actorUserId: string;
-  assignedDoctorEmail: string;
+  assignedDoctorEmail?: string;
+  assignedDoctorId?: string;
   healthInsightId: string;
   ipAddress: string | null;
   priority?: "standard" | "urgent";
@@ -1334,6 +1335,12 @@ export async function assignDoctorReview(input: {
 }) {
   if (shouldUseSupabaseAuth()) {
     return assignSupabaseDoctorReview(input);
+  }
+
+  if (!input.assignedDoctorEmail) {
+    // The local mock store keys doctors by email; UUID-based assignment is a
+    // Supabase-only path.
+    throw new Error("assigned_doctor_not_found");
   }
 
   const store = await getStore();

@@ -13,6 +13,13 @@ import {
 } from "@/lib/auth/supabase-auth";
 import { roleCanAccess } from "@/lib/auth/roles";
 
+/**
+ * Authentication + role gate for every /doctor route.
+ *
+ * The approved-profile check lives in the nested (verified) layout rather
+ * than here, so /doctor/pending stays reachable for doctors awaiting
+ * verification without creating a redirect loop.
+ */
 export default async function DoctorLayout({
   children
 }: {

@@ -55,7 +55,12 @@ export function AppNav({ role, userName }: { role: UserRole; userName: string })
   const allLinks = [
     ...navLinks,
     ...(canSeeDoctor ? [{ label: "Doctor", href: "/doctor/reviews" }] : []),
-    ...(canSeeAdmin ? [{ label: "Admin", href: "/admin/reports" }] : [])
+    ...(canSeeAdmin
+      ? [
+          { label: "Admin", href: "/admin/reports" },
+          { label: "Doctors", href: "/admin/doctors" }
+        ]
+      : [])
   ];
 
   return (
