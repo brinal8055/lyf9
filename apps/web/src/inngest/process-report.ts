@@ -84,6 +84,7 @@ export const processReport = inngest.createFunction(
         await updateJobState(jobId, "malware_scan");
         const reportFile = await fetchReportFileRow(reportFileId);
         const result = await getMalwareScannerProvider().scanFile({
+          filename: String(reportFile.original_filename ?? ""),
           mimeType: String(reportFile.mime_type ?? ""),
           reportFileId,
           storageKey: String(reportFile.storage_key ?? "")

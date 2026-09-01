@@ -171,7 +171,7 @@ export type ReportFileRecord = {
   mimeType: string;
   fileSizeBytes: number;
   checksumSha256: string;
-  storageBucket: "mock-private" | "local-private" | "s3-private";
+  storageBucket: string;
   storageKey: string;
   status: ReportFileStatus;
   unsupportedReason: string | null;

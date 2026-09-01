@@ -12,6 +12,36 @@ No public launch, autonomous diagnosis, prescriptions, medicine-change advice, s
 
 ## Completed In This Pass
 
+### 2026-09-01 Private S3 Verification Hardening
+
+- Treated the supplied AWS/Supabase values as variable-name references only; no provided value was written to source, local env files, Vercel, Supabase, or AWS.
+- Added an app-level synthetic S3 harness at `apps/web/src/lib/storage/staging-s3-api-live.test.ts` and `npm run test:s3-live`.
+- The harness covers service-provisioned synthetic login, required consent, app-signed upload, S3 metadata/encryption, public URL denial, app-signed download, app delete, Postgres metadata, audit events, and guaranteed Auth/Postgres/S3 cleanup.
+- Added exact staging guards: `S3_REPORT_BUCKET` must equal `STAGING_S3_BUCKET`, `PRODUCTION_S3_BUCKET` is required and must differ, and the target must be staging-specific. Production-mode verification is already refused globally.
+- Removed uploaded filenames from S3/mock object keys; keys now contain only internal UUID paths and a MIME-derived extension.
+- Persisted the actual S3 bucket name instead of the generic `s3-private` provider label.
+- Returned every required signed PUT header, including checksum/report metadata and explicit `AES256` encryption.
+- Hardened provider selection so Textract cannot be silently treated as the document parser; valid configuration is `DOCUMENT_PARSER_PROVIDER=marker` and `OCR_PROVIDER=textract`.
+- Production now ignores the mock-malware override and fails closed. A localhost ClamAV endpoint is documented as local-only and cannot satisfy deployed verification.
+- Wired `npm run verify:staging:s3` to the app-level harness. The live check remains unrun because the supplied values are intentionally invalid and identify a production bucket/project.
+
+Verification passed:
+
+```txt
+npm --workspace apps/web run test -- src/lib/storage/storage.test.ts src/lib/reports/reports.test.ts src/lib/storage/staging-s3-api-live.test.ts  # 74 passed, 1 live test skipped
+npm run lint
+npm run typecheck
+npm test                 # 126 passed, 4 live tests skipped
+npm run build:web
+npm run api:test         # 8 passed
+npm run api:health
+npm run worker:health
+npm run copy:scan
+git diff --check
+```
+
+The production build completed successfully and its static client bundles contained no matches for server-only AWS, Supabase service-role, or Gemini secret variable names. No live AWS call was made.
+
 ### 2026-09-01 Live Staging Auth, RLS, And Consent Verification
 
 - Applied `202609010002_consent_rpc_rls_guard.sql` to staging only. The required-consent function is now caller-scoped (`SECURITY INVOKER`), unavailable to `anon`, and executable by `authenticated` and `service_role`.

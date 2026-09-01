@@ -12,7 +12,7 @@ Private beta readiness score from latest local golden gate: **84/100**
 
 | Blocker | Evidence | Required Fix |
 | --- | --- | --- |
-| Private S3 not verified in staging | `apps/web/src/lib/storage/s3-storage-provider.ts`, `docs/10_STORAGE_AND_FILE_SECURITY.md` | Configure private S3 bucket/IAM, run signed upload/download/delete smoke tests, and confirm no public URLs. |
+| Private S3 not verified in staging | `apps/web/src/lib/storage/s3-storage-provider.ts`, `apps/web/src/lib/storage/staging-s3-api-live.test.ts` | Configure a staging-only S3 bucket/IAM and run the guarded app-level upload/download/delete/audit harness. |
 | Malware scanner is mock/stub only | `apps/web/src/lib/malware/` | ClamAV or S3 event scanner before extraction. |
 
 ## P1 Blockers Before 30-50 Users
@@ -26,11 +26,15 @@ Private beta readiness score from latest local golden gate: **84/100**
 | Golden dataset too small for PHI beta | `tests/golden/`, `docs/26_GOLDEN_DATASET_EVALUATION_REPORT.md` | Expand beyond synthetic smoke coverage to at least 25 internally reviewed samples and retain 100% safety gate pass. |
 | Observability not production-ready | `apps/web/src/lib/observability/logger.ts` | Sentry + PHI scrubbing + alert routing. |
 | Health checks shallow | `apps/web/src/app/api/health/route.ts`, `apps/api/app/main.py`, `apps/worker/app/worker.py` | Real database/storage/queue connectivity probes. |
-| Full report workflow E2E is missing | current test setup | Auth, onboarding, route denial, consent, and upload-entry checks pass; add deployed S3 upload, processing, admin correction, doctor action, and audit E2E. |
+| Full processing workflow E2E is missing | current test setup | Auth/onboarding/consent pass and the S3 app E2E is implemented; run S3 live, then add processing, admin correction, and doctor action E2E. |
 | No CI | no `.github` workflow | Add CI for lint/typecheck/test/build/copy scan. |
 
 ## Fixed Or Improved In The Staging Verification Pass
 
+- Added a destructive app-level S3 harness with exact staging project/app/bucket guards and guaranteed cleanup.
+- S3 object keys are opaque, persisted bucket metadata is accurate, and signed PUT requirements include encryption and metadata headers.
+- Production cannot opt into the mock malware scanner; staging mock remains synthetic-only and does not satisfy the release gate.
+- Provider names now fail closed instead of treating `textract` as a Marker parser alias.
 - Staging Supabase and the Vercel `dev` deployment are configured without changing Production.
 - Migrations through `202609010002_consent_rpc_rls_guard.sql` are applied in staging.
 - Live RLS passed with two users, two doctors, one admin, and one superadmin using real Supabase JWTs.

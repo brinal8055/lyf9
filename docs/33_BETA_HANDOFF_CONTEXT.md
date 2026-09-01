@@ -1,6 +1,6 @@
 # 33 — Beta Handoff Context
 
-> 2026-09-01 update: sanitized `.env.example` files are now tracked, Supabase machine-local `.temp` link state is ignored, and the staging schema is populated through `202609010001_biomarker_catalog_rls.sql`. The Vercel `dev` branch is configured for the staging Supabase project only. Production was not changed during this reconciliation pass.
+> 2026-09-01 update: sanitized `.env.example` files are tracked, the staging schema is populated through `202609010002_consent_rpc_rls_guard.sql`, and live Auth/RLS verification passes on the Vercel `dev` branch. Production was not changed. Private S3 and real malware scanning remain no-go gates.
 
 *Date: 2026-08-16 | Branch: `dev` | Purpose: continue beta work in a fresh session*
 
@@ -8,14 +8,14 @@
 
 ## 1. Where Things Stand
 
-The core beta loop **works end to end on real Supabase data**: signup → login → onboarding → upload PDF → Inngest saga processes it → biomarkers + AI explanation stored → result page renders.
+The core beta loop exists, but only Auth/RLS/onboarding/consent boundaries have current live staging evidence. Do not treat report processing as PHI-ready until private S3, a real scanner, workflow concurrency, extraction, and AI provider checks pass.
 
 Stack changes made this cycle:
 - **AI provider is Gemini** (`gemini-2.5-flash`), not OpenAI. OpenAI provider code still exists and works, switchable via `AI_PROVIDER` env var.
 - **Processing is an Inngest saga**, not a Redis queue / Python worker. TL approved orchestration-pattern saga.
 - **Everything is free during beta.** Payments gate nothing — sandbox only.
 
-Verification state: typecheck clean, clean build passes, 89/91 tests pass (2 skipped are pre-existing live-env tests).
+Current verification evidence and blockers are tracked in `docs/PROGRESS.md` and `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md`.
 
 ---
 
@@ -24,20 +24,22 @@ Verification state: typecheck clean, clean build passes, 89/91 tests pass (2 ski
 `apps/web/.env` — required for the app to run at all:
 
 ```env
-INNGEST_DEV=1                          # REQUIRED locally, else /api/inngest 500s
+INNGEST_DEV=1                          # local only; deployed environments use real Inngest keys
 
-NEXT_PUBLIC_SUPABASE_URL=https://mdxualgpuoqcmtaifaws.supabase.co
+NEXT_PUBLIC_SUPABASE_URL=https://<staging-project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...          # must appear ONCE (duplicate key broke auth)
 
 AWS_ACCESS_KEY_ID=...
 AWS_SECRET_ACCESS_KEY=...
-S3_REPORT_BUCKET=lyf9-reports-storage-prod
+S3_REPORT_BUCKET=lyf9-reports-staging
+STAGING_S3_BUCKET=lyf9-reports-staging
+PRODUCTION_S3_BUCKET=lyf9-reports-production
 AWS_REGION=ap-south-1
 AWS_TEXTRACT_REGION=ap-south-1
 
 OCR_PROVIDER=textract
-DOCUMENT_PARSER_PROVIDER=textract
+DOCUMENT_PARSER_PROVIDER=marker        # Textract is OCR, not the document parser
 
 AI_PROVIDER=gemini
 GEMINI_API_KEY=                        # must be AIzaSy... format from aistudio.google.com/apikey
@@ -46,7 +48,7 @@ GEMINI_MODEL_EXPLANATION=gemini-2.5-flash
 GEMINI_MODEL_DOCTOR_SUMMARY=gemini-2.5-flash
 
 MALWARE_SCANNER_PROVIDER=mock
-ALLOW_MOCK_MALWARE_SCAN_IN_DEPLOYED_ENV=true
+ALLOW_MOCK_MALWARE_SCAN_IN_DEPLOYED_ENV=false
 
 BETA_DOCTOR_EMAIL=                     # doctor who receives all review assignments
 PAYMENT_PROVIDER=sandbox

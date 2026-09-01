@@ -31,6 +31,7 @@
     "verify:staging:e2e": "node scripts/verify-staging.mjs --section=e2e",
     "test:rls": "npm --workspace apps/web run test:rls",
     "test:auth-live": "npm --workspace apps/web run test:auth-live",
+    "test:s3-live": "npm --workspace apps/web run test:s3-live",
     "test:workflow-live": "npm --workspace apps/web run test:workflow-live",
     "api:dev": "cd apps/api && python3 -m uvicorn app.main:app --reload --port 8000",
     "api:health": "cd apps/api && python3 -m app.main",

@@ -2,6 +2,25 @@
 
 ## Run Summary
 
+### 2026-09-01 Private S3 Harness Readiness
+
+Environment: local workspace only. The supplied configuration values were treated as intentionally invalid references, no AWS or production request was made, and no secret was persisted.
+
+Passed local evidence:
+
+- Opaque report object keys no longer include uploaded filenames.
+- Signed PUT responses include the content type, checksum/report metadata, and `AES256` server-side encryption requirements.
+- `report_files.storage_bucket` records the real configured bucket rather than a provider label.
+- The app-level live harness covers consent, upload-init, signed PUT, private-access denial, signed GET, app deletion, Postgres metadata, audit events, and guaranteed synthetic fixture cleanup.
+- Destructive verification requires `APP_ENV=staging`, exact staging app and Supabase targets, `S3_REPORT_BUCKET=STAGING_S3_BUCKET`, a required distinct `PRODUCTION_S3_BUCKET`, and a staging-specific bucket name.
+- Local storage/report tests passed with 74 tests and one credential-gated live test skipped; the full suite passed with 126 tests and four live suites skipped.
+- Lint, typecheck, production web build, copy scan, eight FastAPI tests, API health, worker health, diff checks, and client-bundle secret-name scan passed.
+
+Blocked evidence:
+
+- `npm run verify:staging:s3` was not run because no valid staging-only bucket and least-privilege staging IAM credentials were available.
+- The production bucket/project references supplied by the operator were not used. Real PHI remains no-go.
+
 ### 2026-09-01 Live Auth, RLS, And Consent Gate
 
 Environment: Supabase `lyf9-staging` (`wjjwdakfyigwwohbntyv`) and `https://lyf9-dev.vercel.app` only. Production was not changed.
@@ -104,8 +123,8 @@ npm run eval:golden:live
 | RLS/JWT | Ready for core boundaries | Six-identity live JWT harness passed with synthetic cleanup | Re-run after every RLS migration. |
 | Deployed Auth/API | Partially ready | Login/session, persistence, route denial, consent transitions, and backend upload gate passed | Configure custom SMTP/approved email quota and rerun public signup without fixture fallback. |
 | Workflow concurrency | Not run | Live harness exists | Seed queued job and run `npm run verify:staging:workflow`. |
-| S3 private storage | Not run | S3 direct smoke harness exists | Configure bucket/IAM and run `npm run verify:staging:s3`. |
-| Signed upload/download/delete | Not run | S3 harness validates signed PUT/GET/delete when env exists | Run full app E2E after S3 smoke to verify audit rows. |
+| S3 private storage | Not run | Guarded app-level synthetic harness exists and local guard tests pass | Configure a staging-only bucket/IAM and run `npm run verify:staging:s3`. |
+| Signed upload/download/delete | Not run | Harness covers app routes, S3 privacy/encryption, DB metadata, audit rows, and cleanup | Run the guarded harness with genuine staging-only credentials. |
 | Malware scanner | Blocked | Current scanner code has mock and fail-closed stub only | Wire real scanner or document approved manual fail-closed process. |
 | Marker | Blocked | Provider contract exists; live runner not wired | Wire Marker command/API execution and run synthetic PDF smoke. |
 | Textract/OCR | Blocked | Provider contract exists; live runner not wired | Wire Textract OCR execution or approved manual fallback. |
@@ -159,7 +178,7 @@ No live synthetic data was created in this local run. Future live runs must dele
 P0 risks remain:
 
 - Supabase live RLS and deployed core Auth/API consent checks have passed; public signup email delivery remains quota-limited.
-- Private S3 has not been smoke-tested with app audit rows.
+- Private S3 app and audit verification is implemented but has not run against a staging-only bucket.
 - Real malware scanner is absent.
 - Marker, Textract, and OpenAI providers are contract-only for live execution.
 - Doctor-reviewed thresholds and legal review are incomplete.

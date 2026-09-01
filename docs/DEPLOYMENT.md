@@ -44,6 +44,8 @@ AWS_REGION
 AWS_ACCESS_KEY_ID
 AWS_SECRET_ACCESS_KEY
 S3_REPORT_BUCKET
+STAGING_S3_BUCKET
+PRODUCTION_S3_BUCKET
 LYF9_AUTH_SECRET
 LYF9_REPORT_URL_SECRET
 LYF9_BETA_ACCESS_MODE
@@ -139,9 +141,9 @@ Before real users:
 - Keep UUID primary keys and timestamps.
 - Run migrations before deploying app code that expects new columns.
 
-Current blocker:
+Current status:
 
-- The Supabase Auth/Postgres/RLS foundation exists in code, but migrations and JWT-backed RLS tests have not been run in a live staging Supabase project.
+- The Supabase Auth/Postgres/RLS foundation and backend consent gate pass with synthetic staging users. Supabase CLI migration-history reconciliation and reliable signup email delivery remain.
 
 ## Storage Bucket
 
@@ -149,7 +151,8 @@ Before real users:
 
 - Create a private bucket.
 - Disable public object access.
-- Configure `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `S3_REPORT_BUCKET`.
+- Configure `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_REPORT_BUCKET`, and `STAGING_S3_BUCKET` in staging.
+- Set `PRODUCTION_S3_BUCKET` so destructive staging verification can prove the targets differ.
 - Use short-lived signed URLs only.
 - Restrict upload MIME types to PDF, JPG, JPEG, PNG.
 - Add malware scanning before processing.
@@ -157,7 +160,7 @@ Before real users:
 
 Current blocker:
 
-- Local storage is used for scaffold verification.
+- The S3 provider and app-level synthetic verifier exist, but no staging-only bucket/credentials have passed `npm run verify:staging:s3` yet.
 
 ## Queue And Redis
 

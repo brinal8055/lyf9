@@ -28,7 +28,11 @@ export function getDocumentParserProvider(): DocumentParserProvider {
     return new MockFixtureDocumentParser();
   }
 
-  return new MarkerProvider();
+  if (provider === "marker") {
+    return new MarkerProvider();
+  }
+
+  throw new Error(`Unsupported document parser provider: ${provider}`);
 }
 
 export function getOcrProvider(): OcrProvider {
@@ -41,5 +45,9 @@ export function getOcrProvider(): OcrProvider {
     return new MockOcrProvider();
   }
 
-  return new TextractOcrProvider();
+  if (provider === "textract") {
+    return new TextractOcrProvider();
+  }
+
+  throw new Error(`Unsupported OCR provider: ${provider}`);
 }

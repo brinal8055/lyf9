@@ -56,7 +56,8 @@ import {
   MockOcrProvider,
   TextractOcrProvider,
   classifyExtractedReport,
-  getDocumentParserProvider
+  getDocumentParserProvider,
+  getOcrProvider
 } from "../document-extraction";
 import {
   MockAiProvider,
@@ -447,8 +448,10 @@ describe("report repository", () => {
 
     const previousAppEnv = process.env.APP_ENV;
     const previousScanner = process.env.MALWARE_SCANNER_PROVIDER;
+    const previousAllowMock = process.env.ALLOW_MOCK_MALWARE_SCAN_IN_DEPLOYED_ENV;
     process.env.APP_ENV = "production";
     process.env.MALWARE_SCANNER_PROVIDER = "mock";
+    process.env.ALLOW_MOCK_MALWARE_SCAN_IN_DEPLOYED_ENV = "true";
     const scan = await getMalwareScannerProvider().scanFile({
       mimeType: "application/pdf",
       reportFileId: init.reportFile.id,
@@ -464,6 +467,7 @@ describe("report repository", () => {
     } else {
       process.env.MALWARE_SCANNER_PROVIDER = previousScanner;
     }
+    restoreEnv("ALLOW_MOCK_MALWARE_SCAN_IN_DEPLOYED_ENV", previousAllowMock);
 
     expect(scan.status).toBe("configuration_required");
   });
@@ -1880,6 +1884,20 @@ describe("document extraction providers", () => {
       expect(() => getDocumentParserProvider()).toThrow("Mock document parser is disabled");
     } finally {
       restoreEnv("APP_ENV", previousAppEnv);
+    }
+  });
+
+  it("rejects provider names that do not match the parser and OCR contracts", () => {
+    const previousParser = process.env.DOCUMENT_PARSER_PROVIDER;
+    const previousOcr = process.env.OCR_PROVIDER;
+    try {
+      process.env.DOCUMENT_PARSER_PROVIDER = "textract";
+      process.env.OCR_PROVIDER = "marker";
+      expect(() => getDocumentParserProvider()).toThrow("Unsupported document parser provider: textract");
+      expect(() => getOcrProvider()).toThrow("Unsupported OCR provider: marker");
+    } finally {
+      restoreEnv("DOCUMENT_PARSER_PROVIDER", previousParser);
+      restoreEnv("OCR_PROVIDER", previousOcr);
     }
   });
 

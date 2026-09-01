@@ -1,12 +1,3 @@
-import {
-  DeleteObjectCommand,
-  GetObjectCommand,
-  HeadObjectCommand,
-  PutObjectCommand,
-  S3Client
-} from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -71,7 +62,19 @@ const sections = {
     run: verifyWorkflow
   },
   s3: {
-    required: ["AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "S3_REPORT_BUCKET"],
+    required: [
+      "APP_BASE_URL",
+      "STAGING_APP_ORIGIN",
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "STAGING_SUPABASE_PROJECT_REF",
+      "AWS_REGION",
+      "AWS_ACCESS_KEY_ID",
+      "AWS_SECRET_ACCESS_KEY",
+      "S3_REPORT_BUCKET",
+      "STAGING_S3_BUCKET",
+      "PRODUCTION_S3_BUCKET"
+    ],
     run: verifyS3
   },
   malware: {
@@ -219,67 +222,20 @@ function verifyWorkflow() {
   }, "live_workflow_harness_passed");
 }
 
-async function verifyS3() {
-  const client = new S3Client({
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-    },
-    region: process.env.AWS_REGION
-  });
-  const bucket = process.env.S3_REPORT_BUCKET;
-  const key = `staging-verification/${Date.now()}-${randomUUID()}.pdf`;
-  const body = Buffer.from("%PDF-1.4\n% Lyf9 AI synthetic staging smoke file\n%%EOF\n");
-  const uploadUrl = await getSignedUrl(
-    client,
-    new PutObjectCommand({
-      Body: body,
-      Bucket: bucket,
-      ContentType: "application/pdf",
-      Key: key,
-      Metadata: {
-        synthetic: "true"
-      }
-    }),
-    { expiresIn: Number(process.env.S3_UPLOAD_URL_EXPIRY_SECONDS ?? 900) }
-  );
-
-  const upload = await fetch(uploadUrl, {
-    body,
-    headers: { "content-type": "application/pdf" },
-    method: "PUT"
-  });
-  const checks = [check("signed_upload_succeeded", upload.ok, `HTTP ${upload.status}`)];
-
-  const head = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
-  checks.push(check("metadata_read_succeeded", Boolean(head.ContentLength), `Stored bytes: ${head.ContentLength ?? 0}`));
-
-  const downloadUrl = await getSignedUrl(
-    client,
-    new GetObjectCommand({ Bucket: bucket, Key: key }),
-    { expiresIn: Number(process.env.S3_DOWNLOAD_URL_EXPIRY_SECONDS ?? 300) }
-  );
-  const download = await fetch(downloadUrl);
-  checks.push(check("signed_download_succeeded", download.ok, `HTTP ${download.status}`));
-
-  const publicUrl = `https://${bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
-  const publicFetch = await fetch(publicUrl);
-  checks.push(check("public_object_url_denied", !publicFetch.ok, `HTTP ${publicFetch.status}`));
-
-  await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
-  checks.push(check("delete_succeeded", true));
-  checks.push(check("app_route_audit_verified", false, "S3 direct smoke does not verify report_files rows or audit logs; run full staging E2E for that evidence."));
-
-  return {
-    checks,
-    status: checks.every((item) => item.passed) ? "passed" : "blocked"
-  };
+function verifyS3() {
+  assertStagingSupabaseTarget();
+  return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:s3-live"], {
+    RUN_LIVE_STAGING_S3_API: "true"
+  }, "live_s3_api_harness_passed");
 }
 
 function verifyMalware() {
   const provider = process.env.MALWARE_SCANNER_PROVIDER;
+  const endpoint = process.env.CLAMAV_ENDPOINT;
   const checks = [
     check("mock_scanner_not_used", provider !== "mock", "Mock scanner is not allowed for staging verification."),
+    check("remote_scanner_endpoint_configured", Boolean(endpoint), "Set the real remote scanner endpoint."),
+    check("remote_scanner_not_localhost", Boolean(endpoint && !/localhost|127\.0\.0\.1/.test(endpoint)), "A deployed app cannot reach a scanner on its own localhost."),
     check("real_scanner_runner_available", false, "No live malware scanner runner is wired in this repository yet; staging must fail closed.")
   ];
   return { checks, status: "blocked" };

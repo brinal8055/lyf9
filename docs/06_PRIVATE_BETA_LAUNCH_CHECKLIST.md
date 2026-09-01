@@ -16,7 +16,7 @@ This repo is ready for scaffold/operator rehearsal and now has a live-tested sta
 | --- | --- | --- | --- |
 | Auth/RBAC | Partially ready | Engineering/DevOps | Login/session and user/doctor/admin/superadmin JWT boundaries pass in staging; configure custom SMTP or an approved email quota before onboarding beta users. |
 | Database/RLS | Ready for synthetic staging | Backend/DevOps | Migrations through `202609010002_consent_rpc_rls_guard.sql` are applied and live cross-user/doctor/admin RLS tests pass; reconcile Supabase CLI migration history before automated promotion. |
-| Storage security | Partially ready | Backend/DevOps | StorageProvider, S3 presigning, mock provider, signed download, and delete flow exist; configure private S3 bucket and verify staging upload/download/delete before real PHI. |
+| Storage security | Partially ready | Backend/DevOps | Opaque keys, encrypted signed PUTs, real bucket persistence, signed download/delete, and a guarded app-level verifier exist; configure a staging-only bucket and run it before real PHI. |
 | Malware scanning | Blocked | Backend/Security | Provider abstraction and scan gate exist; replace mock/stub with ClamAV or S3 event scanner before real PHI. |
 | Upload flow | Partially ready | Engineering | Deployed upload-init rejects missing/partial/revoked consent and proceeds to file validation after both required consents; staging S3 verification remains. |
 | Processing pipeline | Partially ready | Backend/Platform | Database workflow provider, idempotency, leases, retry scheduling, blocked state, and scan-gated process-once exist; verify against staging Postgres and real worker concurrency. |
@@ -57,10 +57,10 @@ This repo is ready for scaffold/operator rehearsal and now has a live-tested sta
 | Item | Status | Next step |
 | --- | --- | --- |
 | StorageProvider abstraction | Ready | Keep route handlers behind provider interface. |
-| S3 provider | Partially ready | Code signs S3 upload/download URLs; configure private staging bucket, IAM least privilege, lifecycle, and KMS decision. |
+| S3 provider | Partially ready | Code signs encrypted S3 upload/download URLs and persists the real bucket; configure private staging bucket, IAM least privilege, lifecycle, and KMS decision. |
 | Mock/local provider | Ready | Allowed only for local/development/test unless explicitly overridden. |
 | Backend file validation | Ready | PDF/JPG/PNG only; empty, unknown, SVG, ZIP, DOC/DOCX, executable, and oversized files rejected server-side. |
-| Signed upload URLs | Partially ready | Flow implemented; verify with staging S3 object metadata and bucket policy. |
+| Signed upload URLs | Partially ready | Opaque keys and complete signed headers are tested locally; run the guarded staging harness against a staging-only bucket. |
 | Signed download URLs | Partially ready | Owner/assigned doctor/admin/superadmin authorization implemented; verify against staging Supabase roles. |
 | Malware scan gate | Partially ready | Processing is blocked unless scan passes; real scanner not configured. |
 | Raw report access audit | Partially ready | Download request/generated/denied events are written; validate live audit rows in staging. |
@@ -158,7 +158,7 @@ This repo is ready for scaffold/operator rehearsal and now has a live-tested sta
 | RLS/JWT live check | Ready | `npm run test:rls` passed with six isolated JWT identities | Re-run after any RLS migration. |
 | Deployed Auth/API check | Partially ready | `npm run test:auth-live` passed login, sessions, persistence, route denial, and consent gating | Configure custom SMTP or approved email limits, then require public signup to pass without fixture fallback. |
 | Workflow concurrency check | Blocked | `npm run verify:staging:workflow` | Seed a queued job and verify atomic claim behavior. |
-| S3 private smoke check | Blocked | `npm run verify:staging:s3` | Configure private bucket/IAM; then verify app audit rows through E2E. |
+| S3 private smoke check | Blocked on credentials | `npm run verify:staging:s3` now covers app routes, S3 privacy/metadata/encryption/delete, DB metadata, and audit events | Configure a staging-only bucket/IAM; the verifier refuses production targets. |
 | Malware scanner live check | Blocked | `npm run verify:staging:malware` | Wire a real scanner; current staging-safe behavior is fail-closed. |
 | Marker live check | Blocked | `npm run verify:staging:marker` | Wire Marker command/API execution. |
 | Textract live check | Blocked | `npm run verify:staging:textract` | Wire Textract OCR execution or approved manual fallback. |

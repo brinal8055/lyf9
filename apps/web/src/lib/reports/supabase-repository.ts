@@ -143,7 +143,7 @@ export async function createSupabaseUploadInit(input: {
     scan_status: "scan_pending",
     size_bytes: input.fileSizeBytes,
     status: "upload_pending",
-    storage_bucket: storageProvider.name,
+    storage_bucket: uploadTarget.storageBucket,
     storage_key: uploadTarget.storageKey,
     storage_provider: storageProvider.name,
     updated_at: now,

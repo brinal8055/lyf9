@@ -13,6 +13,7 @@
     "test:e2e:mock": "vitest run src/lib/evaluation/mock-e2e.test.ts",
     "test:rls": "vitest run src/lib/auth/supabase-live-rls.test.ts",
     "test:auth-live": "vitest run src/lib/auth/staging-auth-api-live.test.ts",
+    "test:s3-live": "vitest run src/lib/storage/staging-s3-api-live.test.ts",
     "test:workflow-live": "vitest run src/lib/workflow/supabase-live-workflow.test.ts",
     "typecheck": "tsc --noEmit"
   },

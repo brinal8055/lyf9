@@ -53,6 +53,8 @@ AWS_REGION=ap-south-1
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
 S3_REPORT_BUCKET=
+STAGING_S3_BUCKET=
+PRODUCTION_S3_BUCKET=
 S3_UPLOAD_URL_EXPIRY_SECONDS=900
 S3_DOWNLOAD_URL_EXPIRY_SECONDS=300
 MAX_REPORT_FILE_SIZE_BYTES=20971520
@@ -63,6 +65,8 @@ Rules:
 - Bucket public access must be blocked.
 - Object keys must not contain names, emails, phone numbers, or lab identifiers.
 - Verification uses only synthetic files.
+- `S3_REPORT_BUCKET` must exactly equal `STAGING_S3_BUCKET`; `PRODUCTION_S3_BUCKET` is required and must be different.
+- The staging bucket name must be staging-specific; the verifier refuses production-named buckets.
 
 ## Malware Scanner
 
@@ -75,6 +79,8 @@ CLAMAV_ENDPOINT=
 Equivalent scanner-specific env is acceptable if documented in `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md`.
 
 If no real scanner exists, staging must return `scan_configuration_required`, block processing, and keep the release gate blocked.
+
+`CLAMAV_ENDPOINT=localhost` is valid only for local development. Deployed verification requires a network-reachable private endpoint. `MALWARE_SCANNER_PROVIDER=mock` is never acceptable for real PHI, and Production ignores the mock override.
 
 ## Workflow
 
@@ -201,3 +207,5 @@ golden-live.json
 ```
 
 Any missing env, contract-only provider, failed live check, or production-mode attempt keeps the release gate at no-go.
+
+The S3 verifier provisions one synthetic staging user, grants required consent, requests an app-signed upload URL, uploads a synthetic PDF, verifies metadata/encryption/private access, requests an app-signed download URL, deletes the object through the app, verifies audit events, and cleans up the Auth/Postgres/S3 fixture.

@@ -38,6 +38,8 @@ AWS_REGION=ap-south-1
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
 S3_REPORT_BUCKET=
+STAGING_S3_BUCKET=
+PRODUCTION_S3_BUCKET=
 S3_UPLOAD_URL_EXPIRY_SECONDS=900
 S3_DOWNLOAD_URL_EXPIRY_SECONDS=300
 MAX_REPORT_FILE_SIZE_BYTES=20971520
@@ -47,10 +49,12 @@ Rules:
 
 - Bucket must be private.
 - Do not enable public object ACLs or public bucket policy access.
-- Object keys use `reports/{userId}/{reportFileId}/{randomUuid}-{safeFilename}`.
+- Object keys use `reports/{userId}/{reportFileId}/{randomUuid}.{validatedExtension}`.
 - Object keys must not include user email, name, or other direct identifiers.
-- Store only `storage_key`, provider, and metadata in Postgres.
+- Store the real bucket name, opaque `storage_key`, provider, and metadata in Postgres.
 - Never store or return public object URLs.
+- Signed PUTs require the returned content type, checksum/report metadata, and `AES256` server-side-encryption headers.
+- Live verification requires `S3_REPORT_BUCKET=STAGING_S3_BUCKET`, refuses production-named buckets, and refuses a bucket matching `PRODUCTION_S3_BUCKET`.
 
 ## Signed Upload Flow
 
@@ -97,7 +101,7 @@ Raw report access is explicit and audited:
 `MalwareScannerProvider` exposes:
 
 ```txt
-scanFile({ reportFileId, storageKey, mimeType })
+scanFile({ reportFileId, storageKey, mimeType, filename? })
 ```
 
 Statuses:
@@ -108,7 +112,9 @@ Statuses:
 - `scan_skipped_dev_only`
 - `scan_configuration_required`
 
-Local/test may use `MALWARE_SCANNER_PROVIDER=mock`. Staging/production cannot silently skip scanning. If a real scanner is not configured, scan result remains `scan_configuration_required`, and processing does not advance to extraction.
+Local/test may use `MALWARE_SCANNER_PROVIDER=mock`. Staging may use the explicit mock override for synthetic-only integration work, but Production ignores that override and fails closed. If a real scanner is not configured, scan result remains `scan_configuration_required`, and processing does not advance to extraction.
+
+`CLAMAV_ENDPOINT=http://localhost:8080` is local-only. A Vercel or hosted worker deployment needs a private network-reachable scanner endpoint and a defined request/response protocol.
 
 ## Processing Gate
 
@@ -158,7 +164,8 @@ Audit metadata must stay PHI-minimal: IDs, MIME type, size, storage provider, st
 
 ## Current Limitations
 
-- Real S3 bucket policy, lifecycle, KMS decision, and staging smoke test are not yet verified.
+- The synthetic app-level verifier exists at `npm run test:s3-live`; real staging credentials and a staging-only bucket are still required to run it.
+- Real S3 bucket policy, lifecycle, and KMS decision are not yet verified.
 - Real ClamAV or S3 event scanner is not wired.
 - Durable queue is still a blocker.
-- Live staging end-to-end tests for signed upload/download/delete are still required.
+- Live staging signed upload/download/delete and audit verification is implemented but not yet executed.

@@ -379,7 +379,7 @@ export async function createUploadInit(input: {
     scanStatus: "scan_pending",
     deletedAt: null,
     status: "upload_pending",
-    storageBucket: storageProvider.name,
+    storageBucket: uploadTarget.storageBucket,
     storageKey: uploadTarget.storageKey,
     unsupportedReason: null,
     updatedAt: now,
@@ -1955,6 +1955,7 @@ async function runClaimedWorkflowJob(store: ReportStore, jobId: string, workerId
 
   try {
     const malwareScan = await getMalwareScannerProvider().scanFile({
+      filename: reportFile.originalFilename,
       reportFileId: reportFile.id,
       mimeType: reportFile.mimeType,
       storageKey: reportFile.storageKey
@@ -2868,6 +2869,7 @@ export async function processUploadedReport(store: ReportStore, jobId: string, b
     userAgent: "storage-platform"
   });
   const malwareScan = await getMalwareScannerProvider().scanFile({
+    filename: reportFile.originalFilename,
     reportFileId: reportFile.id,
     mimeType: reportFile.mimeType,
     storageKey: reportFile.storageKey
