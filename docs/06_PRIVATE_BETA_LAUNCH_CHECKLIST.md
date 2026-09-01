@@ -14,8 +14,8 @@ This repo is ready for scaffold/operator rehearsal and now has a production-shap
 
 | Area | Status | Owner | Next step |
 | --- | --- | --- | --- |
-| Auth/RBAC | Partially ready | Engineering/DevOps | Supabase Auth and database-backed roles are implemented; configure staging Supabase and validate real JWT role checks. |
-| Database/RLS | Partially ready | Backend/DevOps | Apply and test migrations `202606060001_private_beta_core.sql` and `202606060002_auth_persistence_rls_hardening.sql` in staging with user/doctor/admin/superadmin JWTs. |
+| Auth/RBAC | Partially ready | Engineering/DevOps | Staging Supabase and dev-only Vercel auth variables are configured; validate real signup/login and JWT role checks after deployment. |
+| Database/RLS | Partially ready | Backend/DevOps | Migrations through `202609010001_biomarker_catalog_rls.sql` are applied in staging; reconcile CLI history and run cross-user/user-doctor-admin RLS tests. |
 | Storage security | Partially ready | Backend/DevOps | StorageProvider, S3 presigning, mock provider, signed download, and delete flow exist; configure private S3 bucket and verify staging upload/download/delete before real PHI. |
 | Malware scanning | Blocked | Backend/Security | Provider abstraction and scan gate exist; replace mock/stub with ClamAV or S3 event scanner before real PHI. |
 | Upload flow | Partially ready | Engineering | Upload starts as `upload_pending`, validates MIME/size, checks persisted required consent when Supabase is configured, audits signed URLs, and finalizes via upload-complete; staging S3 verification remains. |
@@ -41,9 +41,9 @@ This repo is ready for scaffold/operator rehearsal and now has a production-shap
 
 | Item | Status | Next step |
 | --- | --- | --- |
-| Supabase Auth | Partially ready | Code path exists; configure staging Supabase and validate real signup/login/JWT sessions. |
+| Supabase Auth | Partially ready | Staging keys are configured for Vercel branch `dev`; validate real signup/login/JWT sessions after deployment. |
 | Postgres persistence | Partially ready | Migrations and service-role repository paths exist; apply migrations and verify persisted profile/consent/report/job/audit rows in staging. |
-| RLS policies | Partially ready | Policies reviewed and hardening migration improved; run live JWT-backed RLS harness before real PHI. |
+| RLS policies | Partially ready | 39 policies are present and all 15 checked sensitive tables have RLS enabled in staging; run the live JWT-backed harness before real PHI. |
 | RLS tests | Blocked | Opt-in harness exists at `npm run test:rls`; run with `RUN_LIVE_SUPABASE_RLS=true` and staging Supabase env. |
 | Role model | Partially ready | `user`, `doctor`, `admin`, `superadmin` model exists; verify superadmin-only role changes in staging. |
 | Consent gate | Partially ready | Backend upload-init checks persisted consent when Supabase is configured; run deployed staging upload-init tests for missing/partial/full consent. |
@@ -153,7 +153,7 @@ This repo is ready for scaffold/operator rehearsal and now has a production-shap
 | --- | --- | --- | --- |
 | Staging environment contract | Ready | `docs/29_STAGING_ENVIRONMENT_CONTRACT.md` | Populate staging secrets in deployment secret manager only. |
 | Live verification orchestrator | Ready | `npm run verify:staging` | Run only with `APP_ENV=staging`; it refuses production and missing env. |
-| Supabase migration check | Blocked | `npm run verify:staging:supabase` | Configure staging Supabase and run table/schema smoke. |
+| Supabase migration check | Partially ready | Staging SQL verification | Schema smoke passed; reconcile Supabase CLI migration history and run `npm run verify:staging:supabase`. |
 | RLS/JWT live check | Blocked | `npm run verify:staging:rls` | Seed staging users and run the live RLS harness. |
 | Workflow concurrency check | Blocked | `npm run verify:staging:workflow` | Seed a queued job and verify atomic claim behavior. |
 | S3 private smoke check | Blocked | `npm run verify:staging:s3` | Configure private bucket/IAM; then verify app audit rows through E2E. |

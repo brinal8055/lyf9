@@ -1,5 +1,7 @@
 # 33 — Beta Handoff Context
 
+> 2026-09-01 update: sanitized `.env.example` files are now tracked, Supabase machine-local `.temp` link state is ignored, and the staging schema is populated through `202609010001_biomarker_catalog_rls.sql`. The Vercel `dev` branch is configured for the staging Supabase project only. Production was not changed during this reconciliation pass.
+
 *Date: 2026-08-16 | Branch: `dev` | Purpose: continue beta work in a fresh session*
 
 ---
@@ -59,7 +61,7 @@ npm run dev:web               # terminal 2 — app at :3000
 
 Next.js does NOT hot-reload `.env` changes into middleware/route handlers. Always restart after editing env.
 
-> **Security note carried forward**: `apps/web/.env` and `.env.example` both contain live production secrets (Supabase service role key, AWS keys). `.env.example` should not hold real credentials. Verify `.gitignore` covers `.env` and consider rotating.
+> **Security note**: real `.env` files remain ignored. Tracked `.env.example` files contain placeholders only. Rotate any credentials that may previously have appeared in an example or local handoff file.
 
 ---
 
@@ -204,7 +206,7 @@ npm run dev:web                # terminal 2
 5. `/app/reports/[id]` → marker cards + explanation
 6. `/app/timeline` → report appears
 
-Supabase project is `lyf9-prod` (`mdxualgpuoqcmtaifaws`). A separate `lyf9-staging` project exists but has no migrations applied.
+Production and staging are separate Supabase projects. Staging (`wjjwdakfyigwwohbntyv`) now has the private-beta schema applied; do not point `dev` tooling or Vercel variables at production.
 
 Supabase Auth email confirmation is **disabled** for beta testing (free tier rate-limits signup emails to ~2-4/hour). Re-enable before real users.
 

@@ -26,7 +26,9 @@ Rules:
 
 - `SUPABASE_SERVICE_ROLE_KEY` is server/worker only.
 - `NEXT_PUBLIC_*` values must contain only public anon configuration.
-- Migrations through `202606120001_schema_first_ai_layer.sql` must be applied before verification.
+- Migrations through `202609010001_biomarker_catalog_rls.sql` must be applied before verification.
+- `supabase/.temp/` is machine-local state and must never be committed or used as evidence of the target environment.
+- Verify the project reference immediately before every migration. Staging is `wjjwdakfyigwwohbntyv`; production is a separate project.
 
 ## App And Security
 

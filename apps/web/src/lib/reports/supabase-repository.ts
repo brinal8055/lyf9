@@ -43,6 +43,29 @@ const PROCESSING_STEP_NAMES = new Set<ProcessingStepName>([
 
 type DbRow = Record<string, unknown>;
 
+export async function getSupabaseStoreHealth() {
+  const serviceClient = createSupabaseServiceClient();
+  const { count, error } = await serviceClient
+    .from("report_files")
+    .select("id", { count: "exact", head: true });
+
+  if (error) {
+    return {
+      error: error.message,
+      ok: false,
+      storageMode: process.env.STORAGE_PROVIDER ?? "unconfigured",
+      storeMode: "supabase-postgres"
+    };
+  }
+
+  return {
+    ok: true,
+    reportFileCount: count ?? 0,
+    storageMode: process.env.STORAGE_PROVIDER ?? "unconfigured",
+    storeMode: "supabase-postgres"
+  };
+}
+
 export async function createSupabaseUploadInit(input: {
   checksumSha256: string;
   fileSizeBytes: number;

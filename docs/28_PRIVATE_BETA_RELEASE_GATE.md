@@ -44,7 +44,7 @@ Interpretation: local deterministic QA is healthy, but it does not replace live 
 
 | Blocker | Status | Required evidence |
 | --- | --- | --- |
-| Supabase/RLS live verification | Blocked | `npm run verify:staging:rls` passes with staging users. |
+| Supabase/RLS live verification | Partially ready | Staging schema and policies are applied; `npm run verify:staging:rls` must still pass with isolated staging users. |
 | Private S3 smoke test | Blocked | `npm run verify:staging:s3` passes and full app E2E confirms audit rows. |
 | Real malware scanner | Blocked | `npm run verify:staging:malware` passes with real scanner or approved fail-closed/manual process. |
 | Live Marker extraction | Blocked | `npm run verify:staging:marker` parses synthetic digital PDF with expected text/tables. |
@@ -92,12 +92,13 @@ Any of these keep the release blocked:
 
 ## Exact Next Actions
 
-1. Configure env from `docs/29_STAGING_ENVIRONMENT_CONTRACT.md`.
-2. Run `npm run verify:staging` with synthetic data only and attach artifacts to `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md`.
-3. Wire real scanner, Marker, Textract, and OpenAI runners where current commands report contract-only blocking.
-4. Expand golden dataset from 13 synthetic fixtures to at least 25 internally reviewed synthetic or consented internal samples.
-5. Get doctor review of critical thresholds.
-6. Complete legal review.
-7. Add CI for the full release-gate command set.
+1. Reconcile Supabase CLI migration history with the migrations applied to staging through the SQL editor.
+2. Deploy the updated `dev` branch with its dev-only Vercel staging environment variables.
+3. Run `npm run verify:staging` with synthetic data only and attach artifacts to `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md`.
+4. Wire a real scanner and verify Textract plus the configured structured AI provider where current commands report blocking.
+5. Expand golden dataset from 13 synthetic fixtures to at least 25 internally reviewed synthetic or consented internal samples.
+6. Get doctor review of critical thresholds.
+7. Complete legal review.
+8. Add CI for the full release-gate command set.
 
 Current release owner recommendation: **do not invite 30-50 real PHI users yet**.

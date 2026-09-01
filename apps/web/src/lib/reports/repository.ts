@@ -59,6 +59,7 @@ import {
   deleteSupabaseReportFile,
   findSupabasePayment,
   getSupabaseDoctorReviewDetail,
+  getSupabaseStoreHealth,
   getSupabaseReportDetails,
   listSupabaseAdminReports,
   listSupabaseDoctorReviews,
@@ -156,6 +157,10 @@ export async function getStore() {
 }
 
 export async function getStoreHealth() {
+  if (shouldUseSupabaseAuth()) {
+    return getSupabaseStoreHealth();
+  }
+
   try {
     await ensureStore();
     const store = await getStore();

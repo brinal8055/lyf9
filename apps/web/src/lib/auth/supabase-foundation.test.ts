@@ -137,6 +137,21 @@ describe("Supabase auth foundation", () => {
     expect(migration).toContain("Service inserts audit logs only");
   });
 
+  it("enables authenticated read-only RLS for biomarker catalog tables", () => {
+    const migration = readFileSync(
+      path.join(repoRoot, "supabase/migrations/202609010001_biomarker_catalog_rls.sql"),
+      "utf8"
+    );
+
+    expect(migration).toContain("alter table public.biomarker_catalog enable row level security");
+    expect(migration).toContain("alter table public.biomarker_aliases enable row level security");
+    expect(migration).toContain('create policy "Authenticated users read biomarker catalog"');
+    expect(migration).toContain('create policy "Authenticated users read biomarker aliases"');
+    expect(migration).not.toContain("for insert");
+    expect(migration).not.toContain("for update");
+    expect(migration).not.toContain("for delete");
+  });
+
   it("keeps upload-init behind the server-side consent gate before metadata creation", () => {
     const uploadInitRoute = readFileSync(
       path.join(repoRoot, "apps/web/src/app/api/reports/upload-init/route.ts"),

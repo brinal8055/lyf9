@@ -774,3 +774,38 @@ git status -sb
 ```
 
 Current release verdict remains **No-go for real PHI private beta** until the live staging checks, doctor-reviewed thresholds, and legal review pass.
+
+## 2026-09-01 Staging Environment Reconciliation
+
+Completed:
+
+- Fetched and normalized local tracking branches for `main`, `dev`, and `feat/frontend-overhaul`; continued work on `dev` only.
+- Removed committed Supabase CLI `.temp` link metadata and ignored it so a branch checkout cannot silently retarget migrations.
+- Added tracked, sanitized `.env.example` files for web, API, and worker; no real credentials are committed.
+- Added `202609010001_biomarker_catalog_rls.sql` to enable authenticated read-only RLS on `biomarker_catalog` and `biomarker_aliases`.
+- Added a Supabase-backed store health check and provider-aware AI/Inngest health fields.
+- Applied all additive migrations through `202609010001_biomarker_catalog_rls.sql` to Supabase staging only.
+- Verified staging has 28 public tables, 45 seeded biomarkers, 19 aliases, RLS on all 15 checked sensitive tables, and 39 policies.
+- Added non-secret configuration plus encrypted Supabase keys and a beta invite code to Vercel Preview branch `dev` only.
+- Left Vercel Production and Supabase production unchanged.
+
+Verification:
+
+- `npm run lint`: passed.
+- `npm test`: passed, 119 tests; 2 live-environment tests skipped.
+- `npm run copy:scan`: passed.
+- `npm run build:web`: passed.
+- `npm run typecheck`: passed after rebuilding branch-correct Next.js generated types.
+
+Known risks:
+
+- Migrations were applied through the staging SQL editor; Supabase CLI migration history still needs reconciliation.
+- Dev deployment verification awaits a new deployment from this `dev` commit.
+- Live cross-user RLS tests have not run yet.
+- Staging S3 credentials, Inngest keys, real malware scanner, and live provider smoke tests remain missing.
+- npm audit still reports production dependency advisories, including high-severity Next.js/transitive findings.
+- Production still reports RLS advisor findings for biomarker catalog tables until this migration is separately reviewed and promoted.
+
+Next recommended prompt:
+
+> Deploy the verified `dev` reconciliation commit, confirm `lyf9-dev.vercel.app/api/health` uses staging Supabase, run synthetic auth/consent/RLS smoke tests, and keep upload processing fail-closed until S3, Inngest, and a real malware scanner are configured. Do not change production.
