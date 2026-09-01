@@ -14,8 +14,8 @@ This repo is ready for scaffold/operator rehearsal and now has a production-shap
 
 | Area | Status | Owner | Next step |
 | --- | --- | --- | --- |
-| Auth/RBAC | Partially ready | Engineering/DevOps | Staging Supabase and dev-only Vercel auth variables are configured; validate real signup/login and JWT role checks after deployment. |
-| Database/RLS | Partially ready | Backend/DevOps | Migrations through `202609010001_biomarker_catalog_rls.sql` are applied in staging; reconcile CLI history and run cross-user/user-doctor-admin RLS tests. |
+| Auth/RBAC | Partially ready | Engineering/DevOps | Staging Supabase and dev-only Vercel auth variables are configured and server connectivity passes; validate synthetic signup/login and JWT role checks. |
+| Database/RLS | Partially ready | Backend/DevOps | Migrations through `202609010001_biomarker_catalog_rls.sql` are applied and the deployed server query passes; reconcile CLI history and run cross-user/user-doctor-admin RLS tests. |
 | Storage security | Partially ready | Backend/DevOps | StorageProvider, S3 presigning, mock provider, signed download, and delete flow exist; configure private S3 bucket and verify staging upload/download/delete before real PHI. |
 | Malware scanning | Blocked | Backend/Security | Provider abstraction and scan gate exist; replace mock/stub with ClamAV or S3 event scanner before real PHI. |
 | Upload flow | Partially ready | Engineering | Upload starts as `upload_pending`, validates MIME/size, checks persisted required consent when Supabase is configured, audits signed URLs, and finalizes via upload-complete; staging S3 verification remains. |
@@ -34,21 +34,21 @@ This repo is ready for scaffold/operator rehearsal and now has a production-shap
 | Error monitoring | Partially ready | Engineering | Logging helper and env contract exist; wire Sentry with PHI scrubbing. |
 | Payments sandbox | Ready for scaffold beta | Product/Legal | Razorpay placeholder/sandbox only; do not enable real public charges. |
 | Legal review | Blocked | Founders/Legal | Complete DPDP, doctor, disclaimer, payment/refund, and public claims review before public paid launch. |
-| Deployment | Partially ready | DevOps | Deployment docs and health checks exist; configure real Supabase/S3/Redis/Sentry probes. |
+| Deployment | Partially ready | DevOps | Vercel Preview `dev` reports healthy Supabase Postgres connectivity; configure and verify S3, workflow, scanner, OCR/parser, AI, and observability probes. |
 | Runbook | Ready for scaffold beta | Ops/Product | Runbook exists; rehearse failed report, unsafe output, pause upload, export/delete paths. |
 
 ## Supabase Foundation Gate
 
 | Item | Status | Next step |
 | --- | --- | --- |
-| Supabase Auth | Partially ready | Staging keys are configured for Vercel branch `dev`; validate real signup/login/JWT sessions after deployment. |
-| Postgres persistence | Partially ready | Migrations and service-role repository paths exist; apply migrations and verify persisted profile/consent/report/job/audit rows in staging. |
+| Supabase Auth | Partially ready | Staging keys are configured and deployed for Vercel branch `dev`; validate synthetic signup/login/JWT sessions. |
+| Postgres persistence | Partially ready | Migrations are applied and the deployed service query passes; verify synthetic profile/consent/report/job/audit writes and reads in staging. |
 | RLS policies | Partially ready | 39 policies are present and all 15 checked sensitive tables have RLS enabled in staging; run the live JWT-backed harness before real PHI. |
 | RLS tests | Blocked | Opt-in harness exists at `npm run test:rls`; run with `RUN_LIVE_SUPABASE_RLS=true` and staging Supabase env. |
 | Role model | Partially ready | `user`, `doctor`, `admin`, `superadmin` model exists; verify superadmin-only role changes in staging. |
 | Consent gate | Partially ready | Backend upload-init checks persisted consent when Supabase is configured; run deployed staging upload-init tests for missing/partial/full consent. |
 | Audit logs | Partially ready | Consent, blocked/successful upload-init, upload metadata, signed URL, report access, feedback, analytics, and API audit helper writes exist; verify live staging rows and PHI-safe metadata. |
-| Backend service-role isolation | Partially ready | Service role is server-only in code/env examples; verify deployment secrets and runtime bundle scoping. |
+| Backend service-role isolation | Ready | The staging server credential is a protected Vercel Secret scoped only to Preview branch `dev`; Production was not changed. |
 | Frontend secret safety | Partially ready | Public client uses anon config and static test blocks `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY`; inspect built bundle in staging. |
 | Local fallback hardening | Ready | Local cookie fallback now requires `APP_ENV=local/development` and `ENABLE_LOCAL_AUTH_FALLBACK=true`; staging/production fail closed when Supabase is missing. |
 
@@ -151,7 +151,8 @@ This repo is ready for scaffold/operator rehearsal and now has a production-shap
 
 | Item | Status | Evidence | Next step |
 | --- | --- | --- | --- |
-| Staging environment contract | Ready | `docs/29_STAGING_ENVIRONMENT_CONTRACT.md` | Populate staging secrets in deployment secret manager only. |
+| Staging environment contract | Ready | `docs/29_STAGING_ENVIRONMENT_CONTRACT.md` | Keep secrets scoped to Vercel Preview branch `dev` and out of source control. |
+| Deployed Supabase connectivity | Ready | `lyf9-dev.vercel.app/api/health` returns `status: ok` and `store.ok: true` | Monitor while running synthetic Auth/RLS tests. |
 | Live verification orchestrator | Ready | `npm run verify:staging` | Run only with `APP_ENV=staging`; it refuses production and missing env. |
 | Supabase migration check | Partially ready | Staging SQL verification | Schema smoke passed; reconcile Supabase CLI migration history and run `npm run verify:staging:supabase`. |
 | RLS/JWT live check | Blocked | `npm run verify:staging:rls` | Seed staging users and run the live RLS harness. |

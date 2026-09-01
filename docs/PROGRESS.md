@@ -2,15 +2,30 @@
 
 ## Current Phase
 
-End-to-end audit completed for a **production-shaped private beta MVP**.
+Staging foundation reconciliation is in progress for a **production-shaped private beta MVP**.
 
-The repo remains suitable for local scaffold testing and operator rehearsal. It is not approved for real 30-50 user PHI until Supabase Auth/Postgres, S3 presigned storage, real malware scanning, durable workflow, Marker/OCR, OpenAI Structured Outputs, Sentry/analytics privacy review, and legal review are completed in staging.
+Supabase staging now has the current schema and RLS policies, and the Vercel `dev` deployment has verified server-side Supabase Postgres connectivity. The product is not approved for real 30-50 user PHI until live JWT/RLS boundaries, private S3 storage, real malware scanning, durable workflow execution, Marker/OCR, production AI structured outputs, observability/privacy review, and legal review are completed in staging.
 
 Current private beta readiness score: **7.3/10**.
 
 No public launch, autonomous diagnosis, prescriptions, medicine-change advice, supplement protocols, pharmacy commerce, lab booking, full doctor marketplace, mobile app, wearables, ABDM/ABHA, genetics, employer, or insurance workflows have been added.
 
 ## Completed In This Pass
+
+### 2026-09-01 Staging Supabase Connectivity
+
+- Applied the additive Supabase schema through `202609010001_biomarker_catalog_rls.sql` to `lyf9-staging` only.
+- Verified 28 public tables, 45 biomarker catalog rows, 19 aliases, RLS on all 15 checked sensitive tables, and 39 policies.
+- Scoped Supabase URL, publishable key, server secret, and beta access configuration to Vercel Preview branch `dev`; Production was not changed.
+- Corrected an incomplete Vercel server credential, converted it to a protected Secret, and redeployed commit `1b1d7c2` to Preview `dev` only.
+- Verified `https://lyf9-dev.vercel.app/api/health` returns `status: ok`, `store.ok: true`, `storeMode: supabase-postgres`, and `reportFileCount: 0`.
+- Added safe deployed health diagnostics that report key type and stable failure codes without exposing credential values or database details.
+- Kept uploads and processing fail-closed because S3, malware scanning, workflow, OCR/parser, and AI provider credentials are intentionally incomplete.
+
+Follow-up commits:
+
+- `9873d71` - reconcile staging Supabase and Vercel configuration.
+- `1b1d7c2` - improve staging Supabase health diagnostics.
 
 - Hardened the Supabase foundation verification layer:
   - Added `docs/25_SUPABASE_STAGING_VERIFICATION.md` with staging setup, migration, seed, RLS test, manual SQL, rollback, limitation, and status steps.
@@ -177,7 +192,7 @@ Ready for scaffold/operator rehearsal:
 
 Partially ready for production-shaped private beta:
 
-- Supabase Auth/Postgres/RLS foundation is implemented in code and migrations, but is not applied/tested against a live staging Supabase project.
+- Supabase Auth/Postgres/RLS foundation is implemented and applied to staging; server-side Postgres connectivity passes, while live user/doctor/admin JWT and cross-user RLS tests remain pending.
 - Local cookie auth and local JSON persistence remain as explicit local scaffold fallback when Supabase env is absent.
 - S3 provider contract exists, but AWS SDK presigned URL implementation is not wired.
 - Malware scanner gate exists, but production scanner is not wired.
@@ -188,7 +203,6 @@ Partially ready for production-shaped private beta:
 
 Blocked for real PHI/private beta users:
 
-- Live staging Supabase project with migrations applied.
 - Staging RLS test matrix with real user/doctor/admin/superadmin JWTs.
 - S3 private bucket policy, presigned URLs, lifecycle, deletion, and KMS decisions.
 - Real malware scan before extraction.
@@ -201,7 +215,7 @@ Blocked for real PHI/private beta users:
 
 ## Known Risks
 
-- Supabase Auth and database-backed roles are implemented and hardened, but the staging project has not been configured or exercised with real JWTs.
+- Supabase Auth and database-backed roles are implemented and staging is configured, but real JWT role and cross-user boundary tests have not run.
 - The live RLS harness is available but not run against staging from this workspace.
 - Next.js route handlers currently act as the backend-for-frontend for Supabase service-role operations; ensure the service-role key is server-only in deployment and never exposed as `NEXT_PUBLIC_*`.
 - Local cookie auth and local JSON store remain for explicit local/development scaffold mode only and must not be used for real PHI.
@@ -212,7 +226,7 @@ Blocked for real PHI/private beta users:
 
 ## Next Prompt To Run
 
-> Apply and validate the Supabase foundation in staging for Lyf9 AI: create the Supabase project, apply migrations `202606060001` and `202606060002`, create real user/doctor/admin/superadmin accounts, run JWT-backed RLS tests, and confirm profile, consent, report metadata, processing job, audit, feedback, and analytics records persist with correct access boundaries. Do not add OCR, AI, S3, payments, or unrelated features.
+> Validate Lyf9 AI staging Auth and RLS with synthetic accounts only: run signup/login and create isolated user/doctor/admin/superadmin fixtures, execute the live cross-user RLS harness, confirm profile, consent, report metadata, processing job, audit, feedback, and analytics persistence, then delete all synthetic fixtures. Do not add OCR, AI, S3, payments, or unrelated features.
 
 Run the staging RLS harness with:
 

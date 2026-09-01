@@ -13,6 +13,9 @@ Completed evidence:
 - Verified RLS enabled on all 15 security-sensitive tables included in the staging check.
 - Verified 39 public-schema policies.
 - Added Vercel configuration and encrypted Supabase credentials scoped to Preview branch `dev`; no Production variables were changed.
+- Corrected the Vercel server credential to the complete staging key and stored it as a protected Secret.
+- Redeployed commit `1b1d7c2` to Preview branch `dev` only; deployment `9yyipUgFoz2cPQW6TZFt7GaskX8q` reached Ready.
+- Verified the deployed health endpoint returns `status: ok`, `store.ok: true`, `storeMode: supabase-postgres`, and `reportFileCount: 0`.
 - Kept real uploads fail-closed: S3 credentials, Inngest keys, real malware scanning, and live provider verification remain incomplete.
 - Added a Supabase-backed web health check so deployed health no longer attempts local JSON persistence when Supabase is configured.
 
@@ -28,7 +31,7 @@ npm run typecheck  PASS after the production build regenerated branch-correct Ne
 
 Known reconciliation item: these migrations were applied through the staging SQL editor, not the Supabase CLI, so migration-history repair/verification is still required before automated migration deployment is considered ready.
 
-Current verdict remains **No-go for real PHI private beta** until deployed health, live cross-user RLS, private storage, malware scanning, and full synthetic pipeline checks pass.
+Current verdict remains **No-go for real PHI private beta** until live cross-user RLS, private storage, malware scanning, and full synthetic pipeline checks pass. Deployed Supabase health is now passing.
 
 Date: 2026-06-12
 
@@ -78,6 +81,7 @@ npm run eval:golden:live
 
 | Area | Status | Evidence | Next step |
 | --- | --- | --- | --- |
+| Deployed Supabase connectivity | Ready | `lyf9-dev.vercel.app/api/health` reports `store.ok: true` against Supabase Postgres | Keep the server key in Vercel Preview `dev` only and monitor health. |
 | Supabase migrations | Partially ready | Schema through `202609010001_biomarker_catalog_rls.sql` applied in staging SQL editor | Reconcile CLI migration history and run `npm run verify:staging:supabase`. |
 | RLS/JWT | Partially ready | RLS enabled on checked tables; 39 policies present | Run `npm run verify:staging:rls` with isolated staging users. |
 | Workflow concurrency | Not run | Live harness exists | Seed queued job and run `npm run verify:staging:workflow`. |
