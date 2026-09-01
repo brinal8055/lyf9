@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { AUTH_COOKIE_NAME } from "./constants";
 import { getRequestUser, requireRequestRole } from "./request";
-import { getAuthProviderMode } from "./providers/supabase-server";
+import { getAuthProviderMode, getSupabaseServerKeyType } from "./providers/supabase-server";
 import { createSessionCookie } from "./session";
 
 const repoRoot = path.resolve(process.cwd(), "../..");
@@ -81,6 +81,14 @@ describe("Supabase auth foundation", () => {
     process.env.ENABLE_LOCAL_AUTH_FALLBACK = "true";
 
     expect(getAuthProviderMode()).toBe("local_cookie_scaffold");
+  });
+
+  it("classifies server keys without exposing their value", () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "sb_secret_example";
+    expect(getSupabaseServerKeyType()).toBe("secret");
+
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "eyJlegacy-service-role";
+    expect(getSupabaseServerKeyType()).toBe("legacy_service_role");
   });
 
   it("returns a setup error instead of reading local cookies when fallback is disabled", async () => {

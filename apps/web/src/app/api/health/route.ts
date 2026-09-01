@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { getAuthProviderMode, getSupabaseServerConfig } from "@/lib/auth/providers/supabase-server";
+import {
+  getAuthProviderMode,
+  getSupabaseServerConfig,
+  getSupabaseServerKeyType
+} from "@/lib/auth/providers/supabase-server";
 import { getStoreHealth } from "@/lib/reports/repository";
 
 export async function GET() {
@@ -29,6 +33,7 @@ export async function GET() {
           process.env.STORAGE_PROVIDER === "mock"
       ),
       supabaseAnonConfigured: Boolean(supabase.url && supabase.anonKey),
+      supabaseServerKeyType: getSupabaseServerKeyType(),
       supabaseServiceRoleConfigured: supabase.serviceRoleKeyConfigured,
       store
     },

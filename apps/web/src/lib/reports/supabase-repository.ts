@@ -51,7 +51,7 @@ export async function getSupabaseStoreHealth() {
 
   if (error) {
     return {
-      error: error.message,
+      errorCode: error.code || "supabase_query_failed",
       ok: false,
       storageMode: process.env.STORAGE_PROVIDER ?? "unconfigured",
       storeMode: "supabase-postgres"

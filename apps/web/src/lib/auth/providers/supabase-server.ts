@@ -8,6 +8,8 @@ export type SupabaseServerConfig = SupabasePublicConfig & {
 
 export type AuthProviderMode = "supabase" | "local_cookie_scaffold" | "configuration_error";
 
+export type SupabaseServerKeyType = "legacy_service_role" | "secret" | "unknown" | "unconfigured";
+
 export function getSupabaseServerConfig(): SupabaseServerConfig {
   return {
     ...getSupabasePublicConfig(),
@@ -31,6 +33,24 @@ export function getAuthProviderMode(): AuthProviderMode {
 
 export function isSupabaseAuthConfigured() {
   return getAuthProviderMode() === "supabase";
+}
+
+export function getSupabaseServerKeyType(): SupabaseServerKeyType {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!key) {
+    return "unconfigured";
+  }
+
+  if (key.startsWith("sb_secret_")) {
+    return "secret";
+  }
+
+  if (key.startsWith("eyJ")) {
+    return "legacy_service_role";
+  }
+
+  return "unknown";
 }
 
 export function isLocalAuthFallbackEnabled() {
