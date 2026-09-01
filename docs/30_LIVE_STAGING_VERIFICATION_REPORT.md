@@ -15,6 +15,8 @@ Passed local evidence:
 - Destructive verification requires `APP_ENV=staging`, exact staging app and Supabase targets, `S3_REPORT_BUCKET=STAGING_S3_BUCKET`, a required distinct `PRODUCTION_S3_BUCKET`, and a staging-specific bucket name.
 - Local storage/report tests passed with 74 tests and one credential-gated live test skipped; the full suite passed with 126 tests and four live suites skipped.
 - Lint, typecheck, production web build, copy scan, eight FastAPI tests, API health, worker health, diff checks, and client-bundle secret-name scan passed.
+- Commit `5f3347e` deployed successfully to Vercel Preview deployment `DG4YmJsy7cgo1gQvX2xFTahh8A4m` for the `dev` branch.
+- `https://lyf9-dev.vercel.app/api/health` returned `status: ok`, `store.ok: true`, `storeMode: supabase-postgres`, `storageProvider: s3`, and `storageConfigured: false`.
 
 Blocked evidence:
 

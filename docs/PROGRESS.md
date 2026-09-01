@@ -24,6 +24,8 @@ No public launch, autonomous diagnosis, prescriptions, medicine-change advice, s
 - Hardened provider selection so Textract cannot be silently treated as the document parser; valid configuration is `DOCUMENT_PARSER_PROVIDER=marker` and `OCR_PROVIDER=textract`.
 - Production now ignores the mock-malware override and fails closed. A localhost ClamAV endpoint is documented as local-only and cannot satisfy deployed verification.
 - Wired `npm run verify:staging:s3` to the app-level harness. The live check remains unrun because the supplied values are intentionally invalid and identify a production bucket/project.
+- Committed and pushed `5f3347e` to `origin/dev`; Vercel Preview deployment `DG4YmJsy7cgo1gQvX2xFTahh8A4m` reached Ready and serves `lyf9-dev.vercel.app`.
+- Deployed `/api/health` remains healthy on Supabase Postgres and reports `storageProvider: s3` with `storageConfigured: false`, which correctly keeps real S3 upload verification blocked until staging-only AWS configuration exists.
 
 Verification passed:
 
