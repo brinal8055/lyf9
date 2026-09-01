@@ -41,12 +41,23 @@ const expectedTables = [
 ];
 
 const sections = {
+  auth: {
+    required: [
+      "APP_BASE_URL",
+      "STAGING_APP_ORIGIN",
+      "LYF9_BETA_INVITE_CODE",
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "STAGING_SUPABASE_PROJECT_REF"
+    ],
+    run: verifyAuthApi
+  },
   supabase: {
-    required: ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "DATABASE_URL"],
+    required: ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "DATABASE_URL", "STAGING_SUPABASE_PROJECT_REF"],
     run: verifySupabase
   },
   rls: {
-    required: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY"],
+    required: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "STAGING_SUPABASE_PROJECT_REF"],
     run: verifyRls
   },
   workflow: {
@@ -54,6 +65,7 @@ const sections = {
       "NEXT_PUBLIC_SUPABASE_URL",
       "SUPABASE_SERVICE_ROLE_KEY",
       "DATABASE_URL",
+      "STAGING_SUPABASE_PROJECT_REF",
       "LIVE_SUPABASE_WORKFLOW_JOB_ID"
     ],
     run: verifyWorkflow
@@ -167,6 +179,7 @@ async function runSection(section) {
 }
 
 async function verifySupabase() {
+  assertStagingSupabaseTarget();
   const { createClient } = await import("@supabase/supabase-js");
   const client = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false }
@@ -186,12 +199,21 @@ async function verifySupabase() {
 }
 
 function verifyRls() {
+  assertStagingSupabaseTarget();
   return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:rls"], {
     RUN_LIVE_SUPABASE_RLS: "true"
   }, "live_rls_harness_passed");
 }
 
+function verifyAuthApi() {
+  assertStagingSupabaseTarget();
+  return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:auth-live"], {
+    RUN_LIVE_STAGING_AUTH_API: "true"
+  }, "live_auth_api_harness_passed");
+}
+
 function verifyWorkflow() {
+  assertStagingSupabaseTarget();
   return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:workflow-live"], {
     RUN_LIVE_SUPABASE_WORKFLOW: "true"
   }, "live_workflow_harness_passed");
@@ -330,6 +352,20 @@ function runNpmHarness(command, args, extraEnv, checkName) {
 
 function missingEnv(names) {
   return names.filter((name) => !process.env[name]);
+}
+
+function assertStagingSupabaseTarget() {
+  const projectRef = process.env.STAGING_SUPABASE_PROJECT_REF;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  if (!projectRef || !url) {
+    throw new Error("Staging Supabase target is not configured.");
+  }
+
+  const expectedOrigin = `https://${projectRef}.supabase.co`;
+  if (new URL(url).origin !== expectedOrigin) {
+    throw new Error(`Refusing live verification: Supabase URL does not match STAGING_SUPABASE_PROJECT_REF ${projectRef}.`);
+  }
 }
 
 function check(name, passed, detail) {

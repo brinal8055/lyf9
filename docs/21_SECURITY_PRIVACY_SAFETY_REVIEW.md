@@ -5,19 +5,18 @@
 Medical safety: **partially safe for scaffold rehearsal, not safe for real PHI beta**.
 
 Safety score: **7.0/10** for local scaffold behavior.  
-Security/privacy score: **7.1/10** for real private beta readiness.
+Security/privacy score: **7.8/10** for real private beta readiness.
 
 ## Security Findings
 
 | Priority | Finding | Evidence | Risk | Fix |
 | --- | --- | --- | --- | --- |
-| P1 | Supabase Auth path not yet validated in staging | `apps/web/src/lib/auth/supabase-auth.ts`, auth routes | Code path exists, but real project/JWT behavior is unverified. | Configure staging Supabase and test real auth flows. |
-| P1 | RLS not yet tested with real JWTs | `supabase/migrations/202606060001_private_beta_core.sql`, `supabase/migrations/202606060002_auth_persistence_rls_hardening.sql` | Policies may behave differently under live claims. | Add live RLS test matrix. |
+| P1 | Signup email delivery is rate-limited in staging | Live `npm run test:auth-live` evidence | Login/session and authorization pass, but repeated invite signup cannot rely on Supabase's default sender quota. | Configure custom SMTP or an approved Auth email quota and rerun public signup without fixture fallback. |
 | P2 | Local scaffold fallback remains but is now fail-closed outside local/development | `apps/web/src/lib/auth/providers/supabase.ts`, `apps/web/src/lib/auth/request.ts` | Safe for local development only; staging/production now return setup/configuration errors instead of silently using local cookies when Supabase env is missing. | Keep `ENABLE_LOCAL_AUTH_FALLBACK` out of staging/production and verify deploy env. |
 | P0 | Private S3 not verified in staging | `apps/web/src/lib/storage/s3-storage-provider.ts` | Presigning code exists, but real bucket/IAM/public-access-block behavior is unverified. | Configure private S3 bucket and run signed upload/download/delete smoke tests. |
 | P0 | Mock/stub malware scanning | `apps/web/src/lib/malware/` | Unsafe files are not actually scanned. Production mock use fails closed, but real scanner is absent. | ClamAV/S3 event scanning. |
 | P1 | Workflow locking not verified under live concurrency | `apps/web/src/lib/workflow/workflow-provider.ts` | Best-effort local/store locks are tested, but concurrent Postgres worker behavior is unverified. | Apply migration and move claim to transaction/RPC before PHI concurrency. |
-| P1 | Live staging verification now exists but has not passed | `scripts/verify-staging.mjs`, `docs/29_STAGING_ENVIRONMENT_CONTRACT.md`, `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` | Commands refuse production and missing staging env, but current workspace lacks live provider config. | Configure staging env and run every `npm run verify:staging:*` command with synthetic data. |
+| P1 | Non-Auth live provider verification remains incomplete | `scripts/verify-staging.mjs`, `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` | Auth/RLS and deployed consent paths pass; S3, scanner, workflow concurrency, extraction, and AI remain unverified. | Run each remaining staging verifier with synthetic data after its provider is configured. |
 | P1 | Analytics endpoint accepts unauthenticated events | `apps/web/src/app/api/analytics/route.ts` | Event spam and possible metadata misuse. | Require auth for app events or constrain anonymous public events. |
 | P1 | Health checks are config-only | `apps/api/app/main.py`, `apps/worker/app/worker.py` | False confidence in deployment. | Real connectivity probes. |
 
@@ -43,7 +42,7 @@ Partially implemented:
 
 Gaps:
 
-- Supabase consent and audit behavior still needs staging verification.
+- Supabase consent/audit core paths are verified, but append-only audit governance and operator review procedures still need definition.
 - S3 bucket policy, object metadata verification, and delete behavior still need staging verification.
 - Real malware scanner is not configured.
 - Workflow RPC lease/retry behavior needs staging Postgres concurrency verification.
@@ -77,10 +76,13 @@ Gaps:
 
 ## RLS Review
 
-Migrations include RLS enablement and policies for user-owned data, backend-controlled writes, admin reads, and assigned doctor reviews. The hardening migration adds required-consent RPC and stricter report/job write boundaries. However:
+Migrations include RLS enablement and policies for user-owned data, backend-controlled writes, admin reads, and assigned doctor reviews. The hardening migrations add a caller-scoped required-consent RPC and stricter report/job write boundaries.
 
-- Policies are not applied in a live Supabase project.
-- A live RLS harness now exists at `apps/web/src/lib/auth/supabase-live-rls.test.ts`, but it is skipped locally until `RUN_LIVE_SUPABASE_RLS=true` and staging Supabase env are configured.
+- Policies are applied in the dedicated staging Supabase project.
+- The live RLS harness passed with two users, two doctors, one admin, and one superadmin using real Supabase Auth JWTs.
+- Cross-user profile/report/job access, doctor assignment, superadmin-only role changes, direct audit insertion denial, consent scoping, and service-role bypass were verified.
+- The deployed Auth/API harness passed login/session, onboarding persistence, route denial, consent grant/revoke, and backend upload consent checks.
+- Normal local tests skip live harnesses unless their explicit staging flags and project reference are present.
 - Some non-core scaffold areas still need stricter insert/update/delete separation in later passes.
 - Doctor review linked context should be served through backend-controlled views/functions, not broad client table access.
 

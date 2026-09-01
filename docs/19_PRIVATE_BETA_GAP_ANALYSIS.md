@@ -12,28 +12,31 @@ Private beta readiness score from latest local golden gate: **84/100**
 
 | Blocker | Evidence | Required Fix |
 | --- | --- | --- |
-| Real staging deployment not configured | `docs/25_SUPABASE_STAGING_VERIFICATION.md`, `docs/29_STAGING_ENVIRONMENT_CONTRACT.md` | Create staging Supabase project, configure env, deploy web/API/worker against it, and run live checks. |
-| Live Supabase auth/RBAC not validated | `apps/web/src/lib/auth/supabase-auth.ts`, `apps/web/src/lib/auth/request.ts`, `apps/web/src/lib/auth/supabase-live-rls.test.ts` | Configure staging Supabase and validate real JWTs and `user_roles` for user/doctor/admin/superadmin. |
-| Supabase persistence not applied in staging | `apps/web/src/lib/onboarding/server.ts`, `apps/web/src/lib/reports/supabase-repository.ts` | Apply migrations and run end-to-end profile/questionnaire/consent/report/job/audit persistence checks. |
 | Private S3 not verified in staging | `apps/web/src/lib/storage/s3-storage-provider.ts`, `docs/10_STORAGE_AND_FILE_SECURITY.md` | Configure private S3 bucket/IAM, run signed upload/download/delete smoke tests, and confirm no public URLs. |
 | Malware scanner is mock/stub only | `apps/web/src/lib/malware/` | ClamAV or S3 event scanner before extraction. |
-| RLS untested against real Supabase JWTs | `supabase/migrations/202606060001_private_beta_core.sql`, `supabase/migrations/202606060002_auth_persistence_rls_hardening.sql`, `apps/web/src/lib/auth/supabase-live-rls.test.ts` | Run `RUN_LIVE_SUPABASE_RLS=true npm run test:rls` against staging. |
 
 ## P1 Blockers Before 30-50 Users
 
 | Blocker | Evidence | Required Fix |
 | --- | --- | --- |
+| Signup email delivery is rate-limited | Live `npm run test:auth-live` staging run | Configure custom SMTP or an approved Supabase Auth email quota, then require public invite signup to pass without service-role fixture provisioning. |
 | Durable workflow not verified in staging | `apps/web/src/lib/workflow/workflow-provider.ts`, `supabase/migrations/202606060004_durable_processing_workflow.sql` | Apply migration, verify concurrent claim/lease behavior against staging Postgres, and wire real worker process loop. |
 | Marker/Textract not live-verified | `apps/web/src/lib/document-extraction/`, `apps/worker/app/providers/document.py` | Configure and verify Marker plus Textract fallback in staging. |
 | Live OpenAI structured path not verified | `apps/web/src/lib/ai/openai-structured-provider.ts` | Configure OpenAI models in staging, execute live structured-output calls, and run golden dataset QA. |
 | Golden dataset too small for PHI beta | `tests/golden/`, `docs/26_GOLDEN_DATASET_EVALUATION_REPORT.md` | Expand beyond synthetic smoke coverage to at least 25 internally reviewed samples and retain 100% safety gate pass. |
 | Observability not production-ready | `apps/web/src/lib/observability/logger.ts` | Sentry + PHI scrubbing + alert routing. |
 | Health checks shallow | `apps/web/src/app/api/health/route.ts`, `apps/api/app/main.py`, `apps/worker/app/worker.py` | Real database/storage/queue connectivity probes. |
-| Broader E2E tests missing | current test setup | Add deployed staging E2E for auth, consent, upload-init, admin, doctor assignment, and audit flows. |
+| Full report workflow E2E is missing | current test setup | Auth, onboarding, route denial, consent, and upload-entry checks pass; add deployed S3 upload, processing, admin correction, doctor action, and audit E2E. |
 | No CI | no `.github` workflow | Add CI for lint/typecheck/test/build/copy scan. |
 
 ## Fixed Or Improved In The Staging Verification Pass
 
+- Staging Supabase and the Vercel `dev` deployment are configured without changing Production.
+- Migrations through `202609010002_consent_rpc_rls_guard.sql` are applied in staging.
+- Live RLS passed with two users, two doctors, one admin, and one superadmin using real Supabase JWTs.
+- Deployed login/session, profile, health profile, questionnaire, consent, audit, analytics, route denial, and backend upload consent-gate checks passed.
+- The required-consent RPC is caller-scoped and no longer exposes cross-user consent state to `anon` or unrelated authenticated callers.
+- Synthetic Auth users and profiles were independently confirmed at zero after cleanup.
 - `docs/29_STAGING_ENVIRONMENT_CONTRACT.md` lists every required staging env var and fail-closed rule.
 - `scripts/verify-staging.mjs` adds synthetic-only staging verification commands and writes artifacts under `artifacts/staging-verification/`.
 - Root scripts now include `npm run verify:staging:*` for Supabase, RLS, workflow, S3, malware, Marker, Textract, OpenAI, E2E, and live golden subset checks.
@@ -47,7 +50,7 @@ Private beta readiness score from latest local golden gate: **84/100**
 - Local cookie auth can no longer silently run in staging/production; fallback requires `APP_ENV=local/development` and `ENABLE_LOCAL_AUTH_FALLBACK=true`.
 - FastAPI auth tests now cover fail-closed missing Supabase env, trusted DB role resolution, user ownership checks, and safe audit metadata writes.
 - Hardening migration policy creation is safer to rerun because new policy names are dropped before creation.
-- Opt-in live Supabase RLS harness exists, though it remains blocked until staging env is configured.
+- Opt-in live Supabase RLS and deployed Auth/API harnesses exist and pass against the dedicated staging project.
 - Env examples now document local scaffold fallback versus staging/production Supabase behavior.
 
 ## Fixed Or Improved In The Private Storage Pass

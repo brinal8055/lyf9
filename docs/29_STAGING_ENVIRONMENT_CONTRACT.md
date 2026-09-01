@@ -26,7 +26,7 @@ Rules:
 
 - `SUPABASE_SERVICE_ROLE_KEY` is server/worker only.
 - `NEXT_PUBLIC_*` values must contain only public anon configuration.
-- Migrations through `202609010001_biomarker_catalog_rls.sql` must be applied before verification.
+- Migrations through `202609010002_consent_rpc_rls_guard.sql` must be applied before verification.
 - `supabase/.temp/` is machine-local state and must never be committed or used as evidence of the target environment.
 - Verify the project reference immediately before every migration. Staging is `wjjwdakfyigwwohbntyv`; production is a separate project.
 
@@ -42,7 +42,8 @@ Rules:
 
 - Staging must fail closed if Supabase or service-role env is missing.
 - Local cookie fallback is not allowed in staging.
-- All staging test users must use synthetic email prefixes such as `lyf9-staging-test+<timestamp>@example.com`.
+- All staging test users must use synthetic addresses under the Lyf9 test pattern, such as `lyf9-staging-auth-<timestamp>@lyf9.ai`; Supabase rejects reserved `example.com` addresses.
+- Configure custom SMTP or an approved Supabase Auth email quota before relying on signup email delivery for beta invitations.
 
 ## Storage And S3
 
@@ -164,6 +165,7 @@ Payment remains sandbox/optional for staging verification and must not be used a
 npm run verify:staging
 npm run verify:staging:supabase
 npm run verify:staging:rls
+npm run verify:staging:auth
 npm run verify:staging:workflow
 npm run verify:staging:s3
 npm run verify:staging:malware
@@ -187,6 +189,7 @@ latest.json
 latest.md
 supabase.json
 rls.json
+auth.json
 workflow.json
 s3.json
 malware.json

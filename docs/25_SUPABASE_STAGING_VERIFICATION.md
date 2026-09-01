@@ -2,9 +2,9 @@
 
 ## Status
 
-Current status: **partially ready, live verification blocked**.
+Current status: **core Auth/RLS live verification passed; remaining provider gates blocked**.
 
-The Lyf9 AI Supabase Auth/Postgres/RLS foundation exists in code and migrations. It has local mocked/static tests and an opt-in live RLS harness, but it has not been applied to a live Supabase staging project from this workspace because staging Supabase env/secrets are not configured here.
+The Lyf9 AI Supabase Auth/Postgres/RLS foundation is applied to the dedicated staging project. The live JWT-backed RLS harness and deployed Auth/API consent smoke test pass with synthetic fixtures and cleanup. Signup email delivery still needs custom SMTP or an approved Supabase Auth rate-limit configuration.
 
 ## 1. Project Setup
 
@@ -68,11 +68,10 @@ ENABLE_LOCAL_AUTH_FALLBACK=true
 
 ## 3. Apply Migrations
 
-Apply migrations in order:
+Apply migrations in repository order. Staging is currently applied through:
 
 ```txt
-supabase/migrations/202606060001_private_beta_core.sql
-supabase/migrations/202606060002_auth_persistence_rls_hardening.sql
+supabase/migrations/202609010002_consent_rpc_rls_guard.sql
 ```
 
 Recommended commands:
@@ -142,10 +141,26 @@ Live staging command:
 
 ```bash
 RUN_LIVE_SUPABASE_RLS=true \
+APP_ENV=staging \
+STAGING_SUPABASE_PROJECT_REF=<staging-project-ref> \
 NEXT_PUBLIC_SUPABASE_URL=<staging-url> \
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<staging-anon-key> \
 SUPABASE_SERVICE_ROLE_KEY=<staging-service-role-key> \
 npm run test:rls
+```
+
+Deployed Auth/API command:
+
+```bash
+RUN_LIVE_STAGING_AUTH_API=true \
+APP_ENV=staging \
+STAGING_SUPABASE_PROJECT_REF=<staging-project-ref> \
+STAGING_APP_ORIGIN=<staging-app-origin> \
+APP_BASE_URL=<staging-app-origin> \
+NEXT_PUBLIC_SUPABASE_URL=<staging-url> \
+SUPABASE_SERVICE_ROLE_KEY=<staging-service-role-key> \
+LYF9_BETA_INVITE_CODE=<staging-invite-code> \
+npm run test:auth-live
 ```
 
 The live harness seeds temporary users, report metadata, processing jobs, consent rows, doctor assignments, and audit rows, then signs in with real Supabase Auth JWTs to verify RLS.
@@ -230,12 +245,14 @@ Important review notes:
 - Role management is intended for superadmin only.
 - Audit log reads are admin-like only; user JWT inserts are denied, while service role bypasses RLS for controlled server-side audit writes.
 - The first base migration is intended as a first-time migration and is not fully idempotent because it creates enum types/tables.
-- Live JWT-backed RLS verification remains required before real PHI beta.
+- `202609010002_consent_rpc_rls_guard.sql` makes the consent RPC `SECURITY INVOKER`, removes `anon` execution, and preserves authenticated/service-role execution.
+- Live JWT-backed RLS verification passed on 2026-09-01 and must be rerun after any RLS migration.
 
 ## 9. Known Limitations
 
-- Live staging Supabase has not been configured in this workspace.
-- The RLS harness is skipped unless `RUN_LIVE_SUPABASE_RLS=true`.
+- Live staging Supabase is configured for the Vercel Preview `dev` branch only; Production was not changed.
+- Normal local runs skip the RLS/Auth harnesses unless their explicit live flags and exact staging project reference are present.
+- Supabase's default staging email sender reached its rate limit during repeated diagnostics; configure custom SMTP or an approved quota before beta invitation onboarding.
 - Admin operational access currently depends on backend/server service-role routes rather than broad direct client RLS reads.
 - Storage remains local/provider-shaped; S3 private storage is not part of this verification.
 - Malware scanning, OCR/Marker, durable queue, and production OpenAI paths are intentionally out of scope.
@@ -245,14 +262,15 @@ Important review notes:
 
 | Area | Status | Evidence | Next Step |
 | --- | --- | --- | --- |
-| Migrations apply cleanly | Blocked | No live staging DB env configured here | Apply both migrations in staging. |
-| Schema exists | Blocked | Migration reviewed locally | Confirm through Supabase SQL editor. |
-| RLS enabled | Blocked | Migration reviewed locally | Run SQL inventory and live RLS harness. |
-| Cross-user RLS | Blocked | Harness added, skipped locally | Run `RUN_LIVE_SUPABASE_RLS=true npm run test:rls`. |
-| Doctor assignment RLS | Blocked | Harness added, skipped locally | Run live RLS harness. |
-| Admin/superadmin controls | Partially ready | Helper tests and harness added | Verify deployed admin routes and live RLS. |
-| Frontend secret safety | Partially ready | Static tests and env review | Confirm built bundle contains no service-role key. |
-| Backend service-role isolation | Partially ready | FastAPI helper tests added | Verify deployment secret scoping. |
-| Consent gate | Partially ready | Helper/static/live harness coverage | Run deployed upload-init tests. |
-| Audit logs | Partially ready | Local/API helper tests and repository audit writes | Verify live audit rows in staging. |
+| Migrations apply cleanly | Partially ready | Schema through `202609010002_consent_rpc_rls_guard.sql` applied via staging SQL editor | Reconcile Supabase CLI migration history before automated promotion. |
+| Schema exists | Ready | Staging SQL inventory and deployed Postgres health pass | Recheck after migrations. |
+| RLS enabled | Ready for checked core tables | RLS inventory plus live JWT harness passed | Re-run after policy changes. |
+| Cross-user RLS | Ready | User A cannot read/update User B profile/report/job metadata | Keep synthetic harness in release gate. |
+| Doctor assignment RLS | Ready | Assigned doctor can read; unassigned doctor cannot | Validate full doctor workflow separately. |
+| Admin/superadmin controls | Ready for verified boundaries | Doctor/admin role grant denied; superadmin grant/revoke passed | Keep privileged app routes backend-controlled. |
+| Frontend secret safety | Ready | Static tests and `.next/static` secret scan passed | Repeat on release build. |
+| Backend service-role isolation | Ready for current deployment | Secret is Vercel Preview `dev` only; service-role paths verified | Keep Production unchanged until promotion review. |
+| Consent gate | Ready for upload entry | Missing/partial/revoked consent returns 403; both required consents reach MIME validation | Repeat once real storage is configured. |
+| Audit logs | Partially ready | Live audit writes and user denial passed | Define append-only/operator review procedure. |
+| Signup email delivery | Partially ready | Invite gate reaches Supabase Auth, but default sender quota was exhausted | Configure custom SMTP or approved quota and rerun public signup. |
 | Local fallback hardening | Ready in code | Fallback requires local/development plus explicit flag | Keep staging/prod env without fallback flag. |

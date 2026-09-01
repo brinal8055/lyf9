@@ -160,6 +160,18 @@ describe("Supabase auth foundation", () => {
     expect(migration).not.toContain("for delete");
   });
 
+  it("keeps the upload consent RPC inside caller RLS", () => {
+    const migration = readFileSync(
+      path.join(repoRoot, "supabase/migrations/202609010002_consent_rpc_rls_guard.sql"),
+      "utf8"
+    );
+
+    expect(migration).toContain("security invoker");
+    expect(migration).toContain("revoke all on function public.has_required_report_upload_consent(uuid) from anon");
+    expect(migration).toContain("grant execute on function public.has_required_report_upload_consent(uuid) to authenticated");
+    expect(migration).not.toContain("security definer");
+  });
+
   it("keeps upload-init behind the server-side consent gate before metadata creation", () => {
     const uploadInitRoute = readFileSync(
       path.join(repoRoot, "apps/web/src/app/api/reports/upload-init/route.ts"),

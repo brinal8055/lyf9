@@ -4,13 +4,37 @@
 
 Staging foundation reconciliation is in progress for a **production-shaped private beta MVP**.
 
-Supabase staging now has the current schema and RLS policies, and the Vercel `dev` deployment has verified server-side Supabase Postgres connectivity. The product is not approved for real 30-50 user PHI until live JWT/RLS boundaries, private S3 storage, real malware scanning, durable workflow execution, Marker/OCR, production AI structured outputs, observability/privacy review, and legal review are completed in staging.
+Supabase staging now has the current schema, live JWT-backed RLS verification, deployed Auth/session persistence checks, and a backend-enforced consent gate. The product is not approved for real 30-50 user PHI until private S3 storage, real malware scanning, durable workflow execution, Marker/OCR, production AI structured outputs, observability/privacy review, and legal review are completed in staging.
 
-Current private beta readiness score: **7.3/10**.
+Current private beta readiness score: **7.8/10**.
 
 No public launch, autonomous diagnosis, prescriptions, medicine-change advice, supplement protocols, pharmacy commerce, lab booking, full doctor marketplace, mobile app, wearables, ABDM/ABHA, genetics, employer, or insurance workflows have been added.
 
 ## Completed In This Pass
+
+### 2026-09-01 Live Staging Auth, RLS, And Consent Verification
+
+- Applied `202609010002_consent_rpc_rls_guard.sql` to staging only. The required-consent function is now caller-scoped (`SECURITY INVOKER`), unavailable to `anon`, and executable by `authenticated` and `service_role`.
+- Expanded the live RLS harness to six real Supabase Auth JWT identities: two users, two doctors, one admin, and one superadmin.
+- Passed cross-user profile/report/job isolation, assigned-doctor access, role-grant boundaries, service-role writes, consent RPC behavior, audit restrictions, feedback, and analytics checks.
+- Added and passed a deployed `lyf9-dev.vercel.app` Auth/API smoke test covering login/session cookies, `/api/auth/me`, user denial from admin/doctor routes, profile and questionnaire persistence, consent grant/revoke persistence, backend upload consent denial, and post-consent MIME validation.
+- Verified Supabase Auth/Postgres persistence for profiles, health profiles, questionnaire responses, consents, audit events, and analytics events using synthetic data only.
+- Verified cleanup independently in staging SQL: synthetic Auth users and profiles both returned zero after the run.
+- Added staging project-reference guards to every Supabase/Auth verifier so a production URL or mismatched project is refused.
+- Added a frontend bundle scan; no server secret or beta invite variable names appeared in `.next/static`.
+- Staging's default Supabase email sender reached its rate limit during repeated diagnostics. The harness safely falls back to service-role fixture provisioning only for that exact error; custom SMTP or an approved email-limit configuration is still required before dependable beta invitations.
+
+Changed files in this pass:
+
+- `supabase/migrations/202609010002_consent_rpc_rls_guard.sql`
+- `apps/web/src/lib/auth/supabase-live-rls.test.ts`
+- `apps/web/src/lib/auth/staging-auth-api-live.test.ts`
+- `apps/web/src/lib/auth/supabase-foundation.test.ts`
+- `scripts/verify-staging.mjs`
+- `apps/web/.env.example`
+- `apps/web/package.json`
+- `package.json`
+- readiness and staging verification docs
 
 ### 2026-09-01 Staging Supabase Connectivity
 
@@ -147,7 +171,7 @@ cd apps/api && python3 -m pytest tests/test_auth.py
 rg "SUPABASE_SERVICE_ROLE_KEY|service-role|SERVICE_ROLE" apps/web/.next/static -g '*.js'
 ```
 
-`npm run test:rls` currently skips the live RLS test because `RUN_LIVE_SUPABASE_RLS=true` and staging Supabase env are not configured in this workspace. Current web/shared tests: **45 passing, 1 live RLS test skipped**. Current API tests: **8 passing**.
+Normal local runs intentionally skip the three opt-in live tests. Current local result: **121 passing, 3 live tests skipped**. Current API result: **8 passing**. Separately, `npm run test:rls` and `npm run test:auth-live` both passed against staging with synthetic fixtures.
 
 The browser-only bundle scan found no `SUPABASE_SERVICE_ROLE_KEY`, `service-role`, or `SERVICE_ROLE` matches in `.next/static`.
 
@@ -192,7 +216,8 @@ Ready for scaffold/operator rehearsal:
 
 Partially ready for production-shaped private beta:
 
-- Supabase Auth/Postgres/RLS foundation is implemented and applied to staging; server-side Postgres connectivity passes, while live user/doctor/admin JWT and cross-user RLS tests remain pending.
+- Supabase Auth/Postgres/RLS foundation is implemented, applied, and live-tested in staging with user/doctor/admin/superadmin JWTs.
+- Deployed login/session, onboarding persistence, route denial, consent persistence, and backend upload consent gating pass. Dependable signup email delivery remains pending custom SMTP or an approved Supabase email-rate-limit configuration.
 - Local cookie auth and local JSON persistence remain as explicit local scaffold fallback when Supabase env is absent.
 - S3 provider contract exists, but AWS SDK presigned URL implementation is not wired.
 - Malware scanner gate exists, but production scanner is not wired.
@@ -203,7 +228,7 @@ Partially ready for production-shaped private beta:
 
 Blocked for real PHI/private beta users:
 
-- Staging RLS test matrix with real user/doctor/admin/superadmin JWTs.
+- Reliable staging signup email delivery/custom SMTP for invitation onboarding.
 - S3 private bucket policy, presigned URLs, lifecycle, deletion, and KMS decisions.
 - Real malware scan before extraction.
 - Durable worker queue.
@@ -215,8 +240,8 @@ Blocked for real PHI/private beta users:
 
 ## Known Risks
 
-- Supabase Auth and database-backed roles are implemented and staging is configured, but real JWT role and cross-user boundary tests have not run.
-- The live RLS harness is available but not run against staging from this workspace.
+- Supabase Auth, database-backed roles, cross-user RLS, doctor assignment, superadmin role control, and deployed consent gating now pass with synthetic staging users.
+- Supabase's default staging email sender is rate-limited; this does not weaken login/RLS evidence, but beta signup delivery is not reliable until custom SMTP or an approved quota configuration is in place.
 - Next.js route handlers currently act as the backend-for-frontend for Supabase service-role operations; ensure the service-role key is server-only in deployment and never exposed as `NEXT_PUBLIC_*`.
 - Local cookie auth and local JSON store remain for explicit local/development scaffold mode only and must not be used for real PHI.
 - S3 provider is a contract/stub until presigning is implemented in the backend.
@@ -226,16 +251,13 @@ Blocked for real PHI/private beta users:
 
 ## Next Prompt To Run
 
-> Validate Lyf9 AI staging Auth and RLS with synthetic accounts only: run signup/login and create isolated user/doctor/admin/superadmin fixtures, execute the live cross-user RLS harness, confirm profile, consent, report metadata, processing job, audit, feedback, and analytics persistence, then delete all synthetic fixtures. Do not add OCR, AI, S3, payments, or unrelated features.
+> Implement and verify Lyf9 AI private S3 report storage in staging: configure a staging-only private bucket and least-privilege IAM, run synthetic signed upload/download/delete smoke tests, verify object privacy and short expiries, preserve backend consent and ownership checks, write PHI-minimal audit events, and keep processing fail-closed until a real malware scanner passes. Do not change production.
 
-Run the staging RLS harness with:
+Completed staging evidence commands:
 
 ```bash
-RUN_LIVE_SUPABASE_RLS=true \
-NEXT_PUBLIC_SUPABASE_URL=<staging-url> \
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<staging-anon-key> \
-SUPABASE_SERVICE_ROLE_KEY=<staging-service-role-key> \
 npm run test:rls
+npm run test:auth-live
 ```
 
 ## 2026-06-06 Private Storage And Malware Gate Pass

@@ -8,25 +8,25 @@ Current decision: **No-go for real PHI private beta**.
 
 Private beta readiness score from latest local golden gate: **84/100**.
 
-This repo is ready for scaffold/operator rehearsal and now has a production-shaped Supabase Auth/Postgres/RLS foundation, private report storage provider layer, durable workflow foundation, document extraction/classification foundation, schema-first AI workflow, synthetic golden QA gate, and live staging verification command layer in code. Real 30-50 user testing remains blocked by applying/testing Supabase in staging, configuring/verifying a private S3 bucket, real malware scanning, staging worker concurrency verification, live Marker/Textract/OpenAI verification, expanded human-reviewed golden QA, observability, doctor threshold review, and legal review.
+This repo is ready for scaffold/operator rehearsal and now has a live-tested staging Supabase Auth/Postgres/RLS foundation, private report storage provider layer, durable workflow foundation, document extraction/classification foundation, schema-first AI workflow, synthetic golden QA gate, and live staging verification command layer. Real 30-50 user testing remains blocked by reliable signup email delivery, configuring/verifying a private S3 bucket, real malware scanning, staging worker concurrency verification, live Marker/Textract/OpenAI verification, expanded human-reviewed golden QA, observability, doctor threshold review, and legal review.
 
 ## Current Readiness Matrix
 
 | Area | Status | Owner | Next step |
 | --- | --- | --- | --- |
-| Auth/RBAC | Partially ready | Engineering/DevOps | Staging Supabase and dev-only Vercel auth variables are configured and server connectivity passes; validate synthetic signup/login and JWT role checks. |
-| Database/RLS | Partially ready | Backend/DevOps | Migrations through `202609010001_biomarker_catalog_rls.sql` are applied and the deployed server query passes; reconcile CLI history and run cross-user/user-doctor-admin RLS tests. |
+| Auth/RBAC | Partially ready | Engineering/DevOps | Login/session and user/doctor/admin/superadmin JWT boundaries pass in staging; configure custom SMTP or an approved email quota before onboarding beta users. |
+| Database/RLS | Ready for synthetic staging | Backend/DevOps | Migrations through `202609010002_consent_rpc_rls_guard.sql` are applied and live cross-user/doctor/admin RLS tests pass; reconcile Supabase CLI migration history before automated promotion. |
 | Storage security | Partially ready | Backend/DevOps | StorageProvider, S3 presigning, mock provider, signed download, and delete flow exist; configure private S3 bucket and verify staging upload/download/delete before real PHI. |
 | Malware scanning | Blocked | Backend/Security | Provider abstraction and scan gate exist; replace mock/stub with ClamAV or S3 event scanner before real PHI. |
-| Upload flow | Partially ready | Engineering | Upload starts as `upload_pending`, validates MIME/size, checks persisted required consent when Supabase is configured, audits signed URLs, and finalizes via upload-complete; staging S3 verification remains. |
+| Upload flow | Partially ready | Engineering | Deployed upload-init rejects missing/partial/revoked consent and proceeds to file validation after both required consents; staging S3 verification remains. |
 | Processing pipeline | Partially ready | Backend/Platform | Database workflow provider, idempotency, leases, retry scheduling, blocked state, and scan-gated process-once exist; verify against staging Postgres and real worker concurrency. |
 | Marker/OCR | Partially ready | AI/Backend | Provider contracts and durable steps exist; configure and verify Marker and Textract fallback in staging. |
 | AI structured outputs | Blocked | AI/Backend | Schema-first local path exists; wire OpenAI Structured Outputs and Pydantic validation in worker. |
 | Safety rules | Partially ready | AI/Safety/Medical | Unsafe-language filter and routing exist; doctor-review critical thresholds with real report set. |
 | Unsupported report handling | Partially ready | AI/Safety | Unsupported reports are blocked from AI-only interpretation; expand internal fixture coverage. |
 | Admin correction | Partially ready | Ops/Engineering | Correction flow preserves originals and audits locally; migrate to Postgres. |
-| Doctor review | Partially ready | Medical/Ops/Engineering | Assigned review flow exists; validate with Supabase-backed doctor accounts and contracts. |
-| Audit logs | Partially ready | Engineering/Ops | Supabase audit writes exist for auth/profile/consent/upload/report access/feedback/analytics metadata; validate append-only behavior and admin review access in staging. |
+| Doctor review | Partially ready | Medical/Ops/Engineering | Assigned versus unassigned doctor RLS passes with real staging JWTs; validate full approve/edit/reject UI and contracts. |
+| Audit logs | Partially ready | Engineering/Ops | Live staging writes and user insert/read restrictions pass for onboarding, consent, and blocked upload paths; append-only governance and admin review operations remain. |
 | Model runs | Partially ready | AI/Backend | Local model run logs exist; ensure all OpenAI calls log status/cost/latency/hash. |
 | Data export/delete | Partially ready | Engineering/Legal | Internal flow exists; DPDP retention/deletion process needs legal review. |
 | Feedback capture | Ready for scaffold beta | Product/Ops | Feedback capture and admin view exist; triage daily. |
@@ -41,15 +41,15 @@ This repo is ready for scaffold/operator rehearsal and now has a production-shap
 
 | Item | Status | Next step |
 | --- | --- | --- |
-| Supabase Auth | Partially ready | Staging keys are configured and deployed for Vercel branch `dev`; validate synthetic signup/login/JWT sessions. |
-| Postgres persistence | Partially ready | Migrations are applied and the deployed service query passes; verify synthetic profile/consent/report/job/audit writes and reads in staging. |
-| RLS policies | Partially ready | 39 policies are present and all 15 checked sensitive tables have RLS enabled in staging; run the live JWT-backed harness before real PHI. |
-| RLS tests | Blocked | Opt-in harness exists at `npm run test:rls`; run with `RUN_LIVE_SUPABASE_RLS=true` and staging Supabase env. |
-| Role model | Partially ready | `user`, `doctor`, `admin`, `superadmin` model exists; verify superadmin-only role changes in staging. |
-| Consent gate | Partially ready | Backend upload-init checks persisted consent when Supabase is configured; run deployed staging upload-init tests for missing/partial/full consent. |
-| Audit logs | Partially ready | Consent, blocked/successful upload-init, upload metadata, signed URL, report access, feedback, analytics, and API audit helper writes exist; verify live staging rows and PHI-safe metadata. |
+| Supabase Auth | Partially ready | Deployed login/session and `/api/auth/me` pass; public signup reached the default Supabase email quota, so custom SMTP or an approved quota is required for dependable invitations. |
+| Postgres persistence | Ready for verified core paths | Synthetic profile, health profile, questionnaire, consent, audit, analytics, report metadata, and job metadata checks pass in staging. |
+| RLS policies | Ready for verified core paths | Live user/user, doctor assignment, admin, superadmin, audit, consent, feedback, analytics, report, job, and service-role boundaries pass. |
+| RLS tests | Ready | `npm run test:rls` passed against staging with six synthetic JWT identities and cleanup. |
+| Role model | Ready for verified boundaries | `user`, `doctor`, `admin`, `superadmin` checks pass; only superadmin can grant/revoke roles through client RLS. |
+| Consent gate | Ready for upload-entry boundary | Deployed upload-init rejects missing, partial, and revoked required consent and reaches MIME validation only after both required consents are granted. |
+| Audit logs | Partially ready | Live writes and user access restrictions pass; append-only governance and operator review queries still require an operational procedure. |
 | Backend service-role isolation | Ready | The staging server credential is a protected Vercel Secret scoped only to Preview branch `dev`; Production was not changed. |
-| Frontend secret safety | Partially ready | Public client uses anon config and static test blocks `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY`; inspect built bundle in staging. |
+| Frontend secret safety | Ready | Public client uses anon config; static tests and the production bundle scan found no service-role key, secret-key prefix, or beta invite variable. |
 | Local fallback hardening | Ready | Local cookie fallback now requires `APP_ENV=local/development` and `ENABLE_LOCAL_AUTH_FALLBACK=true`; staging/production fail closed when Supabase is missing. |
 
 ## Private Storage Gate
@@ -155,7 +155,8 @@ This repo is ready for scaffold/operator rehearsal and now has a production-shap
 | Deployed Supabase connectivity | Ready | `lyf9-dev.vercel.app/api/health` returns `status: ok` and `store.ok: true` | Monitor while running synthetic Auth/RLS tests. |
 | Live verification orchestrator | Ready | `npm run verify:staging` | Run only with `APP_ENV=staging`; it refuses production and missing env. |
 | Supabase migration check | Partially ready | Staging SQL verification | Schema smoke passed; reconcile Supabase CLI migration history and run `npm run verify:staging:supabase`. |
-| RLS/JWT live check | Blocked | `npm run verify:staging:rls` | Seed staging users and run the live RLS harness. |
+| RLS/JWT live check | Ready | `npm run test:rls` passed with six isolated JWT identities | Re-run after any RLS migration. |
+| Deployed Auth/API check | Partially ready | `npm run test:auth-live` passed login, sessions, persistence, route denial, and consent gating | Configure custom SMTP or approved email limits, then require public signup to pass without fixture fallback. |
 | Workflow concurrency check | Blocked | `npm run verify:staging:workflow` | Seed a queued job and verify atomic claim behavior. |
 | S3 private smoke check | Blocked | `npm run verify:staging:s3` | Configure private bucket/IAM; then verify app audit rows through E2E. |
 | Malware scanner live check | Blocked | `npm run verify:staging:malware` | Wire a real scanner; current staging-safe behavior is fail-closed. |
@@ -179,7 +180,7 @@ This repo is ready for scaffold/operator rehearsal and now has a production-shap
 ## Doctor Review Go/No-Go
 
 - [x] Doctor role exists in the Supabase role model and route guards.
-- [ ] Doctor can see assigned reports only in live staging RLS/JWT tests.
+- [x] Doctor can see assigned reports only in live staging RLS/JWT tests.
 - [ ] Doctor can view report, user context, biomarkers, and AI draft.
 - [ ] Doctor can approve.
 - [ ] Doctor can edit and approve.

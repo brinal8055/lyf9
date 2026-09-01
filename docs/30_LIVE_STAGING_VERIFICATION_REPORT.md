@@ -2,13 +2,30 @@
 
 ## Run Summary
 
+### 2026-09-01 Live Auth, RLS, And Consent Gate
+
+Environment: Supabase `lyf9-staging` (`wjjwdakfyigwwohbntyv`) and `https://lyf9-dev.vercel.app` only. Production was not changed.
+
+Passed evidence:
+
+- Applied `202609010002_consent_rpc_rls_guard.sql`; consent RPC is `SECURITY INVOKER`, `anon` cannot execute it, and authenticated/service-role callers retain scoped access.
+- `npm run test:rls` passed with six synthetic Supabase Auth identities covering user/user isolation, assigned doctor access, admin boundaries, superadmin role grant/revoke, consent scoping, report/job metadata, audit restrictions, feedback, analytics, and service-role bypass.
+- `npm run test:auth-live` passed deployed login/session, `/api/auth/me`, user denial from admin/doctor routes, profile and questionnaire persistence, consent grant/revoke persistence, backend upload consent denial, and post-consent MIME validation.
+- Normal local suite passed with 121 tests; three opt-in live suites were skipped as designed.
+- Lint, typecheck, production web build, copy scan, eight FastAPI tests, API health, and frontend bundle secret scan passed.
+- Independent SQL cleanup check returned zero synthetic Auth users and zero synthetic profiles.
+
+Known limitation:
+
+- Supabase's default staging email sender reached its rate limit during repeated signup diagnostics. The deployed test permits service-role fixture provisioning only for that exact error so authorization testing can continue. Configure custom SMTP or an approved email quota, then require public signup to pass without fallback before onboarding beta users.
+
 ### 2026-09-01 Staging Foundation Reconciliation
 
 Environment: Supabase `lyf9-staging` (`wjjwdakfyigwwohbntyv`) and the Vercel `dev` preview branch only.
 
 Completed evidence:
 
-- Applied all additive schema files through `202609010001_biomarker_catalog_rls.sql` to staging only.
+- Applied all additive schema files through `202609010002_consent_rpc_rls_guard.sql` to staging only.
 - Verified 28 public tables, 45 biomarker catalog rows, and 19 biomarker aliases.
 - Verified RLS enabled on all 15 security-sensitive tables included in the staging check.
 - Verified 39 public-schema policies.
@@ -31,7 +48,7 @@ npm run typecheck  PASS after the production build regenerated branch-correct Ne
 
 Known reconciliation item: these migrations were applied through the staging SQL editor, not the Supabase CLI, so migration-history repair/verification is still required before automated migration deployment is considered ready.
 
-Current verdict remains **No-go for real PHI private beta** until live cross-user RLS, private storage, malware scanning, and full synthetic pipeline checks pass. Deployed Supabase health is now passing.
+Current verdict remains **No-go for real PHI private beta** until private storage, malware scanning, reliable signup email delivery, and full synthetic pipeline checks pass. Deployed Supabase health, Auth/RLS boundaries, persistence, and consent gating now pass.
 
 Date: 2026-06-12
 
@@ -67,6 +84,7 @@ Live staging commands now available:
 npm run verify:staging
 npm run verify:staging:supabase
 npm run verify:staging:rls
+npm run verify:staging:auth
 npm run verify:staging:workflow
 npm run verify:staging:s3
 npm run verify:staging:malware
@@ -82,8 +100,9 @@ npm run eval:golden:live
 | Area | Status | Evidence | Next step |
 | --- | --- | --- | --- |
 | Deployed Supabase connectivity | Ready | `lyf9-dev.vercel.app/api/health` reports `store.ok: true` against Supabase Postgres | Keep the server key in Vercel Preview `dev` only and monitor health. |
-| Supabase migrations | Partially ready | Schema through `202609010001_biomarker_catalog_rls.sql` applied in staging SQL editor | Reconcile CLI migration history and run `npm run verify:staging:supabase`. |
-| RLS/JWT | Partially ready | RLS enabled on checked tables; 39 policies present | Run `npm run verify:staging:rls` with isolated staging users. |
+| Supabase migrations | Partially ready | Schema through `202609010002_consent_rpc_rls_guard.sql` applied in staging SQL editor | Reconcile CLI migration history and run `npm run verify:staging:supabase`. |
+| RLS/JWT | Ready for core boundaries | Six-identity live JWT harness passed with synthetic cleanup | Re-run after every RLS migration. |
+| Deployed Auth/API | Partially ready | Login/session, persistence, route denial, consent transitions, and backend upload gate passed | Configure custom SMTP/approved email quota and rerun public signup without fixture fallback. |
 | Workflow concurrency | Not run | Live harness exists | Seed queued job and run `npm run verify:staging:workflow`. |
 | S3 private storage | Not run | S3 direct smoke harness exists | Configure bucket/IAM and run `npm run verify:staging:s3`. |
 | Signed upload/download/delete | Not run | S3 harness validates signed PUT/GET/delete when env exists | Run full app E2E after S3 smoke to verify audit rows. |
@@ -139,7 +158,7 @@ No live synthetic data was created in this local run. Future live runs must dele
 
 P0 risks remain:
 
-- Supabase live RLS has not passed.
+- Supabase live RLS and deployed core Auth/API consent checks have passed; public signup email delivery remains quota-limited.
 - Private S3 has not been smoke-tested with app audit rows.
 - Real malware scanner is absent.
 - Marker, Textract, and OpenAI providers are contract-only for live execution.
