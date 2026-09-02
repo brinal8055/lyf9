@@ -1,14 +1,14 @@
 {
   "checks": [
     {
-      "detail": "> @lyf9/web@0.1.0 test:inngest-live\n> vitest run src/inngest/staging-inngest-live.test.ts\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ❯ src/inngest/staging-inngest-live.test.ts (4 tests | 1 failed) 2635ms\n   × live staging Inngest saga > runs a synthetic unsupported PDF through GuardDuty, Textract, and classification without AI 2632ms\n     → expected 500 to be 200 // Object.is equality\n\n Test Files  1 failed (1)\n      Tests  1 failed | 3 passed (4)\n   Start at  17:36:52\n   Duration  3.57s (transform 93ms, setup 0ms, collect 197ms, tests 2.64s, environment 0ms, prepare 97ms)\n\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/inngest/staging-inngest-live.test.ts > live staging Inngest saga > runs a synthetic unsupported PDF through GuardDuty, Textract, and classification without AI\nAssertionError: expected 500 to be 200 // Object.is equality\n\n- Expected\n+ Received\n\n- 200\n+ 500\n\n ❯ src/inngest/staging-inngest-live.test.ts:98:31\n     96|     try {\n     97|       const endpoint = await fetch(`${env.stagingOrigin}/api/inngest`,…\n     98|       expect(endpoint.status).toBe(200);\n       |                               ^\n     99|       const health = await fetch(`${env.stagingOrigin}/api/health`);\n    100|       expect(health.status).toBe(200);\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\nnpm error Lifecycle script `test:inngest-live` failed with error:\nnpm error code 1\nnpm error path [workspace]/apps/web\nnpm error workspace @lyf9/web@0.1.0\nnpm error location [workspace]/apps/web\nnpm error command failed\nnpm error command sh -c vitest run src/inngest/staging-inngest-live.test.ts",
+      "detail": "> @lyf9/web@0.1.0 test:inngest-live\n> vitest run src/inngest/staging-inngest-live.test.ts\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ✓ src/inngest/staging-inngest-live.test.ts (4 tests) 52280ms\n   ✓ live staging Inngest saga > runs a synthetic unsupported PDF through GuardDuty, Textract, and classification without AI 52276ms\n\n Test Files  1 passed (1)\n      Tests  4 passed (4)\n   Start at  18:05:52\n   Duration  52.92s (transform 89ms, setup 0ms, collect 200ms, tests 52.28s, environment 0ms, prepare 70ms)",
       "name": "live_inngest_saga_harness_passed",
-      "passed": false
+      "passed": true
     }
   ],
-  "endedAt": "2026-09-02T12:06:56.521Z",
+  "endedAt": "2026-09-02T12:36:45.493Z",
   "section": "inngest",
-  "startedAt": "2026-09-02T12:06:52.279Z",
-  "status": "failed",
+  "startedAt": "2026-09-02T12:35:51.513Z",
+  "status": "passed",
   "syntheticOnly": true
 }

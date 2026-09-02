@@ -2,16 +2,19 @@
 
 ## Run Summary
 
-### 2026-09-02 Inngest Staging Preflight
+### 2026-09-02 Live Inngest Staging Saga Pass
 
 Environment: Vercel Preview `dev` and the local guarded verifier. Production was not changed and no real PHI was used.
 
-- `https://lyf9-dev.vercel.app/api/inngest` currently returns HTTP 500.
-- Staging health reports `inngestConfigured: false`; event and signing keys are absent.
-- Added fail-closed configuration checks, pre-mutation upload rejection, degraded deployed health, and `npm run verify:staging:inngest`.
-- The verifier uses a synthetic unsupported radiology PDF and the deployed authenticated upload flow. Its intended terminal state is `unsupported` after GuardDuty, Textract, and deterministic classification, with zero AI outputs.
+- Created an isolated Inngest custom Staging environment and stored its event/signing keys as encrypted Vercel secrets scoped only to Preview branch `dev`.
+- Staging health reports `status: ok` and `inngestConfigured: true`; unsigned `/api/inngest` access returns `401 Unauthorized` while signed synchronization succeeds.
+- The initial sync exposed a plan mismatch: function concurrency `10` exceeded the account limit `5`. Commit `052815e` lowered the deployment contract to `5` and added regression coverage.
+- Inngest Staging now registers app `lyf9`, function `process-report`, trigger `report/confirmed`, and the exact staging endpoint.
+- `npm run verify:staging:inngest` passed four tests in 52.92 seconds. The synthetic unsupported radiology PDF completed authenticated upload, GuardDuty, Textract, Postgres step transitions, and deterministic unsupported classification through the deployed saga.
+- The verifier proved zero model runs, biomarker results, health insights, or AI interpretation, then removed the S3 object and synthetic Auth user.
+- Artifact `artifacts/staging-verification/inngest.json` contains PHI-free pass metadata only.
 
-Verdict: code-side safety and verification foundations are **ready**, but the deployed saga remains **blocked** pending non-Production Inngest keys, Vercel Preview `dev` configuration, redeployment, and endpoint sync.
+Verdict: the deployed Inngest saga is **ready for synthetic staging**. Production was not changed. Live structured AI, scanned-image OCR coverage, and the remaining governance gates still block real PHI.
 
 ### 2026-09-02 Live Textract Document Extraction Pass
 
@@ -28,7 +31,7 @@ Passed evidence:
 - The harness deleted its staging S3 object and synthetic Supabase Auth user in `finally`.
 - Artifact `artifacts/staging-verification/textract.json` records pass/fail metadata only and contains no extracted report text.
 
-Verdict: Textract document extraction is **ready for synthetic staging**. Scanned-image OCR coverage, deployed Inngest saga verification, live structured AI, and the remaining release gates still block real PHI.
+Verdict: Textract document extraction is **ready for synthetic staging**. The deployed Inngest saga now also passes; scanned-image OCR coverage, live structured AI, and the remaining release gates still block real PHI.
 
 ### 2026-09-02 Live Durable Workflow Pass
 
@@ -194,6 +197,7 @@ npm run verify:staging:auth
 npm run verify:staging:workflow
 npm run verify:staging:s3
 npm run verify:staging:malware
+npm run verify:staging:inngest
 npm run verify:staging:marker
 npm run verify:staging:textract
 npm run verify:staging:openai
@@ -209,7 +213,7 @@ npm run eval:golden:live
 | Supabase migrations | Partially ready | Schema through `202609010002_consent_rpc_rls_guard.sql` applied in staging SQL editor | Reconcile CLI migration history and run `npm run verify:staging:supabase`. |
 | RLS/JWT | Ready for core boundaries | Six-identity live JWT harness passed with synthetic cleanup | Re-run after every RLS migration. |
 | Deployed Auth/API | Partially ready | Login/session, persistence, route denial, consent transitions, and backend upload gate passed | Configure custom SMTP/approved email quota and rerun public signup without fixture fallback. |
-| Workflow concurrency | Ready for synthetic staging | Self-seeding harness passed unique claims, retry timing, lease/step recovery, RPC denial, safe audits, and cleanup | Re-run after workflow migration/provider changes; configure and rehearse the deployed Inngest runner. |
+| Workflow concurrency | Ready for synthetic staging | Self-seeding claims/recovery and the deployed Inngest saga both pass with safe audits and cleanup | Re-run after workflow, scanner, parser, or deployment changes. |
 | S3 private storage | Ready for synthetic staging | Guarded app-level harness passed against the staging-only bucket | Re-run after IAM, bucket-policy, or signing changes; approve retention policy before PHI. |
 | Signed upload/download/delete | Ready for synthetic staging | App routes, S3 privacy/encryption, DB metadata, audit rows, delete, and cleanup passed | Keep production unchanged until remaining release gates pass. |
 | Malware scanner | Ready for synthetic staging | GuardDuty clean/EICAR harness passes with cleanup | Re-run after IAM, bucket, scanner, or prefix changes. |

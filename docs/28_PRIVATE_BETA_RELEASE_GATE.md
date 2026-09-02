@@ -4,9 +4,9 @@
 
 Decision: **No-go for real PHI private beta**.
 
-Current readiness score including live staging evidence: **88/100**.
+Current readiness score including live staging evidence: **90/100**.
 
-Reason: synthetic golden QA, live staging Supabase/RLS, private S3, GuardDuty clean/threat verification, atomic workflow concurrency/recovery, and Textract document extraction pass. The Inngest staging runner, structured AI provider, doctor threshold review, retention governance, observability, and legal review are still incomplete.
+Reason: synthetic golden QA, live staging Supabase/RLS, private S3, GuardDuty clean/threat verification, atomic workflow concurrency/recovery, Textract extraction, and the deployed Inngest saga pass. Structured AI, scanned-image OCR, doctor threshold review, retention governance, observability, and legal review are still incomplete.
 
 Live staging evidence:
 
@@ -57,7 +57,7 @@ Interpretation: local deterministic QA is healthy, but it does not replace live 
 
 | Blocker | Status | Required evidence |
 | --- | --- | --- |
-| Workflow concurrency | Ready for synthetic staging | Database claims/recovery pass. The event-driven saga verifier is implemented but remains blocked until staging-only Inngest keys and endpoint registration exist. |
+| Workflow concurrency | Ready for synthetic staging | Database claims/recovery and the deployed event-driven Inngest saga pass with synthetic cleanup; re-run after workflow, scanner, parser, or deployment changes. |
 | Observability | Partial | Sentry or equivalent with PHI scrubbing and alert routing. |
 | Admin QA UI | Partial | Operators can see golden failures, low confidence, unmapped markers, unsafe blocks, model failures. |
 | Broader E2E | Partial | Deployed staging E2E covers auth, consent, upload, admin, doctor assignment, audit. |
@@ -92,12 +92,11 @@ Any of these keep the release blocked:
 
 ## Exact Next Actions
 
-1. Follow `docs/36_INNGEST_STAGING_SETUP.md`, then pass `npm run verify:staging:inngest` against the deployed authenticated upload path.
+1. Verify the configured structured AI provider and add scanned-image Textract coverage; Marker remains optional while unselected.
 2. Reconcile Supabase CLI migration history with the migrations applied to staging through the SQL editor.
-3. Verify the configured structured AI provider and add scanned-image Textract coverage; Marker remains optional while unselected.
-4. Expand golden dataset from 13 synthetic fixtures to at least 25 internally reviewed synthetic or consented internal samples.
-5. Get doctor review of critical thresholds.
-6. Complete legal review.
-7. Add CI for the full release-gate command set.
+3. Expand golden dataset from 13 synthetic fixtures to at least 25 internally reviewed synthetic or consented internal samples.
+4. Get doctor review of critical thresholds.
+5. Complete legal review.
+6. Add CI for the full release-gate command set.
 
 Current release owner recommendation: **do not invite 30-50 real PHI users yet**.

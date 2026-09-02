@@ -6,7 +6,7 @@
 
 The product can be used for internal scaffold rehearsal. The end-to-end user journey exists, but core PHI safety infrastructure is not production-ready.
 
-Private beta readiness score including current live staging evidence: **88/100**
+Private beta readiness score including current live staging evidence: **90/100**
 
 ## P0 Blockers Before Any Real PHI
 
@@ -17,7 +17,6 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 | Blocker | Evidence | Required Fix |
 | --- | --- | --- |
 | Signup email delivery is rate-limited | Live `npm run test:auth-live` staging run | Configure custom SMTP or an approved Supabase Auth email quota, then require public invite signup to pass without service-role fixture provisioning. |
-| Inngest staging runner not rehearsed | `apps/web/src/inngest/process-report.ts`, `apps/web/src/inngest/staging-inngest-live.test.ts` | Fail-closed gates and a live verifier exist. Configure staging-only event/signing keys, register the deployed route, and pass `npm run verify:staging:inngest`. The Python worker is a health/status compatibility stub, not the selected runner. |
 | Scanned-image OCR coverage incomplete | `apps/web/src/lib/document-extraction/staging-textract-live.test.ts` | Textract primary extraction is live-verified on a synthetic PDF; add a synthetic scanned/image report before broadening intake. Marker is optional while Textract is selected. |
 | Live OpenAI structured path not verified | `apps/web/src/lib/ai/openai-structured-provider.ts` | Configure OpenAI models in staging, execute live structured-output calls, and run golden dataset QA. |
 | Golden dataset too small for PHI beta | `tests/golden/`, `docs/26_GOLDEN_DATASET_EVALUATION_REPORT.md` | Expand beyond synthetic smoke coverage to at least 25 internally reviewed samples and retain 100% safety gate pass. |
@@ -50,6 +49,7 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 - S3 direct signed PUT/GET/delete smoke harness exists, but full app audit-row verification still requires deployed app E2E.
 - GuardDuty verification now passes with live AWS staging evidence; Marker, structured AI, live golden subset, and full E2E still lack live evidence.
 - Textract asynchronous document extraction now passes against a synthetic staging PDF, including private S3 input, expected text, page count, confidence, `extracted_documents` provenance, and guaranteed cleanup. Marker remains optional while Textract is the selected parser.
+- The deployed Inngest saga now passes the guarded synthetic upload path through GuardDuty, Textract, deterministic unsupported classification, Postgres state transitions, zero AI outputs, and cleanup. Its keys are encrypted Vercel secrets scoped only to Preview branch `dev`; Production is unchanged.
 - `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` records the current no-go live status.
 
 ## Fixed Or Improved In The Foundation Hardening Pass
@@ -156,11 +156,11 @@ No-go for real users until:
 - RLS is tested.
 - S3 is re-verified after any storage, IAM, signing, or bucket-policy change.
 - Real malware scanning is live.
-- The deployed Inngest saga is rehearsed using the verified staging claim/lease/retry primitives.
+- The deployed Inngest saga continues to pass after workflow, scanner, parser, or deployment changes.
 - The selected parser/OCR path and live structured AI provider are production-wired and staging-verified.
 - At least 25 internal reports across 5 supported categories pass human review.
 - Legal accepts consent/disclaimer/doctor/payment language.
 
 ## First Fix
 
-Follow `docs/36_INNGEST_STAGING_SETUP.md`: add staging-only keys to Vercel Preview `dev`, sync the exact `/api/inngest` URL in a non-Production Inngest environment, and pass the guarded unsupported-report saga verifier. Leave Production unchanged.
+Configure and verify the selected structured AI provider using synthetic supported reports, schema validation, safety filters, model-run logging, golden thresholds, and guaranteed cleanup. Keep unsupported reports fail-closed and leave Production unchanged.

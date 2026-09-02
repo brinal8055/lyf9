@@ -95,7 +95,8 @@ describeLive("live staging Inngest saga", () => {
 
     try {
       const endpoint = await fetch(`${env.stagingOrigin}/api/inngest`, { redirect: "manual" });
-      expect(endpoint.status).toBe(200);
+      expect(endpoint.status).toBe(401);
+      expect(await endpoint.json()).toMatchObject({ message: "Unauthorized" });
       const health = await fetch(`${env.stagingOrigin}/api/health`);
       expect(health.status).toBe(200);
       expect(await health.json()).toMatchObject({

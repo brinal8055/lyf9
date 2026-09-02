@@ -6,9 +6,9 @@ Use this checklist for the first 30-50 early users. This is a private beta gate,
 
 Current decision: **No-go for real PHI private beta**.
 
-Private beta readiness score including current live staging evidence: **88/100**.
+Private beta readiness score including current live staging evidence: **90/100**.
 
-This repo is ready for scaffold/operator rehearsal and now has live-tested staging Supabase Auth/Postgres/RLS, private S3, GuardDuty malware enforcement, atomic workflow concurrency/recovery, and Textract document extraction. Real 30-50 user testing remains blocked by reliable signup email delivery, a configured Inngest staging runner, live structured AI verification, expanded human-reviewed golden QA, observability, retention governance, doctor threshold review, and legal review.
+This repo is ready for scaffold/operator rehearsal and now has live-tested staging Supabase Auth/Postgres/RLS, private S3, GuardDuty malware enforcement, atomic workflow concurrency/recovery, Textract extraction, and the deployed Inngest saga. Real 30-50 user testing remains blocked by reliable signup email delivery, scanned-image OCR coverage, live structured AI verification, expanded human-reviewed golden QA, observability, retention governance, doctor threshold review, and legal review.
 
 ## Current Readiness Matrix
 
@@ -19,7 +19,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Storage security | Ready for synthetic staging | Backend/DevOps | Guarded app-level upload/download/privacy/encryption/DB/audit/delete verification passed; approve retention/versioning and key-management policy before real PHI. |
 | Malware scanning | Ready for synthetic staging | Backend/Security/DevOps | GuardDuty is Active for staging `reports/`; least-privilege tag read and clean/EICAR verification pass. Re-run after scanner, IAM, bucket, or prefix changes. |
 | Upload flow | Ready for synthetic staging | Engineering | Deployed consent gate, private S3 upload/download/delete, and real GuardDuty clean/threat behavior pass with synthetic fixtures. |
-| Processing pipeline | Partially ready | Backend/Platform | Atomic claims/recovery and Textract pass independently; fail-closed upload/health gates and a synthetic saga verifier now exist. Add staging-only Inngest keys, register `/api/inngest`, and run the live verifier. |
+| Processing pipeline | Ready for synthetic staging | Backend/Platform | The deployed Inngest saga passed authenticated upload, GuardDuty, Textract, Postgres transitions, and unsupported classification with cleanup. Add scanned-image OCR and live structured AI verification before PHI. |
 | Document extraction/OCR | Ready for synthetic staging | AI/Backend | Textract primary parsing passed against a synthetic PDF with persistence and cleanup. Marker remains optional while Textract is selected; image/scanned OCR coverage should be added before broadening report intake. |
 | AI structured outputs | Blocked | AI/Backend | Schema-first local path exists; wire OpenAI Structured Outputs and Pydantic validation in worker. |
 | Safety rules | Partially ready | AI/Safety/Medical | Unsafe-language filter and routing exist; doctor-review critical thresholds with real report set. |
@@ -34,7 +34,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Error monitoring | Partially ready | Engineering | Logging helper and env contract exist; wire Sentry with PHI scrubbing. |
 | Payments sandbox | Ready for scaffold beta | Product/Legal | Razorpay placeholder/sandbox only; do not enable real public charges. |
 | Legal review | Blocked | Founders/Legal | Complete DPDP, doctor, disclaimer, payment/refund, and public claims review before public paid launch. |
-| Deployment | Partially ready | DevOps | Supabase/S3 are connected, but `/api/inngest` currently returns 500 and health reports `inngestConfigured: false`. Follow `docs/36_INNGEST_STAGING_SETUP.md`. |
+| Deployment | Ready for synthetic staging | DevOps | Supabase, S3, GuardDuty, Textract, and Inngest Staging are connected on Preview branch `dev`; health reports `ok`, unsigned `/api/inngest` access is denied, and the signed app sync succeeds. Production is unchanged. |
 | Runbook | Ready for scaffold beta | Ops/Product | Runbook exists; rehearse failed report, unsafe output, pause upload, export/delete paths. |
 
 ## Supabase Foundation Gate

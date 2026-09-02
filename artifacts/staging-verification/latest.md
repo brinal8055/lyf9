@@ -1,6 +1,6 @@
 # Live Staging Verification Artifact
 
-Generated: 2026-09-02T11:17:01.438Z
+Generated: 2026-09-02T12:36:45.494Z
 
 Environment: staging
 
@@ -10,7 +10,7 @@ Release verdict: **ready_for_review**
 
 | Section | Status | Checks passed |
 | --- | --- | ---: |
-| textract | passed | 1/1 |
+| inngest | passed | 1/1 |
 
 ## Blockers
 

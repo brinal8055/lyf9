@@ -2,6 +2,8 @@
 
 This runbook configures the Lyf9 AI report-processing saga for the Vercel `dev` deployment. Use the Inngest staging environment and synthetic reports only. Do not change the Inngest Production environment or Vercel Production variables.
 
+Current status: completed for synthetic staging on 2026-09-02. App `lyf9`, function `process-report`, and trigger `report/confirmed` are registered in the isolated Inngest Staging environment, and the guarded live saga verifier passes.
+
 ## Required Keys
 
 In the Inngest dashboard, select or create a non-Production environment for Lyf9 AI staging and obtain:
@@ -25,10 +27,10 @@ Redeploy `dev`, then confirm:
 
 ```bash
 curl -fsS https://lyf9-dev.vercel.app/api/health
-curl -fsS https://lyf9-dev.vercel.app/api/inngest
+curl -sS -o /dev/null -w '%{http_code}\n' https://lyf9-dev.vercel.app/api/inngest
 ```
 
-The health response must report `inngestConfigured: true`; `/api/inngest` must return HTTP 200. Missing cloud keys now make deployed health `degraded`, and upload initialization/completion return HTTP 503 before accepting a new report or changing completion state.
+The health response must report `inngestConfigured: true` and `status: ok`; an unsigned public GET to `/api/inngest` must return HTTP 401. Inngest uses the signing key for authorized synchronization and execution. Missing cloud keys make deployed health `degraded`, and upload initialization/completion return HTTP 503 before accepting a new report or changing completion state.
 
 ## Register The Function Endpoint
 
@@ -39,6 +41,8 @@ https://lyf9-dev.vercel.app/api/inngest
 ```
 
 Confirm the registered app ID is `lyf9` and the function ID is `process-report`. Do not register `lyf9.ai`, a Production Vercel URL, localhost, or a Supabase URL.
+
+The current account permits function concurrency up to `5`; `PROCESS_REPORT_CONCURRENCY_LIMIT` must remain at or below that value unless the plan and deployment contract are intentionally upgraded together.
 
 ## Synthetic Verification
 
@@ -65,7 +69,8 @@ The verification artifact must contain status/count evidence only, never event k
 
 | Failure | Meaning | Response |
 | --- | --- | --- |
-| `/api/inngest` returns 500 | Signing key is missing/invalid or the deployment has not picked up env | Check Preview `dev` scope and redeploy. |
+| Unsigned `/api/inngest` returns 500 instead of 401 | Signing key is missing/invalid or the deployment has not picked up env | Check Preview `dev` scope and redeploy. |
+| Sync reports a concurrency plan limit | Function concurrency exceeds the Inngest environment plan | Keep the code limit at or below the verified plan ceiling, redeploy, and retry sync. |
 | Health reports `inngestConfigured: false` | One or both cloud keys are missing | Add both keys; do not use `INNGEST_DEV=1` in staging. |
 | Event is accepted but no function runs | Endpoint is not synced to the same Inngest environment as the event key | Re-sync the exact staging URL in that environment. |
 | Saga blocks at malware scan | GuardDuty result is unavailable or non-clean | Do not bypass; inspect the staging object tag and retry safely. |

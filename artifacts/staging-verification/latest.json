@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-02T11:17:01.438Z",
+  "generatedAt": "2026-09-02T12:36:45.494Z",
   "environment": "staging",
   "releaseVerdict": "ready_for_review",
   "syntheticOnly": true,
@@ -7,14 +7,14 @@
     {
       "checks": [
         {
-          "detail": "> @lyf9/web@0.1.0 test:textract-live\n> vitest run src/lib/document-extraction/staging-textract-live.test.ts\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ✓ src/lib/document-extraction/staging-textract-live.test.ts (3 tests) 7243ms\n   ✓ live staging Textract document extraction > extracts a synthetic S3 PDF, persists provenance, and cleans up 7240ms\n\n Test Files  1 passed (1)\n      Tests  3 passed (3)\n   Start at  16:46:52\n   Duration  8.93s (transform 125ms, setup 0ms, collect 248ms, tests 7.24s, environment 0ms, prepare 116ms)",
-          "name": "live_textract_harness_passed",
+          "detail": "> @lyf9/web@0.1.0 test:inngest-live\n> vitest run src/inngest/staging-inngest-live.test.ts\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ✓ src/inngest/staging-inngest-live.test.ts (4 tests) 52280ms\n   ✓ live staging Inngest saga > runs a synthetic unsupported PDF through GuardDuty, Textract, and classification without AI 52276ms\n\n Test Files  1 passed (1)\n      Tests  4 passed (4)\n   Start at  18:05:52\n   Duration  52.92s (transform 89ms, setup 0ms, collect 200ms, tests 52.28s, environment 0ms, prepare 70ms)",
+          "name": "live_inngest_saga_harness_passed",
           "passed": true
         }
       ],
-      "endedAt": "2026-09-02T11:17:01.436Z",
-      "section": "textract",
-      "startedAt": "2026-09-02T11:16:51.386Z",
+      "endedAt": "2026-09-02T12:36:45.493Z",
+      "section": "inngest",
+      "startedAt": "2026-09-02T12:35:51.513Z",
       "status": "passed",
       "syntheticOnly": true
     }

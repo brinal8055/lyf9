@@ -4,18 +4,47 @@
 
 Staging foundation reconciliation is in progress for a **production-shaped private beta MVP**.
 
-Supabase staging now has the current schema, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, live GuardDuty clean/threat enforcement, live-verified atomic workflow claims, and a live-verified AWS Textract document-extraction path. The product is not approved for real 30-50 user PHI until the Inngest staging runner, production AI structured outputs, observability/privacy review, retention governance, clinical threshold review, and legal review are completed in staging.
+Supabase staging now has the current schema, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, live GuardDuty clean/threat enforcement, live-verified atomic workflow claims, AWS Textract extraction, and a live-verified deployed Inngest saga. The product is not approved for real 30-50 user PHI until structured AI outputs, scanned-image OCR coverage, observability/privacy review, retention governance, clinical threshold review, and legal review are completed in staging.
 
-Current private beta readiness score: **8.8/10**.
+Current private beta readiness score: **9.0/10**.
 
 No public launch, autonomous diagnosis, prescriptions, medicine-change advice, supplement protocols, pharmacy commerce, lab booking, full doctor marketplace, mobile app, wearables, ABDM/ABHA, genetics, employer, or insurance workflows have been added.
 
 ## Completed In This Pass
 
+### 2026-09-02 Live Inngest Staging Saga Pass
+
+- Created an isolated Inngest custom `Staging` environment. Inngest Production was not changed.
+- Stored the generated event and signing keys as encrypted Vercel secrets scoped only to Preview branch `dev`; no key was committed, printed in an artifact, exposed to the frontend, or added to Vercel Production.
+- Redeployed `dev` and verified `https://lyf9-dev.vercel.app/api/health` reports `status: ok` with `inngestConfigured: true`.
+- Confirmed unsigned public access to `/api/inngest` returns `401 Unauthorized`; signed Inngest synchronization succeeds.
+- The first sync failed safely because `process-report` declared concurrency `10` while the account permits `5`. Commit `052815e` lowers the deployment contract to `5` and adds a regression test.
+- Registered app ID `lyf9`, function ID `process-report`, event `report/confirmed`, and the exact staging endpoint in Inngest Staging.
+- `npm run verify:staging:inngest` passed four tests in 52.92 seconds. The live synthetic report completed GuardDuty, Textract, and deterministic unsupported classification through the deployed saga.
+- Verified the unsupported radiology fixture created no model runs, biomarker results, health insights, or AI interpretation. The harness cleaned up its S3 object and synthetic Supabase Auth user.
+- Passing PHI-free evidence is stored in `artifacts/staging-verification/inngest.json`.
+
+Verification:
+
+```txt
+npm test  # 154 passed, 7 credential-gated live tests skipped
+npm run typecheck
+npm run lint
+npm run copy:scan
+npm run build:web
+npm run verify:staging:inngest  # 4 passed, including the live deployed saga and cleanup
+```
+
+Current remaining blockers: reliable signup email delivery, scanned-image OCR coverage, live structured AI outputs and golden evaluation, PHI-safe observability, retention governance, clinician-reviewed thresholds, and legal review. Production remains unchanged.
+
+Next recommended prompt:
+
+> Implement and verify the selected structured AI provider in staging using synthetic supported reports only. Validate extraction and explanation schemas, unsafe-language blocking, confidence and critical routing, model-run audit metadata, and golden thresholds. Keep unsupported reports fail-closed, keep real PHI and Production untouched, and stop if provider safety or schema validation fails.
+
 ### 2026-09-02 Inngest Staging Gate And Verifier Foundation
 
 - Reconciled the manual cleanup commit `fe2fc51`; local `dev` and `origin/dev` matched and the worktree was clean before this pass.
-- Confirmed the deployed `/api/inngest` route returns HTTP 500 and `/api/health` reports `inngestConfigured: false`; the staging cloud keys are not configured yet.
+- At the start of the pass, confirmed `/api/inngest` returned HTTP 500 and health reported `inngestConfigured: false`, establishing the fail-closed baseline before the live configuration pass above.
 - Added `isInngestConfigured()` with a strict deployed rule: staging/production require both event and signing keys, and `INNGEST_DEV=1` is accepted only for local development.
 - Upload initialization and completion now return HTTP 503 before accepting a new report or changing completion state when Supabase mode is active but the deployed saga is unavailable.
 - Deployed health now reports `degraded` when staging/production lacks Inngest, rather than presenting the report-processing service as fully healthy.
@@ -35,10 +64,10 @@ npm run api:test  # 8 passed
 npm run api:health
 npm run worker:health
 git diff --check
-APP_ENV=staging npm run verify:staging:inngest  # fails closed while staging keys are absent
+APP_ENV=staging npm run verify:staging:inngest  # originally failed closed while staging keys were absent
 ```
 
-Current blocker requiring environment access: create/select a non-Production Inngest environment, add its event and signing keys to Vercel Preview branch `dev` only, redeploy, and sync `https://lyf9-dev.vercel.app/api/inngest`. Then run `npm run verify:staging:inngest` and retain only the PHI-free passing artifact. Production must remain unchanged.
+Resolved in the live pass above: the staging-only keys, deployment, endpoint sync, concurrency compatibility fix, and guarded synthetic saga verification now pass. Production remains unchanged.
 
 ### 2026-09-02 Live Textract Document Extraction Pass
 
@@ -68,13 +97,13 @@ npm run worker:health
 git diff --check
 ```
 
-Current remaining blocker: configure the staging Inngest event/signing keys and register the deployed `/api/inngest` endpoint so `report/confirmed` runs the durable saga automatically. The Python worker remains a health/status compatibility stub; the production-shaped execution path is the Inngest saga in `apps/web`. Marker is optional for the beta while Textract is selected. Live structured AI and the other release gates remain blocked.
+The Python worker remains a health/status compatibility stub; the production-shaped execution path is the live-verified Inngest saga in `apps/web`. Marker is optional for the beta while Textract is selected. Scanned-image OCR coverage, live structured AI, and the other release gates remain blocked.
 
 Known dependency risk: `npm audit` currently reports 17 findings (1 low, 4 moderate, 11 high, 1 critical). This scoped pass did not apply a broad or breaking audit fix; run a dedicated dependency review before real PHI.
 
 Next recommended prompt:
 
-> Configure and verify the Lyf9 AI staging Inngest runner for the `dev` deployment: add staging-only event/signing keys, register `https://lyf9-dev.vercel.app/api/inngest`, send a synthetic `report/confirmed` event, verify GuardDuty and Textract saga steps plus Postgres/audit transitions, stop before unconfigured AI, clean up all fixtures, and leave Production unchanged.
+> Implement and verify the selected structured AI provider in staging using synthetic supported reports only. Require schema-valid biomarker extraction and explanation, source traceability, confidence and critical routing, unsafe-language blocking, model-run logs, golden evaluation, and guaranteed cleanup. Leave Production and real PHI untouched.
 
 ### 2026-09-02 Live Durable Workflow Concurrency And Recovery Pass
 
