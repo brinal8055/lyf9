@@ -17,8 +17,10 @@ Completed evidence:
 - Added staging-prefix `s3:GetObjectTagging` to `Lyf9StagingReportStoragePolicy`; the app principal received no GuardDuty administration permissions.
 - Activated GuardDuty Malware Protection for S3 on `reports/`, with managed object tagging and a dedicated GuardDuty service role.
 - Scoped Vercel Preview branch `dev` to `MALWARE_SCANNER_PROVIDER=guardduty-s3`, a 20-second app poll window, and 2-second polling.
-- `npm run verify:staging:malware` passed four tests: guardrails plus a live clean PDF `NO_THREATS_FOUND` result and EICAR `THREATS_FOUND` result in 6.7 seconds.
+- `npm run verify:staging:malware` passed four tests: guardrails plus a live clean PDF `NO_THREATS_FOUND` result and EICAR `THREATS_FOUND` result in 3.5 seconds in the final evidence run.
 - The verifier deleted both synthetic objects in `finally`; no production setting or bucket was changed.
+- Commit `fbf1c0f` was pushed to `dev`, and the matching Vercel Preview deployment reached `Ready`.
+- The stable staging health endpoint returned `status: ok` with Supabase Postgres and private S3 connected after deployment.
 
 Verdict: the real malware-scanning blocker is **resolved for synthetic staging**. The overall real-PHI decision remains **No-go** until the other release gates pass.
 

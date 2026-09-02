@@ -93,12 +93,11 @@ Any of these keep the release blocked:
 ## Exact Next Actions
 
 1. Reconcile Supabase CLI migration history with the migrations applied to staging through the SQL editor.
-2. Deploy the updated `dev` branch with its dev-only Vercel staging environment variables.
-3. Verify concurrent workflow claims, leases, retries, and recovery against staging Postgres.
-4. Verify Marker, Textract, and the configured structured AI provider where current commands report blocking.
-5. Expand golden dataset from 13 synthetic fixtures to at least 25 internally reviewed synthetic or consented internal samples.
-6. Get doctor review of critical thresholds.
-7. Complete legal review.
-8. Add CI for the full release-gate command set.
+2. Verify concurrent workflow claims, leases, retries, and recovery against staging Postgres.
+3. Verify Marker, Textract, and the configured structured AI provider where current commands report blocking.
+4. Expand golden dataset from 13 synthetic fixtures to at least 25 internally reviewed synthetic or consented internal samples.
+5. Get doctor review of critical thresholds.
+6. Complete legal review.
+7. Add CI for the full release-gate command set.
 
 Current release owner recommendation: **do not invite 30-50 real PHI users yet**.

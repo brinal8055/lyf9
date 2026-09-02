@@ -27,6 +27,8 @@ No public launch, autonomous diagnosis, prescriptions, medicine-change advice, s
 - Activated GuardDuty Malware Protection for the staging `reports/` prefix in `ap-south-1`, with managed object tagging and a dedicated service role.
 - Updated Vercel Preview branch `dev` only; Production was not changed.
 - Passed `npm run verify:staging:malware`: clean PDF mapped to `NO_THREATS_FOUND`, EICAR mapped to `THREATS_FOUND`, and both synthetic objects were cleaned up.
+- Pushed commit `fbf1c0f` to `origin/dev`; its Vercel Preview deployment reached `Ready`.
+- Confirmed `https://lyf9-dev.vercel.app/api/health` returns `status: ok`, `storageProvider: s3`, `storageConfigured: true`, `storeMode: supabase-postgres`, and `store.ok: true` after deployment.
 
 Verification passed so far:
 
@@ -42,11 +44,11 @@ npm run worker:health
 npm run verify:staging:malware  # 4 passed, including live clean/EICAR; synthetic objects deleted
 ```
 
-Current remaining blocker: deploy this code to Vercel Preview `dev`, then verify durable processing-job claim/lease/retry behavior with concurrent staging workers. Real PHI remains no-go until the full release gate passes.
+Current remaining blocker: verify durable processing-job claim/lease/retry behavior with concurrent staging workers. Real PHI remains no-go until the full release gate passes.
 
 Next recommended prompt:
 
-> Deploy the GuardDuty-gated `dev` branch to Lyf9 AI staging, verify the deployed health/config state, then run concurrent processing-job claim, lease, retry, and recovery checks against staging Postgres using synthetic records only. Keep production unchanged and do not proceed to extraction unless malware scan status is `scan_passed`.
+> Run concurrent processing-job claim, lease, retry, and recovery checks against Lyf9 AI staging Postgres using synthetic records only. Confirm the GuardDuty-gated `dev` deployment never proceeds to extraction unless malware scan status is `scan_passed`; keep production unchanged.
 
 ### 2026-09-02 Live Private S3 Verification
 
