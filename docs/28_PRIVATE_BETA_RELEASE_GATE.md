@@ -45,7 +45,7 @@ Interpretation: local deterministic QA is healthy, but it does not replace live 
 | Blocker | Status | Required evidence |
 | --- | --- | --- |
 | Supabase/RLS live verification | Partially ready | Staging schema and policies are applied; `npm run verify:staging:rls` must still pass with isolated staging users. |
-| Private S3 smoke test | Blocked | `npm run verify:staging:s3` passes and full app E2E confirms audit rows. |
+| Private S3 smoke test | Ready for synthetic staging | `npm run verify:staging:s3` passed upload/download/privacy/encryption/DB/audit/delete/cleanup; approve retention/versioning policy before PHI. |
 | Real malware scanner | Blocked | `npm run verify:staging:malware` passes with real scanner or approved fail-closed/manual process. |
 | Live Marker extraction | Blocked | `npm run verify:staging:marker` parses synthetic digital PDF with expected text/tables. |
 | Live Textract/OCR fallback | Blocked | `npm run verify:staging:textract` succeeds or reviewed manual fallback is accepted. |

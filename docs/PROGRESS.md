@@ -4,13 +4,26 @@
 
 Staging foundation reconciliation is in progress for a **production-shaped private beta MVP**.
 
-Supabase staging now has the current schema, live JWT-backed RLS verification, deployed Auth/session persistence checks, and a backend-enforced consent gate. The product is not approved for real 30-50 user PHI until private S3 storage, real malware scanning, durable workflow execution, Marker/OCR, production AI structured outputs, observability/privacy review, and legal review are completed in staging.
+Supabase staging now has the current schema, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, and live-verified private S3 report storage. The product is not approved for real 30-50 user PHI until real malware scanning, durable workflow execution, Marker/OCR, production AI structured outputs, observability/privacy review, retention governance, and legal review are completed in staging.
 
-Current private beta readiness score: **7.8/10**.
+Current private beta readiness score: **8.1/10**.
 
 No public launch, autonomous diagnosis, prescriptions, medicine-change advice, supplement protocols, pharmacy commerce, lab booking, full doctor marketplace, mobile app, wearables, ABDM/ABHA, genetics, employer, or insurance workflows have been added.
 
 ## Completed In This Pass
+
+### 2026-09-02 Live Private S3 Verification
+
+- Configured the dedicated `lyf9-reports-storage-staging` bucket in `ap-south-1` with a staging-only least-privilege IAM principal and Vercel Preview `dev` configuration; Production was not changed.
+- Diagnosed the first live PUT failure as unsigned metadata headers, not an IAM or bucket-policy denial.
+- Updated the presigner so content type, checksum metadata, report metadata, and `AES256` encryption are all bound to the signed request.
+- Added regression coverage that asserts every required upload header appears in `X-Amz-SignedHeaders`.
+- Deployed commit `7307f63` to Vercel Preview `dev`; the matching deployment reached Ready.
+- `npm run verify:staging:s3` passed all three live tests against staging using a synthetic PDF only.
+- Verified consent, app-signed PUT, private URL denial, encryption/metadata, app-signed GET, Postgres metadata, audit events, app deletion, and cleanup.
+- Independent cleanup check found zero `reports/` objects and zero `lyf9-staging-s3-*` Auth users remaining.
+
+Current remaining P0 blocker: replace the mock/fail-closed malware scanner with a real staging scanner before any real PHI upload.
 
 ### 2026-09-01 Private S3 Verification Hardening
 
@@ -276,14 +289,14 @@ Blocked for real PHI/private beta users:
 - Supabase's default staging email sender is rate-limited; this does not weaken login/RLS evidence, but beta signup delivery is not reliable until custom SMTP or an approved quota configuration is in place.
 - Next.js route handlers currently act as the backend-for-frontend for Supabase service-role operations; ensure the service-role key is server-only in deployment and never exposed as `NEXT_PUBLIC_*`.
 - Local cookie auth and local JSON store remain for explicit local/development scaffold mode only and must not be used for real PHI.
-- S3 provider is a contract/stub until presigning is implemented in the backend.
+- Private S3 presigning, privacy, encryption/metadata, download, audit, deletion, and cleanup pass live in synthetic staging; retention/versioning policy still needs approval before PHI.
 - Mock malware scanning is not real security.
 - Critical thresholds are placeholder/config-driven and need medical review.
 - Model run logging exists locally but must cover every production AI call.
 
 ## Next Prompt To Run
 
-> Implement and verify Lyf9 AI private S3 report storage in staging: configure a staging-only private bucket and least-privilege IAM, run synthetic signed upload/download/delete smoke tests, verify object privacy and short expiries, preserve backend consent and ownership checks, write PHI-minimal audit events, and keep processing fail-closed until a real malware scanner passes. Do not change production.
+> Implement and verify a real Lyf9 AI malware scanner in staging: replace the mock/stub with a network-reachable ClamAV service or S3 event scanner, preserve scan-pending quarantine, prove clean/infected/timeout/unavailable behavior, and keep extraction blocked unless `scan_passed`. Use synthetic files only and do not change production.
 
 Completed staging evidence commands:
 

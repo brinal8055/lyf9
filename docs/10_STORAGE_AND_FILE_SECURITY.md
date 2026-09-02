@@ -13,7 +13,7 @@ Lyf9 AI now has a production-shaped private report file layer in code:
 
 The web route handlers use the provider abstraction for signed upload URLs, signed download URLs, metadata checks, and deletion. Frontend code never receives AWS credentials or service-role secrets.
 
-Real PHI private beta is still blocked until a private S3 bucket and a real malware scanner are configured and verified in staging.
+Private S3 upload/download/privacy/encryption/audit/delete behavior is live-verified with synthetic staging data. Real PHI private beta remains blocked until a real malware scanner and retention/versioning governance are configured and verified.
 
 ## StorageProvider Architecture
 
@@ -164,8 +164,7 @@ Audit metadata must stay PHI-minimal: IDs, MIME type, size, storage provider, st
 
 ## Current Limitations
 
-- The synthetic app-level verifier exists at `npm run test:s3-live`; real staging credentials and a staging-only bucket are still required to run it.
-- Real S3 bucket policy, lifecycle, and KMS decision are not yet verified.
+- The synthetic app-level verifier passed through `npm run verify:staging:s3` against the staging-only bucket on 2026-09-02.
+- Signed upload/download, public denial, `AES256` encryption, metadata, audit actions, delete, and cleanup passed; lifecycle/retention and key-management policy still require approval before PHI.
 - Real ClamAV or S3 event scanner is not wired.
 - Durable queue is still a blocker.
-- Live staging signed upload/download/delete and audit verification is implemented but not yet executed.

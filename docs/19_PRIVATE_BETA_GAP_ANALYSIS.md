@@ -12,7 +12,6 @@ Private beta readiness score from latest local golden gate: **84/100**
 
 | Blocker | Evidence | Required Fix |
 | --- | --- | --- |
-| Private S3 not verified in staging | `apps/web/src/lib/storage/s3-storage-provider.ts`, `apps/web/src/lib/storage/staging-s3-api-live.test.ts` | Configure a staging-only S3 bucket/IAM and run the guarded app-level upload/download/delete/audit harness. |
 | Malware scanner is mock/stub only | `apps/web/src/lib/malware/` | ClamAV or S3 event scanner before extraction. |
 
 ## P1 Blockers Before 30-50 Users
@@ -26,11 +25,14 @@ Private beta readiness score from latest local golden gate: **84/100**
 | Golden dataset too small for PHI beta | `tests/golden/`, `docs/26_GOLDEN_DATASET_EVALUATION_REPORT.md` | Expand beyond synthetic smoke coverage to at least 25 internally reviewed samples and retain 100% safety gate pass. |
 | Observability not production-ready | `apps/web/src/lib/observability/logger.ts` | Sentry + PHI scrubbing + alert routing. |
 | Health checks shallow | `apps/web/src/app/api/health/route.ts`, `apps/api/app/main.py`, `apps/worker/app/worker.py` | Real database/storage/queue connectivity probes. |
-| Full processing workflow E2E is missing | current test setup | Auth/onboarding/consent pass and the S3 app E2E is implemented; run S3 live, then add processing, admin correction, and doctor action E2E. |
+| Full processing workflow E2E is missing | current test setup | Auth/onboarding/consent and private S3 pass live; add scanner, processing, admin correction, and doctor action E2E. |
 | No CI | no `.github` workflow | Add CI for lint/typecheck/test/build/copy scan. |
 
 ## Fixed Or Improved In The Staging Verification Pass
 
+- Live private S3 verification passed upload, encryption/metadata, public denial, download, DB/audit evidence, deletion, and cleanup against the staging-only bucket.
+- The presigned PUT binds every required content, metadata, and encryption header; regression tests inspect `X-Amz-SignedHeaders`.
+- Independent cleanup confirmed zero synthetic report objects and zero synthetic S3 verifier users.
 - Added a destructive app-level S3 harness with exact staging project/app/bucket guards and guaranteed cleanup.
 - S3 object keys are opaque, persisted bucket metadata is accurate, and signed PUT requirements include encryption and metadata headers.
 - Production cannot opt into the mock malware scanner; staging mock remains synthetic-only and does not satisfy the release gate.
@@ -149,7 +151,7 @@ No-go for real users until:
 
 - Production auth and Postgres are live.
 - RLS is tested.
-- S3 is configured and verified in staging.
+- S3 is re-verified after any storage, IAM, signing, or bucket-policy change.
 - Real malware scanning is live.
 - Workflow lease/retry behavior is verified against staging Postgres with concurrent workers.
 - Parser/OCR and live OpenAI providers are production-wired and staging-verified.
@@ -158,4 +160,4 @@ No-go for real users until:
 
 ## First Fix
 
-Configure private S3 storage and malware scanning in staging for Lyf9 AI: provision the private bucket/IAM, set `STORAGE_PROVIDER=s3`, run signed upload/download/delete smoke tests, wire ClamAV or S3 event scanning, and verify processing does not advance unless scan passes.
+Configure real malware scanning in staging for Lyf9 AI: wire a network-reachable ClamAV service or S3 event scanner, keep uploads quarantined while scanning, test clean/infected/timeout/unavailable paths with synthetic fixtures, and verify processing does not advance unless scan passes.

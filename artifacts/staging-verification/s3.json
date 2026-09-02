@@ -1,14 +1,14 @@
 {
   "checks": [
     {
-      "detail": "Missing required env: AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, S3_REPORT_BUCKET",
-      "name": "required_env_present",
-      "passed": false
+      "detail": "> @lyf9/web@0.1.0 test:s3-live\n> vitest run src/lib/storage/staging-s3-api-live.test.ts\n\n\n RUN  v2.1.9 /Users/brinalsavsaviya/Documents/Code/AI/lyf9/apps/web\n\n ✓ src/lib/storage/staging-s3-api-live.test.ts (3 tests) 17116ms\n   ✓ live staging private S3 API verification > uploads, downloads, audits, and deletes one synthetic report 17107ms\n\n Test Files  1 passed (1)\n      Tests  3 passed (3)\n   Start at  12:47:52\n   Duration  18.06s (transform 95ms, setup 0ms, collect 192ms, tests 17.12s, environment 0ms, prepare 133ms)",
+      "name": "live_s3_api_harness_passed",
+      "passed": true
     }
   ],
-  "endedAt": "2026-06-12T16:18:58.010Z",
+  "endedAt": "2026-09-02T07:18:11.097Z",
   "section": "s3",
-  "startedAt": "2026-06-12T16:18:58.010Z",
-  "status": "blocked",
+  "startedAt": "2026-09-02T07:17:52.249Z",
+  "status": "passed",
   "syntheticOnly": true
 }

@@ -2,6 +2,22 @@
 
 ## Run Summary
 
+### 2026-09-02 Live Private S3 Pass
+
+Environment: Supabase `lyf9-staging` (`wjjwdakfyigwwohbntyv`), `https://lyf9-dev.vercel.app`, and `lyf9-reports-storage-staging` in `ap-south-1`. Production was not changed and no real PHI was used.
+
+Passed evidence:
+
+- Deployed health reports `storageProvider: s3`, `storageConfigured: true`, `store.ok: true`, and `storeMode: supabase-postgres`.
+- Initial live PUT correctly exposed that checksum/report metadata headers were sent but not signed.
+- Commit `7307f63` binds content type, both metadata headers, and `AES256` encryption to the presigned request and adds regression coverage for signed headers.
+- The Vercel Preview deployment for `7307f63` reached Ready.
+- `npm run verify:staging:s3` passed three of three live tests.
+- The harness passed required consent, app-signed upload, S3 encryption/metadata, public URL denial, app-signed download, Postgres metadata, required audit actions, app deletion, and guaranteed cleanup.
+- An independent count-only check found zero remaining `reports/` objects and zero `lyf9-staging-s3-*` Auth users.
+
+Verdict: private S3 is **ready for synthetic staging**. Real PHI remains **no-go** until real malware scanning and the remaining release gates pass; retention/versioning and key-management policy also require approval.
+
 ### 2026-09-01 Private S3 Harness Readiness
 
 Environment: local workspace only. The supplied configuration values were treated as intentionally invalid references, no AWS or production request was made, and no secret was persisted.
@@ -125,8 +141,8 @@ npm run eval:golden:live
 | RLS/JWT | Ready for core boundaries | Six-identity live JWT harness passed with synthetic cleanup | Re-run after every RLS migration. |
 | Deployed Auth/API | Partially ready | Login/session, persistence, route denial, consent transitions, and backend upload gate passed | Configure custom SMTP/approved email quota and rerun public signup without fixture fallback. |
 | Workflow concurrency | Not run | Live harness exists | Seed queued job and run `npm run verify:staging:workflow`. |
-| S3 private storage | Not run | Guarded app-level synthetic harness exists and local guard tests pass | Configure a staging-only bucket/IAM and run `npm run verify:staging:s3`. |
-| Signed upload/download/delete | Not run | Harness covers app routes, S3 privacy/encryption, DB metadata, audit rows, and cleanup | Run the guarded harness with genuine staging-only credentials. |
+| S3 private storage | Ready for synthetic staging | Guarded app-level harness passed against the staging-only bucket | Re-run after IAM, bucket-policy, or signing changes; approve retention policy before PHI. |
+| Signed upload/download/delete | Ready for synthetic staging | App routes, S3 privacy/encryption, DB metadata, audit rows, delete, and cleanup passed | Keep production unchanged until remaining release gates pass. |
 | Malware scanner | Blocked | Current scanner code has mock and fail-closed stub only | Wire real scanner or document approved manual fail-closed process. |
 | Marker | Blocked | Provider contract exists; live runner not wired | Wire Marker command/API execution and run synthetic PDF smoke. |
 | Textract/OCR | Blocked | Provider contract exists; live runner not wired | Wire Textract OCR execution or approved manual fallback. |
@@ -173,14 +189,14 @@ Artifacts must not contain secrets or full extracted report text.
 
 ## Cleanup
 
-No live synthetic data was created in this local run. Future live runs must delete synthetic S3 objects and clearly mark any retained database rows with staging-test identifiers.
+The 2026-09-02 live run created one synthetic user and report object and deleted both through guaranteed cleanup. An independent check found zero remaining report objects and zero matching synthetic users.
 
 ## Risk Assessment
 
 P0 risks remain:
 
 - Supabase live RLS and deployed core Auth/API consent checks have passed; public signup email delivery remains quota-limited.
-- Private S3 app and audit verification is implemented but has not run against a staging-only bucket.
+- Private S3 app and audit verification passes against the staging-only bucket; retention/versioning policy remains open.
 - Real malware scanner is absent.
 - Marker, Textract, and OpenAI providers are contract-only for live execution.
 - Doctor-reviewed thresholds and legal review are incomplete.
