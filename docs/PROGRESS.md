@@ -1058,7 +1058,7 @@ Next recommended prompt:
 
 ## 2026-09-02 Provider-Neutral Clinical AI Gateway
 
-Current phase: **structured AI adapter deployed to staging; live Gemini output verification pending**.
+Current phase: **Gemini structured-output smoke verified; live golden evaluation quota-blocked**.
 
 Completed:
 
@@ -1080,20 +1080,24 @@ Verification:
 
 - `npm run typecheck`: passed.
 - `npm run lint`: passed.
-- `npm test`: passed, **159 tests passed and 8 explicitly gated live tests skipped**.
+- `npm test`: passed, **164 tests passed and 8 explicitly gated live tests skipped**.
 - `npm run build:web`: passed; existing Next.js ESLint-plugin warning remains.
 - `npm run copy:scan`: passed.
 - `npm run api:test`: passed, **9 tests**.
 - `npm run api:health` and `npm run worker:health`: passed; health output now reports selected AI provider rather than OpenAI-specific state.
-- No live Gemini inference request was made. The user configured Vercel Preview variables; this change did not modify Production.
+- Selected `gemini-3.5-flash` after `gemini-3.6-flash` showed repeated high-demand 503/timeout behavior.
+- `npm run verify:staging:ai` passed in **72.84 seconds** using synthetic CBC text, including schema validation, source trace, mandatory disclaimer, and deterministic unsafe-language checks.
+- Added bounded provider-neutral retry for transient 429/5xx failures and sanitized classifications for quota, authentication, model, request, timeout, schema, and safety failures. No automatic provider fallback was added.
+- `npm run eval:golden:live` ran for **109 seconds** and stopped fail-closed on `ai_provider_quota_exhausted`; AI Studio showed `gemini-3.5-flash` at **21/20 RPD**, with RPM and TPM still below their limits. It is not recorded as a pass.
+- No real PHI was used and Production was not changed.
 
 Known risks:
 
-- Gemini configuration and capability readiness are verified in the deployed staging runtime, but structured output has not yet been exercised against the staging account/key/quota.
-- The live golden runner is implemented but has not produced staging evidence.
+- The selected Gemini adapter passes a live synthetic smoke, but the free/current quota is insufficient for the complete 13-fixture provider-backed golden run.
+- The live golden runner has fail-closed quota evidence but no passing provider-backed result yet.
 - Provider token usage, request IDs, finish reasons, and cost estimates are not normalized into model runs yet.
 - The golden dataset still needs at least 25 human-reviewed samples, clinician-approved critical thresholds, scanned-image OCR coverage, PHI-safe observability, retention governance, and legal review.
 
 Next recommended prompt:
 
-> Run `npm run verify:staging:ai` with the Vercel Preview secrets loaded into an ephemeral local shell and synthetic CBC text only. If it passes, run `npm run eval:golden:live`, record sanitized evidence, and remove the temporary environment file. Do not change Production, do not use real PHI, and stop if schema, source trace, safety, or accuracy thresholds fail.
+> Add a synthetic scanned-image CBC fixture to the Textract staging harness, verify OCR text/page/confidence/provenance persistence and guaranteed cleanup, and keep unsupported/low-quality outputs fail-closed. Do not use real PHI or change Production. Separately rerun `npm run eval:golden:live` only after Gemini quota is replenished.

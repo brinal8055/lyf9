@@ -6,7 +6,7 @@ Decision: **No-go for real PHI private beta**.
 
 Current readiness score including live staging evidence: **90/100**.
 
-Reason: synthetic golden QA, live staging Supabase/RLS, private S3, GuardDuty clean/threat verification, atomic workflow concurrency/recovery, Textract extraction, and the deployed Inngest saga pass. Structured AI, scanned-image OCR, doctor threshold review, retention governance, observability, and legal review are still incomplete.
+Reason: synthetic golden QA, live staging Supabase/RLS, private S3, GuardDuty clean/threat verification, atomic workflow concurrency/recovery, Textract extraction, the deployed Inngest saga, and a live Gemini structured-output smoke pass. Provider-backed golden QA, scanned-image OCR, doctor threshold review, retention governance, observability, and legal review are still incomplete.
 
 Live staging evidence:
 
@@ -49,7 +49,7 @@ Interpretation: local deterministic QA is healthy, but it does not replace live 
 | Real malware scanner | Ready for synthetic staging | GuardDuty is Active for staging `reports/`; `npm run verify:staging:malware` passes clean/EICAR checks and cleanup. |
 | Live Textract document extraction | Ready for synthetic staging | `npm run verify:staging:textract` passes private S3 input, expected text, page/confidence/provenance persistence, and cleanup. |
 | Live Marker extraction | Optional | Marker is not required while staging explicitly selects Textract; verify Marker before making it the configured parser. |
-| Live structured AI provider | Partially ready | Vercel Preview commit `bc0d235` is Ready and staging health reports all Gemini capabilities configured; `npm run verify:staging:ai` and `npm run eval:golden:live` must still pass on synthetic fixtures. |
+| Live structured AI provider | Ready for synthetic smoke | `npm run verify:staging:ai` passed with `gemini-3.5-flash`; the 13-fixture live golden run stopped fail-closed on exhausted provider quota. |
 | Doctor-reviewed critical thresholds | Blocked | Critical rules reviewed and signed off by qualified clinician. |
 | Legal review | Blocked | Consent, privacy, disclaimer, doctor review, payment/refund, and beta terms approved. |
 
@@ -92,9 +92,9 @@ Any of these keep the release blocked:
 
 ## Exact Next Actions
 
-1. Verify the configured structured AI provider and add scanned-image Textract coverage; Marker remains optional while unselected.
+1. Add scanned-image Textract coverage; Marker remains optional while unselected.
 2. Reconcile Supabase CLI migration history with the migrations applied to staging through the SQL editor.
-3. Expand golden dataset from 13 synthetic fixtures to at least 25 internally reviewed synthetic or consented internal samples.
+3. Replenish Gemini quota, rerun the 13-fixture live golden gate, then expand to at least 25 internally reviewed synthetic or consented internal samples.
 4. Get doctor review of critical thresholds.
 5. Complete legal review.
 6. Add CI for the full release-gate command set.

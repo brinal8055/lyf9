@@ -8,7 +8,7 @@ Current decision: **No-go for real PHI private beta**.
 
 Private beta readiness score including current live staging evidence: **90/100**.
 
-This repo is ready for scaffold/operator rehearsal and now has live-tested staging Supabase Auth/Postgres/RLS, private S3, GuardDuty malware enforcement, atomic workflow concurrency/recovery, Textract extraction, and the deployed Inngest saga. Real 30-50 user testing remains blocked by reliable signup email delivery, scanned-image OCR coverage, live structured AI verification, expanded human-reviewed golden QA, observability, retention governance, doctor threshold review, and legal review.
+This repo is ready for scaffold/operator rehearsal and now has live-tested staging Supabase Auth/Postgres/RLS, private S3, GuardDuty malware enforcement, atomic workflow concurrency/recovery, Textract extraction, the deployed Inngest saga, and a schema-valid Gemini smoke. Real 30-50 user testing remains blocked by reliable signup email delivery, scanned-image OCR coverage, provider-backed golden QA capacity, expanded human-reviewed golden coverage, observability, retention governance, doctor threshold review, and legal review.
 
 ## Current Readiness Matrix
 
@@ -21,7 +21,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Upload flow | Ready for synthetic staging | Engineering | Deployed consent gate, private S3 upload/download/delete, and real GuardDuty clean/threat behavior pass with synthetic fixtures. |
 | Processing pipeline | Ready for synthetic staging | Backend/Platform | The deployed Inngest saga passed authenticated upload, GuardDuty, Textract, Postgres transitions, and unsupported classification with cleanup. Add scanned-image OCR and live structured AI verification before PHI. |
 | Document extraction/OCR | Ready for synthetic staging | AI/Backend | Textract primary parsing passed against a synthetic PDF with persistence and cleanup. Marker remains optional while Textract is selected; image/scanned OCR coverage should be added before broadening report intake. |
-| AI structured outputs | Partially ready | AI/Backend | Provider-neutral gateway, Gemini/OpenAI adapters, fail-closed config, source-trace validation, and synthetic live harness exist; Gemini staging evidence is pending. |
+| AI structured outputs | Ready for synthetic smoke | AI/Backend | `gemini-3.5-flash` passed live schema, source-trace, disclaimer, and unsafe-language checks; the 13-fixture live golden run stopped on exhausted provider quota. |
 | Safety rules | Partially ready | AI/Safety/Medical | Unsafe-language filter and routing exist; doctor-review critical thresholds with real report set. |
 | Unsupported report handling | Partially ready | AI/Safety | Unsupported reports are blocked from AI-only interpretation; expand internal fixture coverage. |
 | Admin correction | Partially ready | Ops/Engineering | Correction flow preserves originals and audits locally; migrate to Postgres. |
@@ -83,7 +83,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Report classification | Ready in code | Deterministic supported/limited/unsupported classifier is tested locally. |
 | Unsupported report handling | Ready in code | Unsupported/unknown reports block safely and do not proceed to AI. |
 | Admin extraction visibility | Partially ready | Admin parser output and OCR/unknown queue counts exist; dedicated retry controls remain a UI gap. |
-| Schema-first AI workflow | Partially ready | Production flows use `ClinicalAiGateway`; local mock QA passes and deployed staging reports all Gemini capabilities configured, while live Gemini output and golden verification remain blocked. |
+| Schema-first AI workflow | Ready for synthetic smoke | Production flows use `ClinicalAiGateway`; local QA and a live Gemini CBC extraction/explanation pass, while provider-backed golden verification remains quota-blocked. |
 
 ## Product Go/No-Go
 
@@ -163,8 +163,8 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Malware scanner live check | Ready | `npm run verify:staging:malware` | GuardDuty is Active on staging `reports/`; tag-read IAM and clean/EICAR outcomes pass with synthetic cleanup. |
 | Marker live check | Optional | `npm run verify:staging:marker` | Run before selecting Marker; Textract is the current verified parser. |
 | Textract live check | Ready for synthetic staging | `npm run verify:staging:textract` | Live synthetic PDF extraction/persistence/cleanup pass; add scanned-image coverage. |
-| Selected AI live check | Partially ready | Deployed `/api/health` reports Gemini extraction, explanation, and doctor-summary capabilities configured | Run `npm run verify:staging:ai` with Preview secrets in an ephemeral shell and synthetic text only. |
-| Live golden subset | Blocked | `npm run eval:golden:live` | Run only after the selected adapter smoke test passes. |
+| Selected AI live check | Ready for synthetic staging | `npm run verify:staging:ai` passed with `gemini-3.5-flash` in 72.84 seconds | Re-run after provider, model, prompt, or schema changes. |
+| Live golden subset | Blocked by provider quota | `npm run eval:golden:live` stopped fail-closed on `ai_provider_quota_exhausted` after 109 seconds | Re-run with replenished/paid Gemini quota; do not weaken the gate. |
 | Live report | Ready as template | `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` | Replace blocked statuses with evidence only after commands pass. |
 
 ## Admin Go/No-Go

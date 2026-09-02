@@ -18,7 +18,7 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 | --- | --- | --- |
 | Signup email delivery is rate-limited | Live `npm run test:auth-live` staging run | Configure custom SMTP or an approved Supabase Auth email quota, then require public invite signup to pass without service-role fixture provisioning. |
 | Scanned-image OCR coverage incomplete | `apps/web/src/lib/document-extraction/staging-textract-live.test.ts` | Textract primary extraction is live-verified on a synthetic PDF; add a synthetic scanned/image report before broadening intake. Marker is optional while Textract is selected. |
-| Selected structured AI path not verified live | `apps/web/src/lib/ai/clinical-ai-gateway.ts`, `apps/web/src/lib/ai/staging-ai-live.test.ts` | Configure the Gemini adapter in staging, run `npm run verify:staging:ai`, then run provider-neutral golden QA. |
+| Provider-backed golden QA is quota-blocked | `artifacts/staging-verification/ai.json`, `artifacts/staging-verification/golden-live.json` | The Gemini smoke passes; replenish/upgrade Gemini quota and rerun the 13-fixture live golden gate. |
 | Golden dataset too small for PHI beta | `tests/golden/`, `docs/26_GOLDEN_DATASET_EVALUATION_REPORT.md` | Expand beyond synthetic smoke coverage to at least 25 internally reviewed samples and retain 100% safety gate pass. |
 | Observability not production-ready | `apps/web/src/lib/observability/logger.ts` | Sentry + PHI scrubbing + alert routing. |
 | Health checks shallow | `apps/web/src/app/api/health/route.ts`, `apps/api/app/main.py`, `apps/worker/app/worker.py` | Real database/storage/queue connectivity probes. |
@@ -47,7 +47,7 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 - Root scripts now include `npm run verify:staging:*` for Supabase, RLS, workflow, S3, malware, Marker, Textract, the selected AI provider, E2E, and live golden subset checks.
 - Existing live RLS and workflow harnesses are routed through the staging verifier.
 - S3 direct signed PUT/GET/delete smoke harness exists, but full app audit-row verification still requires deployed app E2E.
-- GuardDuty verification now passes with live AWS staging evidence; Marker, structured AI, live golden subset, and full E2E still lack live evidence.
+- GuardDuty, Textract, and the selected Gemini adapter now pass with live synthetic staging evidence; the live golden subset stopped fail-closed on exhausted provider quota, and full supported-report E2E still lacks live evidence.
 - Textract asynchronous document extraction now passes against a synthetic staging PDF, including private S3 input, expected text, page count, confidence, `extracted_documents` provenance, and guaranteed cleanup. Marker remains optional while Textract is the selected parser.
 - The deployed Inngest saga now passes the guarded synthetic upload path through GuardDuty, Textract, deterministic unsupported classification, Postgres state transitions, zero AI outputs, and cleanup. Its keys are encrypted Vercel secrets scoped only to Preview branch `dev`; Production is unchanged.
 - `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` records the current no-go live status.
@@ -97,7 +97,7 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 - Extracted document rows persist parser/OCR provider metadata, extracted text/tables, status, confidence, and safe error fields locally.
 - Deterministic report classifier covers supported panels, limited urine routine, unsupported reports, and unknown/manual-review routing.
 - Unsupported reports stop safely and do not generate AI interpretation.
-- Supported reports advance through the provider-neutral schema-first AI workflow locally; live Gemini execution remains blocked until staging verification.
+- Supported reports advance through the provider-neutral schema-first AI workflow; `gemini-3.5-flash` passed the live synthetic CBC extraction/explanation harness.
 - Tests cover providers, scan gating, OCR routing, classification, unsupported blocking, and PHI-minimal audit events.
 
 ## Fixed Or Improved In The Schema-First AI Pass

@@ -21,5 +21,5 @@ describe("golden dataset evaluation", () => {
       expect(result.metrics.safety.unsafe_language_block_rate).toBe(1);
       expect(result.metrics.safety.unsupported_report_ai_block_rate).toBe(1);
     }
-  });
+  }, process.env.RUN_LIVE_AI_EVAL === "true" ? 1_800_000 : 30_000);
 });

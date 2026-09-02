@@ -216,7 +216,7 @@ async function callGeminiStructured<T>(input: {
     );
 
     if (!response.ok) {
-      throw new Error(`gemini_request_failed_${response.status}`);
+      throw new Error(await geminiFailureCode(response));
     }
 
     const body = (await response.json()) as {
@@ -245,6 +245,33 @@ async function callGeminiStructured<T>(input: {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function geminiFailureCode(response: Response) {
+  let status = "";
+  let message = "";
+
+  try {
+    const body = (await response.json()) as { error?: { message?: unknown; status?: unknown } };
+    status = typeof body.error?.status === "string" ? body.error.status : "";
+    message = typeof body.error?.message === "string" ? body.error.message : "";
+  } catch {
+    // The HTTP status remains sufficient for a safe fallback classification.
+  }
+
+  if (response.status === 429 && /prepayment credits? (?:are )?depleted|billing|quota exhausted/i.test(message)) {
+    return "gemini_quota_exhausted";
+  }
+  if (response.status === 404 || status === "NOT_FOUND") {
+    return "gemini_model_unavailable";
+  }
+  if (response.status === 401 || response.status === 403) {
+    return "gemini_auth_failed";
+  }
+  if (response.status === 400) {
+    return "gemini_request_invalid";
+  }
+  return `gemini_request_failed_${response.status}`;
 }
 
 function requestTimeoutMs() {

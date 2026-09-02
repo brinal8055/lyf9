@@ -96,14 +96,23 @@ export class ClinicalAiGateway {
       task
     });
 
-    try {
-      const output = validate(await run());
-      return { metadata: metadata(), output };
-    } catch (caught) {
-      if (caught instanceof AiGatewayError) throw caught;
-      const failure = classifyAiFailure(caught);
-      throw new AiGatewayError(failure.code, metadata(), failure.retryable);
+    const maxAttempts = providerMaxAttempts();
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        const output = validate(await run());
+        return { metadata: metadata(), output };
+      } catch (caught) {
+        if (caught instanceof AiGatewayError) throw caught;
+        const failure = classifyAiFailure(caught);
+        const retryInline = failure.code === "ai_provider_unavailable" && attempt < maxAttempts;
+        if (!retryInline) {
+          throw new AiGatewayError(failure.code, metadata(), failure.retryable);
+        }
+        await wait(providerRetryBaseMs() * (2 ** (attempt - 1)));
+      }
     }
+
+    throw new AiGatewayError("ai_provider_failed", metadata(), false);
   }
 }
 
@@ -213,6 +222,21 @@ function sameIds(actual: string[], expected: string[]) {
   return expected.every((id) => actualSet.has(id));
 }
 
+function wait(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function providerMaxAttempts() {
+  const configured = Number(process.env.AI_PROVIDER_MAX_ATTEMPTS ?? "3");
+  if (!Number.isInteger(configured) || configured < 1) return 3;
+  return Math.min(configured, 5);
+}
+
+function providerRetryBaseMs() {
+  const configured = Number(process.env.AI_PROVIDER_RETRY_BASE_MS ?? "1000");
+  return Number.isFinite(configured) && configured >= 0 ? configured : 1000;
+}
+
 function classifyAiFailure(caught: unknown) {
   const message = caught instanceof Error ? caught.message : "";
   if (message.includes("configuration_required") || message.includes("disabled outside")) {
@@ -223,6 +247,18 @@ function classifyAiFailure(caught: unknown) {
   }
   if (message.includes("timeout")) {
     return { code: "ai_provider_timeout", retryable: true };
+  }
+  if (message.includes("quota_exhausted")) {
+    return { code: "ai_provider_quota_exhausted", retryable: false };
+  }
+  if (message.includes("model_unavailable")) {
+    return { code: "ai_model_unavailable", retryable: false };
+  }
+  if (message.includes("auth_failed")) {
+    return { code: "ai_provider_auth_failed", retryable: false };
+  }
+  if (message.includes("request_invalid")) {
+    return { code: "ai_provider_request_invalid", retryable: false };
   }
   if (/request_failed_(429|5\d\d)/.test(message)) {
     return { code: "ai_provider_unavailable", retryable: true };

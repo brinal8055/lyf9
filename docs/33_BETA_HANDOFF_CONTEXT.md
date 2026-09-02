@@ -11,7 +11,7 @@
 The core beta loop exists, but only Auth/RLS/onboarding/consent boundaries have current live staging evidence. Do not treat report processing as PHI-ready until private S3, a real scanner, workflow concurrency, extraction, and AI provider checks pass.
 
 Stack changes made this cycle:
-- **AI provider is Gemini** (`gemini-2.5-flash`), not OpenAI. OpenAI provider code still exists and works, switchable via `AI_PROVIDER` env var.
+- **AI provider is Gemini** (`gemini-3.5-flash`), not OpenAI. OpenAI provider code still exists and works, switchable via `AI_PROVIDER` env var.
 - **Processing is an Inngest saga**, not a Redis queue / Python worker. TL approved orchestration-pattern saga.
 - **Everything is free during beta.** Payments gate nothing — sandbox only.
 
@@ -43,9 +43,9 @@ DOCUMENT_PARSER_PROVIDER=textract      # verified staging beta parser; Marker is
 
 AI_PROVIDER=gemini
 GEMINI_API_KEY=                        # must be AIzaSy... format from aistudio.google.com/apikey
-GEMINI_MODEL_EXTRACTION=gemini-2.5-flash
-GEMINI_MODEL_EXPLANATION=gemini-2.5-flash
-GEMINI_MODEL_DOCTOR_SUMMARY=gemini-2.5-flash
+GEMINI_MODEL_EXTRACTION=gemini-3.5-flash
+GEMINI_MODEL_EXPLANATION=gemini-3.5-flash
+GEMINI_MODEL_DOCTOR_SUMMARY=gemini-3.5-flash
 
 MALWARE_SCANNER_PROVIDER=mock
 ALLOW_MOCK_MALWARE_SCAN_IN_DEPLOYED_ENV=false

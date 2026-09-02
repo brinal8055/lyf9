@@ -48,6 +48,14 @@ describe.skipIf(!liveEnabled)("live staging clinical AI adapter", () => {
 
     expect(explanation.output.source_biomarker_ids.sort()).toEqual(biomarkers.map((marker) => marker.id).sort());
     expect(explanation.output.disclaimer).toContain("not a diagnosis or prescription");
-    expect(runUnsafeLanguageFilter(JSON.stringify(explanation.output)).blocked).toBe(false);
+    const explanationText = JSON.stringify(explanation.output);
+    const safety = runUnsafeLanguageFilter(explanationText);
+    const matchedSnippets = safety.matchedPhrases
+      .map((source) => explanationText.match(new RegExp(source, "i"))?.[0] ?? "unknown")
+      .join(", ");
+    expect(
+      safety.blocked,
+      `matched unsafe patterns: ${safety.matchedPhrases.join(", ")}; snippets: ${matchedSnippets}`
+    ).toBe(false);
   }, 180_000);
 });

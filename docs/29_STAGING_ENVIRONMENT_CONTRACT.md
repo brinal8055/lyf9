@@ -136,11 +136,15 @@ The application IAM principal needs only `textract:StartDocumentTextDetection` a
 ```txt
 AI_PROVIDER=gemini
 AI_REQUEST_TIMEOUT_SECONDS=120
+AI_PROVIDER_MAX_ATTEMPTS=3
+AI_PROVIDER_RETRY_BASE_MS=1000
 GEMINI_API_KEY=
-GEMINI_MODEL_EXTRACTION=gemini-2.5-flash
-GEMINI_MODEL_EXPLANATION=gemini-2.5-flash
-GEMINI_MODEL_DOCTOR_SUMMARY=gemini-2.5-flash
+GEMINI_MODEL_EXTRACTION=gemini-3.5-flash
+GEMINI_MODEL_EXPLANATION=gemini-3.5-flash
+GEMINI_MODEL_DOCTOR_SUMMARY=gemini-3.5-flash
 ```
+
+Only transient 429/5xx provider failures are retried inline, with bounded exponential backoff. Configuration, authentication, model availability, exhausted quota, timeout, schema, source-trace, refusal, and safety failures remain fail-closed. Provider fallback is never automatic.
 
 Prompt/model versions:
 

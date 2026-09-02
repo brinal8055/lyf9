@@ -189,7 +189,7 @@ async function callOpenAiStructured<T>(input: {
     });
 
     if (!response.ok) {
-      throw new Error(`openai_request_failed_${response.status}`);
+      throw new Error(await openAiFailureCode(response));
     }
 
     const body = (await response.json()) as {
@@ -213,6 +213,33 @@ async function callOpenAiStructured<T>(input: {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function openAiFailureCode(response: Response) {
+  let code = "";
+  let type = "";
+
+  try {
+    const body = (await response.json()) as { error?: { code?: unknown; type?: unknown } };
+    code = typeof body.error?.code === "string" ? body.error.code : "";
+    type = typeof body.error?.type === "string" ? body.error.type : "";
+  } catch {
+    // The HTTP status remains sufficient for a safe fallback classification.
+  }
+
+  if (code === "credit_balance_exhausted" || type === "insufficient_quota") {
+    return "openai_quota_exhausted";
+  }
+  if (response.status === 404 || code === "model_not_found") {
+    return "openai_model_unavailable";
+  }
+  if (response.status === 401 || response.status === 403) {
+    return "openai_auth_failed";
+  }
+  if (response.status === 400) {
+    return "openai_request_invalid";
+  }
+  return `openai_request_failed_${response.status}`;
 }
 
 function requestTimeoutMs() {

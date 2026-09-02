@@ -2,6 +2,18 @@
 
 ## Run Summary
 
+### 2026-09-02 Live Gemini Smoke Pass And Golden Quota Block
+
+Environment: local guarded verifier using staging-only Gemini configuration and synthetic CBC text. Production was not changed and no real PHI was used.
+
+- Selected `gemini-3.5-flash` explicitly after `gemini-3.6-flash` repeatedly returned high-demand 503 responses or reached the 120-second request timeout.
+- Added provider-neutral bounded retry for transient 429/5xx responses only. Quota, authentication, model, timeout, schema, source-trace, refusal, and safety failures remain fail-closed; no provider fallback occurs automatically.
+- `npm run verify:staging:ai` passed in 72.84 seconds with schema-valid extraction and patient explanation, exact persisted biomarker source tracing, authoritative disclaimer, and deterministic unsafe-language checks.
+- `npm run eval:golden:live` then exercised multiple synthetic requests for 109 seconds and stopped fail-closed on `ai_provider_quota_exhausted` during patient explanation. AI Studio confirmed the free-tier `gemini-3.5-flash` daily counter at 21/20 RPD while RPM and TPM remained below their limits. The golden gate is not marked passed.
+- PHI-free evidence is stored in `artifacts/staging-verification/ai.json` and `artifacts/staging-verification/golden-live.json`.
+
+Verdict: the selected Gemini adapter is **ready for synthetic smoke testing**. Real PHI remains no-go until provider-backed golden QA passes with adequate quota and the other release gates are resolved.
+
 ### 2026-09-02 Live Inngest Staging Saga Pass
 
 Environment: Vercel Preview `dev` and the local guarded verifier. Production was not changed and no real PHI was used.
@@ -219,8 +231,8 @@ npm run eval:golden:live
 | Malware scanner | Ready for synthetic staging | GuardDuty clean/EICAR harness passes with cleanup | Re-run after IAM, bucket, scanner, or prefix changes. |
 | Marker | Optional | Provider contract remains available but unselected | Verify before selecting Marker as the parser. |
 | Textract/OCR | Ready for synthetic staging | Live synthetic PDF text/page/confidence/persistence and cleanup pass | Add scanned-image coverage before broad report intake. |
-| Structured AI adapter | Partially ready | Preview commit `bc0d235` is Ready; deployed health reports Gemini selected and all three capabilities configured, but no inference output has been validated | Run `npm run verify:staging:ai` with synthetic CBC text only. |
-| Golden live subset | Blocked | Provider-neutral live runner exists; Gemini has not been exercised | Run `npm run eval:golden:live` after the adapter harness passes. |
+| Structured AI adapter | Ready for synthetic smoke | `gemini-3.5-flash` passed extraction, explanation, schema, source trace, disclaimer, and unsafe-language checks | Re-run after provider/model/prompt/schema changes. |
+| Golden live subset | Blocked by provider quota | The 13-fixture runner reached Gemini but stopped fail-closed on `ai_provider_quota_exhausted` | Replenish/upgrade quota and rerun without weakening thresholds. |
 | E2E synthetic staging pipeline | Blocked | Depends on live AI evidence above | Run only after Supabase, S3, scanner, OCR, and selected-provider checks pass. |
 
 ## Latest Artifact Summary
@@ -271,7 +283,7 @@ P0 risks remain:
 - Supabase live RLS and deployed core Auth/API consent checks have passed; public signup email delivery remains quota-limited.
 - Private S3 app and audit verification passes against the staging-only bucket; retention/versioning policy remains open.
 - GuardDuty malware scanning and Textract document extraction pass with synthetic staging evidence.
-- Marker remains optional and Gemini/live structured AI remains unverified.
+- Marker remains optional; Gemini smoke verification passes, while provider-backed golden QA remains quota-blocked.
 - Doctor-reviewed thresholds and legal review are incomplete.
 
 ## Go/No-Go

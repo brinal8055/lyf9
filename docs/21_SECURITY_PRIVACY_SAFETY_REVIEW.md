@@ -66,7 +66,7 @@ Gaps:
 
 - Critical thresholds are placeholders and not doctor-reviewed.
 - Gemini, OpenAI, and mock adapters share one explicit provider contract; unknown providers and incomplete deployed configuration fail closed.
-- No live Gemini prompt execution has been verified in staging yet.
+- A synthetic live Gemini extraction/explanation passed schema, source-trace, disclaimer, and deterministic unsafe-language checks. The broader live golden run remains fail-closed because provider quota was exhausted mid-run.
 - Synthetic golden dataset validation exists locally; expanded human-reviewed sample coverage is still required.
 - Live staging verification artifacts are generated under `artifacts/staging-verification/`; these artifacts must not contain secrets or full extracted report text.
 - No public proof that every generated output was reviewed for unsafe copy across real reports.
