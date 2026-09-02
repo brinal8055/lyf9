@@ -8,18 +8,18 @@ Current decision: **No-go for real PHI private beta**.
 
 Private beta readiness score from latest local golden gate: **84/100**.
 
-This repo is ready for scaffold/operator rehearsal and now has live-tested staging Supabase Auth/Postgres/RLS, private S3, and GuardDuty malware foundations, a durable workflow foundation, document extraction/classification foundation, schema-first AI workflow, synthetic golden QA gate, and live staging verification command layer. Real 30-50 user testing remains blocked by reliable signup email delivery, staging worker concurrency verification, live Marker/Textract/AI verification, expanded human-reviewed golden QA, observability, retention governance, doctor threshold review, and legal review.
+This repo is ready for scaffold/operator rehearsal and now has live-tested staging Supabase Auth/Postgres/RLS, private S3, GuardDuty malware enforcement, and atomic workflow concurrency/recovery, plus document extraction/classification and schema-first AI foundations. Real 30-50 user testing remains blocked by reliable signup email delivery, a deployable worker runner, live Marker/Textract/AI verification, expanded human-reviewed golden QA, observability, retention governance, doctor threshold review, and legal review.
 
 ## Current Readiness Matrix
 
 | Area | Status | Owner | Next step |
 | --- | --- | --- | --- |
 | Auth/RBAC | Partially ready | Engineering/DevOps | Login/session and user/doctor/admin/superadmin JWT boundaries pass in staging; configure custom SMTP or an approved email quota before onboarding beta users. |
-| Database/RLS | Ready for synthetic staging | Backend/DevOps | Migrations through `202609010002_consent_rpc_rls_guard.sql` are applied and live cross-user/doctor/admin RLS tests pass; reconcile Supabase CLI migration history before automated promotion. |
+| Database/RLS | Ready for synthetic staging | Backend/DevOps | Migrations through `202609020001_workflow_rpc_hardening.sql` are applied and live cross-user/doctor/admin RLS tests pass; reconcile Supabase CLI migration history before automated promotion. |
 | Storage security | Ready for synthetic staging | Backend/DevOps | Guarded app-level upload/download/privacy/encryption/DB/audit/delete verification passed; approve retention/versioning and key-management policy before real PHI. |
 | Malware scanning | Ready for synthetic staging | Backend/Security/DevOps | GuardDuty is Active for staging `reports/`; least-privilege tag read and clean/EICAR verification pass. Re-run after scanner, IAM, bucket, or prefix changes. |
 | Upload flow | Ready for synthetic staging | Engineering | Deployed consent gate, private S3 upload/download/delete, and real GuardDuty clean/threat behavior pass with synthetic fixtures. |
-| Processing pipeline | Partially ready | Backend/Platform | Database workflow provider, idempotency, leases, retry scheduling, blocked state, and scan-gated process-once exist; verify against staging Postgres and real worker concurrency. |
+| Processing pipeline | Partially ready | Backend/Platform | Atomic claims, leases, retry timing, expired-step recovery, and service-role-only RPC access pass against staging Postgres; wire and rehearse the deployable worker runner. |
 | Marker/OCR | Partially ready | AI/Backend | Provider contracts and durable steps exist; configure and verify Marker and Textract fallback in staging. |
 | AI structured outputs | Blocked | AI/Backend | Schema-first local path exists; wire OpenAI Structured Outputs and Pydantic validation in worker. |
 | Safety rules | Partially ready | AI/Safety/Medical | Unsafe-language filter and routing exist; doctor-review critical thresholds with real report set. |
@@ -71,10 +71,10 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Item | Status | Next step |
 | --- | --- | --- |
 | WorkflowProvider abstraction | Ready | Keep workflow logic behind provider methods. |
-| DatabaseWorkflowProvider | Partially ready | Local/store-backed provider and Supabase atomic claim provider exist; verify Supabase/Postgres implementation in staging. |
-| Durable job records | Partially ready | Migrations `202606060004_durable_processing_workflow.sql` and `202606060005_atomic_processing_job_claim.sql` add workflow fields and RPC claim functions; apply in staging. |
-| Job locking/leases | Partially ready | Atomic `FOR UPDATE SKIP LOCKED` claim RPC exists; run live concurrent staging worker test before PHI. |
-| Retry/backoff | Ready in code | Default 3 attempts with immediate/+1 minute/+5 minute schedule. |
+| DatabaseWorkflowProvider | Ready for synthetic staging | Supabase atomic claim/recovery provider passes the guarded live staging harness; keep the local/store provider limited to local tests. |
+| Durable job records | Ready for synthetic staging | Workflow migrations through `202609020001_workflow_rpc_hardening.sql` are applied in staging; reconcile CLI migration history before promotion. |
+| Job locking/leases | Ready for synthetic staging | `FOR UPDATE SKIP LOCKED` uniquely claimed two jobs across three concurrent workers and recovered expired job/step leases. |
+| Retry/backoff | Ready for synthetic staging | Future retries remain unavailable until due; recovered retry jobs can be reclaimed, while max-attempt jobs fail terminally. |
 | Failed/blocked visibility | Partially ready | Admin helper exposes blocked/failed jobs; dedicated UI retry/cancel controls remain a gap. |
 | Scan-gated processing | Ready for synthetic staging | `malware_scan` is the durable first step; live GuardDuty clean/threat mapping and cleanup pass. |
 | Marker extraction | Partially ready | Provider contract and mock parser exist; configure and verify Marker in staging. |
@@ -157,7 +157,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Supabase migration check | Partially ready | Staging SQL verification | Schema smoke passed; reconcile Supabase CLI migration history and run `npm run verify:staging:supabase`. |
 | RLS/JWT live check | Ready | `npm run test:rls` passed with six isolated JWT identities | Re-run after any RLS migration. |
 | Deployed Auth/API check | Partially ready | `npm run test:auth-live` passed login, sessions, persistence, route denial, and consent gating | Configure custom SMTP or approved email limits, then require public signup to pass without fixture fallback. |
-| Workflow concurrency check | Blocked | `npm run verify:staging:workflow` | Seed a queued job and verify atomic claim behavior. |
+| Workflow concurrency check | Ready | `npm run verify:staging:workflow` | Self-seeding staging harness passed concurrent claims, retries, lease recovery, RPC denial, audit safety, and cleanup. Re-run after workflow migration/provider changes. |
 | S3 private smoke check | Ready for synthetic staging | `npm run verify:staging:s3` passed app routes, S3 privacy/metadata/encryption/delete, DB metadata, audit events, and cleanup | Re-run after storage/IAM/signing changes; approve retention/versioning policy before PHI. |
 | Malware scanner live check | Ready | `npm run verify:staging:malware` | GuardDuty is Active on staging `reports/`; tag-read IAM and clean/EICAR outcomes pass with synthetic cleanup. |
 | Marker live check | Blocked | `npm run verify:staging:marker` | Wire Marker command/API execution. |

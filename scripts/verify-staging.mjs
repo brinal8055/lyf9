@@ -55,9 +55,7 @@ const sections = {
     required: [
       "NEXT_PUBLIC_SUPABASE_URL",
       "SUPABASE_SERVICE_ROLE_KEY",
-      "DATABASE_URL",
-      "STAGING_SUPABASE_PROJECT_REF",
-      "LIVE_SUPABASE_WORKFLOW_JOB_ID"
+      "STAGING_SUPABASE_PROJECT_REF"
     ],
     run: verifyWorkflow
   },

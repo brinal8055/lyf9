@@ -172,6 +172,19 @@ describe("Supabase auth foundation", () => {
     expect(migration).not.toContain("security definer");
   });
 
+  it("restricts atomic workflow RPCs to service role and recovers stale step locks", () => {
+    const migration = readFileSync(
+      path.join(repoRoot, "supabase/migrations/202609020001_workflow_rpc_hardening.sql"),
+      "utf8"
+    );
+
+    expect(migration).toContain("from public, anon, authenticated");
+    expect(migration).toContain("to service_role");
+    expect(migration).toContain("update public.processing_job_steps step");
+    expect(migration).toContain("step.status = 'running'");
+    expect(migration).toContain("'lock_expired_max_attempts'");
+  });
+
   it("keeps upload-init behind the server-side consent gate before metadata creation", () => {
     const uploadInitRoute = readFileSync(
       path.join(repoRoot, "apps/web/src/app/api/reports/upload-init/route.ts"),

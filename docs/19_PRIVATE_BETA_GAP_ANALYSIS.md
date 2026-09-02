@@ -17,7 +17,7 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 | Blocker | Evidence | Required Fix |
 | --- | --- | --- |
 | Signup email delivery is rate-limited | Live `npm run test:auth-live` staging run | Configure custom SMTP or an approved Supabase Auth email quota, then require public invite signup to pass without service-role fixture provisioning. |
-| Durable workflow not verified in staging | `apps/web/src/lib/workflow/workflow-provider.ts`, `supabase/migrations/202606060004_durable_processing_workflow.sql` | Apply migration, verify concurrent claim/lease behavior against staging Postgres, and wire real worker process loop. |
+| Deployable worker runner not rehearsed | `apps/worker/app/worker.py`, `apps/web/src/lib/workflow/workflow-provider.ts` | Wrap the staging-verified claim/lease/retry primitives in the deployed worker process and verify clean shutdown/restart behavior. |
 | Marker/Textract not live-verified | `apps/web/src/lib/document-extraction/`, `apps/worker/app/providers/document.py` | Configure and verify Marker plus Textract fallback in staging. |
 | Live OpenAI structured path not verified | `apps/web/src/lib/ai/openai-structured-provider.ts` | Configure OpenAI models in staging, execute live structured-output calls, and run golden dataset QA. |
 | Golden dataset too small for PHI beta | `tests/golden/`, `docs/26_GOLDEN_DATASET_EVALUATION_REPORT.md` | Expand beyond synthetic smoke coverage to at least 25 internally reviewed samples and retain 100% safety gate pass. |
@@ -76,6 +76,8 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 - WorkflowProvider abstraction exists in `apps/web/src/lib/workflow/`.
 - Database workflow provider supports enqueue, claim, lease, step start/completion/failure, retry scheduling, blocked state, completed state, expired lock release, and status lookup.
 - Atomic Supabase RPC functions now exist for `claim_next_processing_job` and `release_expired_processing_locks`.
+- Staging migration `202609020001_workflow_rpc_hardening.sql` restricts both RPCs to `service_role` and recovers matching running step locks with their jobs.
+- The self-seeding live harness passed unique concurrent claims, empty-queue behavior, future retry exclusion, expired lease recovery, max-attempt failure, due retry reclaim, authenticated RPC denial, safe audits, and cleanup.
 - Local best-effort claiming is blocked in staging/production unless explicitly overridden for a targeted test.
 - Upload-complete idempotently creates one active processing job per user/checksum/processing version.
 - Durable `processWorkflowOnce` claims a job and runs `malware_scan` as the only real step.
@@ -153,11 +155,11 @@ No-go for real users until:
 - RLS is tested.
 - S3 is re-verified after any storage, IAM, signing, or bucket-policy change.
 - Real malware scanning is live.
-- Workflow lease/retry behavior is verified against staging Postgres with concurrent workers.
+- The deployable worker process loop is rehearsed using the verified staging claim/lease/retry primitives.
 - Parser/OCR and live OpenAI providers are production-wired and staging-verified.
 - At least 25 internal reports across 5 supported categories pass human review.
 - Legal accepts consent/disclaimer/doctor/payment language.
 
 ## First Fix
 
-Verify durable processing-job claim, lease, retry, and recovery behavior against staging Postgres with concurrent workers. Keep extraction blocked unless the live GuardDuty step has passed.
+Wire and live-verify document parsing plus Textract fallback on synthetic staging reports, then connect those steps to the deployable worker runner. Keep extraction blocked unless the live GuardDuty step has passed.

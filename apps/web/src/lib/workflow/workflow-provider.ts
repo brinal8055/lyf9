@@ -440,6 +440,12 @@ async function claimNextSupabaseJob(params: ClaimNextJobParams) {
   if (!row) {
     return null;
   }
+  if (Object.values(row).every((value) => value === null)) {
+    return null;
+  }
+  if (!stringField(row, "id")) {
+    throw new Error(`claim_next_processing_job returned an invalid row shape: ${Object.keys(row).join(",")}`);
+  }
 
   const job = toProcessingJob(row);
   await writeWorkflowAudit(job, "processing_job_claimed", {
@@ -486,19 +492,32 @@ async function writeWorkflowAudit(
 ) {
   await writeSupabaseAuditLog({
     action,
-    actorRole: "admin",
-    actorUserId: job.workerId ?? job.lockedBy ?? "workflow-provider",
-    metadata,
+    actorRole: null,
+    actorUserId: null,
+    metadata: {
+      ...metadata,
+      workerId: job.workerId ?? job.lockedBy
+    },
     resourceId: job.id,
     resourceType: "processing_job"
   });
 }
 
 function firstRpcRow(data: unknown) {
+  const unwrap = (value: unknown): DbRow | null => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const row = value as DbRow;
+    const wrapped = row.claim_next_processing_job;
+    if (wrapped && typeof wrapped === "object" && !Array.isArray(wrapped)) {
+      return wrapped as DbRow;
+    }
+    return row;
+  };
+
   if (Array.isArray(data)) {
-    return data.length > 0 && data[0] && typeof data[0] === "object" ? (data[0] as DbRow) : null;
+    return data.length > 0 ? unwrap(data[0]) : null;
   }
-  return data && typeof data === "object" ? (data as DbRow) : null;
+  return unwrap(data);
 }
 
 function ensureStep(

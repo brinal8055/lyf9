@@ -6,7 +6,7 @@ Decision: **No-go for real PHI private beta**.
 
 Current local golden readiness score: **84/100**.
 
-Reason: synthetic golden QA, live staging Supabase/RLS, private S3, and GuardDuty clean/threat verification pass. Workflow concurrency, Marker, Textract, OpenAI, doctor threshold review, retention governance, observability, and legal review are still incomplete.
+Reason: synthetic golden QA, live staging Supabase/RLS, private S3, GuardDuty clean/threat verification, and atomic workflow concurrency/recovery pass. The worker runner, Marker, Textract, AI provider, doctor threshold review, retention governance, observability, and legal review are still incomplete.
 
 Live staging evidence:
 
@@ -44,7 +44,7 @@ Interpretation: local deterministic QA is healthy, but it does not replace live 
 
 | Blocker | Status | Required evidence |
 | --- | --- | --- |
-| Supabase/RLS live verification | Partially ready | Staging schema and policies are applied; `npm run verify:staging:rls` must still pass with isolated staging users. |
+| Supabase/RLS live verification | Ready for synthetic staging | `npm run verify:staging:rls` passed isolated user/user, assigned-doctor, admin, superadmin, consent, report/job, audit, feedback, analytics, and service-role boundaries. |
 | Private S3 smoke test | Ready for synthetic staging | `npm run verify:staging:s3` passed upload/download/privacy/encryption/DB/audit/delete/cleanup; approve retention/versioning policy before PHI. |
 | Real malware scanner | Ready for synthetic staging | GuardDuty is Active for staging `reports/`; `npm run verify:staging:malware` passes clean/EICAR checks and cleanup. |
 | Live Marker extraction | Blocked | `npm run verify:staging:marker` parses synthetic digital PDF with expected text/tables. |
@@ -57,7 +57,7 @@ Interpretation: local deterministic QA is healthy, but it does not replace live 
 
 | Blocker | Status | Required evidence |
 | --- | --- | --- |
-| Workflow concurrency | Partially ready | `npm run verify:staging:workflow` passes against a seeded staging job. |
+| Workflow concurrency | Ready for synthetic staging | `202609020001_workflow_rpc_hardening.sql` is applied and the self-seeding `npm run verify:staging:workflow` concurrency/recovery harness passes with cleanup. The deployable worker runner remains separate work. |
 | Observability | Partial | Sentry or equivalent with PHI scrubbing and alert routing. |
 | Admin QA UI | Partial | Operators can see golden failures, low confidence, unmapped markers, unsafe blocks, model failures. |
 | Broader E2E | Partial | Deployed staging E2E covers auth, consent, upload, admin, doctor assignment, audit. |
@@ -93,7 +93,7 @@ Any of these keep the release blocked:
 ## Exact Next Actions
 
 1. Reconcile Supabase CLI migration history with the migrations applied to staging through the SQL editor.
-2. Verify concurrent workflow claims, leases, retries, and recovery against staging Postgres.
+2. Wire and verify the deployable worker runner around the staging-verified workflow RPCs.
 3. Verify Marker, Textract, and the configured structured AI provider where current commands report blocking.
 4. Expand golden dataset from 13 synthetic fixtures to at least 25 internally reviewed synthetic or consented internal samples.
 5. Get doctor review of critical thresholds.

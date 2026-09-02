@@ -291,9 +291,12 @@ async function writeStepAudit(
 ) {
   await writeSupabaseAuditLog({
     action,
-    actorRole: "admin",
-    actorUserId: job.workerId ?? job.lockedBy ?? "workflow-provider",
-    metadata,
+    actorRole: null,
+    actorUserId: null,
+    metadata: {
+      ...metadata,
+      workerId: job.workerId ?? job.lockedBy
+    },
     resourceId: job.id,
     resourceType: "processing_job"
   });

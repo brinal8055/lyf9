@@ -2,6 +2,25 @@
 
 ## Run Summary
 
+### 2026-09-02 Live Durable Workflow Pass
+
+Environment: Supabase `lyf9-staging` (`wjjwdakfyigwwohbntyv`) only. Production was not changed and no real PHI was used.
+
+Passed evidence:
+
+- Applied `202609020001_workflow_rpc_hardening.sql` to staging.
+- `claim_next_processing_job` and `release_expired_processing_locks` are executable only by `service_role`; an ordinary authenticated session was denied.
+- `npm run verify:staging:workflow` passed all three tests, including the live self-seeding concurrency/recovery scenario.
+- Two queued jobs were claimed exactly once across three concurrent workers; the empty third claim was handled correctly.
+- Future retries were excluded until due, expired jobs and running steps had stale locks cleared, attempts-remaining jobs were rescheduled, and max-attempt jobs failed terminally.
+- A recovered job was reclaimed, failed at a step, scheduled with backoff, denied before due, and reclaimed when due.
+- Claim, lock-expiry, retry, and failure audit events used null user/role actors and PHI-minimal worker metadata.
+- Synthetic Auth/report/job/audit fixtures were cleaned up by the harness.
+
+Artifact: `artifacts/staging-verification/workflow.json`.
+
+Verdict: atomic workflow concurrency, lease recovery, retry timing, and RPC access are **ready for synthetic staging**. A deployable worker runner and live extraction/AI providers remain blockers before real PHI.
+
 ### 2026-09-02 Live GuardDuty Malware Pass
 
 Environment: `lyf9-reports-storage-staging` in `ap-south-1` and Vercel Preview branch `dev`. Production was not changed and no real PHI was used.
@@ -162,7 +181,7 @@ npm run eval:golden:live
 | Supabase migrations | Partially ready | Schema through `202609010002_consent_rpc_rls_guard.sql` applied in staging SQL editor | Reconcile CLI migration history and run `npm run verify:staging:supabase`. |
 | RLS/JWT | Ready for core boundaries | Six-identity live JWT harness passed with synthetic cleanup | Re-run after every RLS migration. |
 | Deployed Auth/API | Partially ready | Login/session, persistence, route denial, consent transitions, and backend upload gate passed | Configure custom SMTP/approved email quota and rerun public signup without fixture fallback. |
-| Workflow concurrency | Not run | Live harness exists | Seed queued job and run `npm run verify:staging:workflow`. |
+| Workflow concurrency | Ready for synthetic staging | Self-seeding harness passed unique claims, retry timing, lease/step recovery, RPC denial, safe audits, and cleanup | Re-run after workflow migration/provider changes; wire the deployable worker runner. |
 | S3 private storage | Ready for synthetic staging | Guarded app-level harness passed against the staging-only bucket | Re-run after IAM, bucket-policy, or signing changes; approve retention policy before PHI. |
 | Signed upload/download/delete | Ready for synthetic staging | App routes, S3 privacy/encryption, DB metadata, audit rows, delete, and cleanup passed | Keep production unchanged until remaining release gates pass. |
 | Malware scanner | Blocked | Current scanner code has mock and fail-closed stub only | Wire real scanner or document approved manual fail-closed process. |
@@ -188,7 +207,7 @@ Actual artifact summary:
 | --- | --- | --- |
 | supabase | Blocked | Supabase URL/service/database env missing. |
 | rls | Blocked | Supabase URL/anon/service env missing. |
-| workflow | Blocked | Supabase/database env and seeded workflow job id missing. |
+| workflow | Ready for synthetic staging | `npm run verify:staging:workflow` passed against staging with self-seeded fixtures and cleanup. |
 | s3 | Blocked | AWS/S3 env missing. |
 | malware | Blocked | Scanner provider env missing. |
 | marker | Blocked | Document parser provider env missing. |

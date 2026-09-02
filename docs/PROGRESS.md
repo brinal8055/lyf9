@@ -4,13 +4,47 @@
 
 Staging foundation reconciliation is in progress for a **production-shaped private beta MVP**.
 
-Supabase staging now has the current schema, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, and live GuardDuty clean/threat enforcement. The product is not approved for real 30-50 user PHI until durable workflow execution, Marker/OCR, production AI structured outputs, observability/privacy review, retention governance, clinical threshold review, and legal review are completed in staging.
+Supabase staging now has the current schema, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, live GuardDuty clean/threat enforcement, and live-verified atomic workflow claims, lease recovery, and retry timing. The product is not approved for real 30-50 user PHI until the worker runner, Marker/OCR, production AI structured outputs, observability/privacy review, retention governance, clinical threshold review, and legal review are completed in staging.
 
-Current private beta readiness score: **8.4/10**.
+Current private beta readiness score: **8.6/10**.
 
 No public launch, autonomous diagnosis, prescriptions, medicine-change advice, supplement protocols, pharmacy commerce, lab booking, full doctor marketplace, mobile app, wearables, ABDM/ABHA, genetics, employer, or insurance workflows have been added.
 
 ## Completed In This Pass
+
+### 2026-09-02 Live Durable Workflow Concurrency And Recovery Pass
+
+- Applied `202609020001_workflow_rpc_hardening.sql` to staging project `wjjwdakfyigwwohbntyv`; Production was not changed.
+- Restricted `claim_next_processing_job` and `release_expired_processing_locks` to `service_role`; authenticated app users are denied direct execution.
+- Made expired-job recovery update the matching running step, clear stale locks, schedule retry when attempts remain, and fail closed at max attempts.
+- Replaced the persistent seeded-job dependency with a self-seeding synthetic harness and exact staging project/runtime guards.
+- Verified two eligible jobs were claimed exactly once across three concurrent workers using `FOR UPDATE SKIP LOCKED`; the third claim returned no job.
+- Verified future retries were not claimable early, expired leases recovered, max-attempt jobs failed, step locks cleared, due retries were reclaimed, and audit events were PHI-minimal.
+- Corrected worker audit attribution: background workers now use null user/role actors and record the worker identifier only in safe metadata.
+- Handled PostgREST's all-null composite RPC result as an empty queue without accepting partially malformed rows.
+- The harness removed its synthetic Auth user and dependent report/job fixture in `finally`.
+
+Verification passed:
+
+```txt
+npm --workspace apps/web run test -- --run src/lib/workflow/supabase-live-workflow.test.ts src/lib/auth/supabase-foundation.test.ts  # 15 passed, 1 live skipped
+npm run verify:staging:workflow  # 3 passed, including live concurrency/recovery and cleanup
+npm test  # 140 passed, 5 credential-gated live tests skipped
+npm run typecheck
+npm run lint
+npm run copy:scan
+npm run build:web
+npm run api:test  # 8 passed
+npm run api:health
+npm run worker:health
+git diff --check
+```
+
+Current remaining blocker: wire and live-verify document parsing/OCR execution against synthetic reports. The database concurrency primitive is verified, but the Python worker remains a command/status stub and real PHI remains no-go until the full release gate passes.
+
+Next recommended prompt:
+
+> Wire Lyf9 AI staging document extraction using the existing provider contracts: run a synthetic digital PDF through the configured parser, run a synthetic scanned report through Textract fallback, persist and inspect `extracted_documents`, verify unsupported reports stop before AI, and keep Production and real PHI unchanged.
 
 ### 2026-09-02 GuardDuty S3 Malware Gate Implementation
 
@@ -44,11 +78,11 @@ npm run worker:health
 npm run verify:staging:malware  # 4 passed, including live clean/EICAR; synthetic objects deleted
 ```
 
-Current remaining blocker: verify durable processing-job claim/lease/retry behavior with concurrent staging workers. Real PHI remains no-go until the full release gate passes.
+Current remaining blocker at that checkpoint was durable workflow concurrency; the live workflow evidence is now recorded above. Real PHI remains no-go until the full release gate passes.
 
 Next recommended prompt:
 
-> Run concurrent processing-job claim, lease, retry, and recovery checks against Lyf9 AI staging Postgres using synthetic records only. Confirm the GuardDuty-gated `dev` deployment never proceeds to extraction unless malware scan status is `scan_passed`; keep production unchanged.
+> Run concurrent processing-job claim, lease, retry, and recovery checks against Lyf9 AI staging Postgres using synthetic records only. Confirm the GuardDuty-gated `dev` deployment never proceeds to extraction unless malware scan status is `scan_passed`; keep production unchanged. (Completed on 2026-09-02.)
 
 ### 2026-09-02 Live Private S3 Verification
 

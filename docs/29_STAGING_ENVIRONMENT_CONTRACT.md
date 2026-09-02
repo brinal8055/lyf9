@@ -92,10 +92,9 @@ WORKER_CONCURRENCY=1
 WORKER_LEASE_SECONDS=300
 WORKER_MAX_ATTEMPTS=3
 PROCESSING_VERSION=v1
-LIVE_SUPABASE_WORKFLOW_JOB_ID=
 ```
 
-`LIVE_SUPABASE_WORKFLOW_JOB_ID` is required only for the live workflow concurrency harness.
+The live workflow harness is self-seeding and uses synthetic records only. It requires the staging Supabase URL, service-role key, and exact staging project reference already listed above; no anon key or persistent fixture job ID is required. The service key is used only by the test process, while an ordinary authenticated session verifies that worker RPC execution is denied.
 
 ## Document Extraction
 

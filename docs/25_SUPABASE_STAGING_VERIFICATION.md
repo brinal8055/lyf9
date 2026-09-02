@@ -254,15 +254,15 @@ Important review notes:
 - Normal local runs skip the RLS/Auth harnesses unless their explicit live flags and exact staging project reference are present.
 - Supabase's default staging email sender reached its rate limit during repeated diagnostics; configure custom SMTP or an approved quota before beta invitation onboarding.
 - Admin operational access currently depends on backend/server service-role routes rather than broad direct client RLS reads.
-- Storage remains local/provider-shaped; S3 private storage is not part of this verification.
-- Malware scanning, OCR/Marker, durable queue, and production OpenAI paths are intentionally out of scope.
+- Private S3 and GuardDuty are verified separately in `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md`.
+- Atomic workflow claim/recovery is verified separately; OCR/Marker, the deployable worker runner, and production AI paths remain out of scope for this Auth/RLS report.
 - Do not treat local cookie auth or local JSON storage as PHI-safe.
 
 ## 10. Verification Status
 
 | Area | Status | Evidence | Next Step |
 | --- | --- | --- | --- |
-| Migrations apply cleanly | Partially ready | Schema through `202609010002_consent_rpc_rls_guard.sql` applied via staging SQL editor | Reconcile Supabase CLI migration history before automated promotion. |
+| Migrations apply cleanly | Partially ready | Schema through `202609020001_workflow_rpc_hardening.sql` applied via staging SQL editor | Reconcile Supabase CLI migration history before automated promotion. |
 | Schema exists | Ready | Staging SQL inventory and deployed Postgres health pass | Recheck after migrations. |
 | RLS enabled | Ready for checked core tables | RLS inventory plus live JWT harness passed | Re-run after policy changes. |
 | Cross-user RLS | Ready | User A cannot read/update User B profile/report/job metadata | Keep synthetic harness in release gate. |

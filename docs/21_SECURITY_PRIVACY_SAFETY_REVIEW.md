@@ -13,8 +13,8 @@ Security/privacy score: **7.8/10** for real private beta readiness.
 | --- | --- | --- | --- | --- |
 | P1 | Signup email delivery is rate-limited in staging | Live `npm run test:auth-live` evidence | Login/session and authorization pass, but repeated invite signup cannot rely on Supabase's default sender quota. | Configure custom SMTP or an approved Auth email quota and rerun public signup without fixture fallback. |
 | P2 | Local scaffold fallback remains but is now fail-closed outside local/development | `apps/web/src/lib/auth/providers/supabase.ts`, `apps/web/src/lib/auth/request.ts` | Safe for local development only; staging/production now return setup/configuration errors instead of silently using local cookies when Supabase env is missing. | Keep `ENABLE_LOCAL_AUTH_FALLBACK` out of staging/production and verify deploy env. |
-| P1 | Workflow locking not verified under live concurrency | `apps/web/src/lib/workflow/workflow-provider.ts` | Best-effort local/store locks are tested, but concurrent Postgres worker behavior is unverified. | Apply migration and move claim to transaction/RPC before PHI concurrency. |
-| P1 | Non-Auth live provider verification remains incomplete | `scripts/verify-staging.mjs`, `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` | Auth/RLS, deployed consent, private S3, and GuardDuty paths pass; workflow concurrency, extraction, and AI remain unverified. | Run each remaining staging verifier with synthetic data after its provider is configured. |
+| P1 | Deployable worker runner is not rehearsed | `apps/worker/app/worker.py`, `apps/web/src/lib/workflow/workflow-provider.ts` | Postgres concurrency/recovery is verified, but the Python worker is still a command/status stub. | Connect the runner to the verified RPC provider and test shutdown/restart behavior in staging. |
+| P1 | Non-Auth live provider verification remains incomplete | `scripts/verify-staging.mjs`, `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` | Auth/RLS, deployed consent, private S3, GuardDuty, and workflow concurrency pass; extraction and AI remain unverified. | Run each remaining staging verifier with synthetic data after its provider is configured. |
 | P1 | Analytics endpoint accepts unauthenticated events | `apps/web/src/app/api/analytics/route.ts` | Event spam and possible metadata misuse. | Require auth for app events or constrain anonymous public events. |
 | P1 | Health checks are config-only | `apps/api/app/main.py`, `apps/worker/app/worker.py` | False confidence in deployment. | Real connectivity probes. |
 
@@ -33,7 +33,7 @@ Partially implemented:
 - Raw report access now requires an explicit signed download URL request; deleted files and unauthorized users cannot mint fresh URLs.
 - Upload-complete creates the processing job with malware scan as the first gate; scan pending/failed/configuration-required states do not advance to extraction.
 - Processing jobs now have lease, retry, blocked, and audit state in code. OCR and schema-first AI steps run locally with mock providers while live provider configuration remains fail-closed.
-- Atomic Supabase RPCs now use Postgres row locking for job claim and expired lock release; live staging concurrency verification remains required before PHI.
+- Atomic Supabase RPCs use Postgres row locking for job claim and expired lock release; concurrent claims, retry timing, job/step recovery, RPC denial, and PHI-minimal audits pass in staging.
 - Document extraction now uses provider contracts, persists extracted text/tables, and audits only provider/status/count metadata. Full extracted text is not written to audit logs.
 - Unsupported/unknown report classification blocks automated interpretation and does not proceed to biomarker AI extraction.
 - Schema-first AI workflow now logs model runs with hashes and safe metadata, validates output schemas before persistence, blocks missing OpenAI config in deployed env, and prevents unsupported reports from entering AI interpretation.
@@ -43,7 +43,7 @@ Gaps:
 - Supabase consent/audit core paths are verified, but append-only audit governance and operator review procedures still need definition.
 - Private S3 upload/download/privacy/encryption/metadata/delete behavior passes synthetic staging verification; retention/versioning approval remains.
 - GuardDuty is Active for the staging `reports/` prefix; staging-only tag-read IAM and live clean/EICAR outcomes pass with synthetic cleanup.
-- Workflow RPC lease/retry behavior needs staging Postgres concurrency verification.
+- Workflow RPC lease/retry behavior is verified against staging Postgres; the deployable worker runner still needs rehearsal.
 - Marker and Textract provider execution need staging verification before PHI.
 - Extracted document Supabase rows and RLS behavior need live staging verification.
 - Data export/delete is local scaffold only.
