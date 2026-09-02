@@ -219,7 +219,7 @@ npm run eval:golden:live
 | Malware scanner | Ready for synthetic staging | GuardDuty clean/EICAR harness passes with cleanup | Re-run after IAM, bucket, scanner, or prefix changes. |
 | Marker | Optional | Provider contract remains available but unselected | Verify before selecting Marker as the parser. |
 | Textract/OCR | Ready for synthetic staging | Live synthetic PDF text/page/confidence/persistence and cleanup pass | Add scanned-image coverage before broad report intake. |
-| Structured AI adapter | Blocked | Provider-neutral gateway and Gemini live harness exist locally; no live Gemini evidence yet | Configure Gemini in Preview `dev` and run `npm run verify:staging:ai`. |
+| Structured AI adapter | Partially ready | Preview commit `bc0d235` is Ready; deployed health reports Gemini selected and all three capabilities configured, but no inference output has been validated | Run `npm run verify:staging:ai` with synthetic CBC text only. |
 | Golden live subset | Blocked | Provider-neutral live runner exists; Gemini has not been exercised | Run `npm run eval:golden:live` after the adapter harness passes. |
 | E2E synthetic staging pipeline | Blocked | Depends on live AI evidence above | Run only after Supabase, S3, scanner, OCR, and selected-provider checks pass. |
 

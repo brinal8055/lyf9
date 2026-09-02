@@ -1058,7 +1058,7 @@ Next recommended prompt:
 
 ## 2026-09-02 Provider-Neutral Clinical AI Gateway
 
-Current phase: **structured AI adapter foundation complete locally; Gemini staging integration pending**.
+Current phase: **structured AI adapter deployed to staging; live Gemini output verification pending**.
 
 Completed:
 
@@ -1072,6 +1072,9 @@ Completed:
 - Added authoritative disclaimer handling, exact persisted biomarker source tracing, deterministic marker facts, and conservative human-review routing for soft-review/unmapped results.
 - Logged latency and sanitized failure metadata for extraction and explanation attempts; token/cost fields remain nullable pending normalized adapter usage metadata.
 - Added provider-neutral synthetic live commands: `npm run verify:staging:ai` and `npm run eval:golden:live`.
+- Committed the implementation as `bc0d235` and pushed it to `origin/dev`; Vercel deployed that exact commit as a Ready Preview deployment.
+- Verified `https://lyf9-dev.vercel.app/api/health` returns HTTP 200 with `status: ok`, `aiProvider: gemini`, `aiConfigured: true`, and extraction, explanation, and doctor-summary capabilities enabled.
+- Confirmed the deployed health response still reports Supabase Auth/server access, Supabase Postgres persistence, Inngest, and private S3 as configured and healthy.
 
 Verification:
 
@@ -1082,15 +1085,15 @@ Verification:
 - `npm run copy:scan`: passed.
 - `npm run api:test`: passed, **9 tests**.
 - `npm run api:health` and `npm run worker:health`: passed; health output now reports selected AI provider rather than OpenAI-specific state.
-- No live Gemini request was made and no staging/production environment was changed.
+- No live Gemini inference request was made. The user configured Vercel Preview variables; this change did not modify Production.
 
 Known risks:
 
-- Gemini structured output has not yet been exercised with the staging account/key/quota.
+- Gemini configuration and capability readiness are verified in the deployed staging runtime, but structured output has not yet been exercised against the staging account/key/quota.
 - The live golden runner is implemented but has not produced staging evidence.
 - Provider token usage, request IDs, finish reasons, and cost estimates are not normalized into model runs yet.
 - The golden dataset still needs at least 25 human-reviewed samples, clinician-approved critical thresholds, scanned-image OCR coverage, PHI-safe observability, retention governance, and legal review.
 
 Next recommended prompt:
 
-> Configure Gemini server-only variables in Vercel Preview branch `dev` only, redeploy staging, confirm `/api/health` reports Gemini extraction and explanation capabilities ready, run `npm run verify:staging:ai` with synthetic CBC data, then run `npm run eval:golden:live`. Do not change Production, do not use real PHI, and stop if schema, source trace, safety, or accuracy thresholds fail.
+> Run `npm run verify:staging:ai` with the Vercel Preview secrets loaded into an ephemeral local shell and synthetic CBC text only. If it passes, run `npm run eval:golden:live`, record sanitized evidence, and remove the temporary environment file. Do not change Production, do not use real PHI, and stop if schema, source trace, safety, or accuracy thresholds fail.

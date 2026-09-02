@@ -49,7 +49,7 @@ Interpretation: local deterministic QA is healthy, but it does not replace live 
 | Real malware scanner | Ready for synthetic staging | GuardDuty is Active for staging `reports/`; `npm run verify:staging:malware` passes clean/EICAR checks and cleanup. |
 | Live Textract document extraction | Ready for synthetic staging | `npm run verify:staging:textract` passes private S3 input, expected text, page/confidence/provenance persistence, and cleanup. |
 | Live Marker extraction | Optional | Marker is not required while staging explicitly selects Textract; verify Marker before making it the configured parser. |
-| Live structured AI provider | Blocked | Configure Gemini in staging; `npm run verify:staging:ai` and `npm run eval:golden:live` must pass on synthetic fixtures. |
+| Live structured AI provider | Partially ready | Vercel Preview commit `bc0d235` is Ready and staging health reports all Gemini capabilities configured; `npm run verify:staging:ai` and `npm run eval:golden:live` must still pass on synthetic fixtures. |
 | Doctor-reviewed critical thresholds | Blocked | Critical rules reviewed and signed off by qualified clinician. |
 | Legal review | Blocked | Consent, privacy, disclaimer, doctor review, payment/refund, and beta terms approved. |
 

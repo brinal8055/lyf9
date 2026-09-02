@@ -83,7 +83,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Report classification | Ready in code | Deterministic supported/limited/unsupported classifier is tested locally. |
 | Unsupported report handling | Ready in code | Unsupported/unknown reports block safely and do not proceed to AI. |
 | Admin extraction visibility | Partially ready | Admin parser output and OCR/unknown queue counts exist; dedicated retry controls remain a UI gap. |
-| Schema-first AI workflow | Partially ready | Production flows use `ClinicalAiGateway`; local mock QA passes, while live Gemini adapter and golden verification remain blocked. |
+| Schema-first AI workflow | Partially ready | Production flows use `ClinicalAiGateway`; local mock QA passes and deployed staging reports all Gemini capabilities configured, while live Gemini output and golden verification remain blocked. |
 
 ## Product Go/No-Go
 
@@ -163,7 +163,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Malware scanner live check | Ready | `npm run verify:staging:malware` | GuardDuty is Active on staging `reports/`; tag-read IAM and clean/EICAR outcomes pass with synthetic cleanup. |
 | Marker live check | Optional | `npm run verify:staging:marker` | Run before selecting Marker; Textract is the current verified parser. |
 | Textract live check | Ready for synthetic staging | `npm run verify:staging:textract` | Live synthetic PDF extraction/persistence/cleanup pass; add scanned-image coverage. |
-| Selected AI live check | Blocked | `npm run verify:staging:ai` | Add Gemini server-only staging configuration and run with synthetic text only. |
+| Selected AI live check | Partially ready | Deployed `/api/health` reports Gemini extraction, explanation, and doctor-summary capabilities configured | Run `npm run verify:staging:ai` with Preview secrets in an ephemeral shell and synthetic text only. |
 | Live golden subset | Blocked | `npm run eval:golden:live` | Run only after the selected adapter smoke test passes. |
 | Live report | Ready as template | `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` | Replace blocked statuses with evidence only after commands pass. |
 
