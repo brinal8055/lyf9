@@ -13,8 +13,8 @@ Security/privacy score: **7.8/10** for real private beta readiness.
 | --- | --- | --- | --- | --- |
 | P1 | Signup email delivery is rate-limited in staging | Live `npm run test:auth-live` evidence | Login/session and authorization pass, but repeated invite signup cannot rely on Supabase's default sender quota. | Configure custom SMTP or an approved Auth email quota and rerun public signup without fixture fallback. |
 | P2 | Local scaffold fallback remains but is now fail-closed outside local/development | `apps/web/src/lib/auth/providers/supabase.ts`, `apps/web/src/lib/auth/request.ts` | Safe for local development only; staging/production now return setup/configuration errors instead of silently using local cookies when Supabase env is missing. | Keep `ENABLE_LOCAL_AUTH_FALLBACK` out of staging/production and verify deploy env. |
-| P1 | Deployable worker runner is not rehearsed | `apps/worker/app/worker.py`, `apps/web/src/lib/workflow/workflow-provider.ts` | Postgres concurrency/recovery is verified, but the Python worker is still a command/status stub. | Connect the runner to the verified RPC provider and test shutdown/restart behavior in staging. |
-| P1 | Non-Auth live provider verification remains incomplete | `scripts/verify-staging.mjs`, `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` | Auth/RLS, deployed consent, private S3, GuardDuty, and workflow concurrency pass; extraction and AI remain unverified. | Run each remaining staging verifier with synthetic data after its provider is configured. |
+| P1 | Inngest staging runner is not rehearsed | `apps/web/src/inngest/process-report.ts`, `apps/web/src/app/api/inngest/route.ts` | Postgres concurrency/recovery and Textract pass independently, but the deployed event-driven saga is not registered/configured. | Configure staging-only Inngest keys, register the deployed route, and verify restart/retry behavior with synthetic data. |
+| P1 | Remaining live provider verification is incomplete | `scripts/verify-staging.mjs`, `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` | Auth/RLS, consent, private S3, GuardDuty, workflow concurrency, and Textract extraction pass; live structured AI remains unverified. | Run remaining staging verifiers with synthetic data after provider configuration. |
 | P1 | Analytics endpoint accepts unauthenticated events | `apps/web/src/app/api/analytics/route.ts` | Event spam and possible metadata misuse. | Require auth for app events or constrain anonymous public events. |
 | P1 | Health checks are config-only | `apps/api/app/main.py`, `apps/worker/app/worker.py` | False confidence in deployment. | Real connectivity probes. |
 
@@ -44,8 +44,8 @@ Gaps:
 - Private S3 upload/download/privacy/encryption/metadata/delete behavior passes synthetic staging verification; retention/versioning approval remains.
 - GuardDuty is Active for the staging `reports/` prefix; staging-only tag-read IAM and live clean/EICAR outcomes pass with synthetic cleanup.
 - Workflow RPC lease/retry behavior is verified against staging Postgres; the deployable worker runner still needs rehearsal.
-- Marker and Textract provider execution need staging verification before PHI.
-- Extracted document Supabase rows and RLS behavior need live staging verification.
+- Textract execution and `extracted_documents` persistence pass on a synthetic staging PDF; scanned-image OCR coverage and extracted-document RLS boundary verification remain.
+- Marker remains optional while Textract is the explicitly selected beta parser.
 - Data export/delete is local scaffold only.
 - No grievance/contact support workflow.
 - No retention policy implementation.

@@ -1,6 +1,6 @@
 # 33 — Beta Handoff Context
 
-> 2026-09-01 update: sanitized `.env.example` files are tracked, the staging schema is populated through `202609010002_consent_rpc_rls_guard.sql`, and live Auth/RLS verification passes on the Vercel `dev` branch. Production was not changed. Private S3 and real malware scanning remain no-go gates.
+> 2026-09-02 update: live staging Auth/RLS, private S3, GuardDuty, workflow concurrency/recovery, and Textract document extraction pass with synthetic fixtures. Production was not changed. The next engineering blocker is staging Inngest event/signing-key configuration and deployed saga registration; real PHI remains no-go.
 
 *Date: 2026-08-16 | Branch: `dev` | Purpose: continue beta work in a fresh session*
 
@@ -39,7 +39,7 @@ AWS_REGION=ap-south-1
 AWS_TEXTRACT_REGION=ap-south-1
 
 OCR_PROVIDER=textract
-DOCUMENT_PARSER_PROVIDER=marker        # Textract is OCR, not the document parser
+DOCUMENT_PARSER_PROVIDER=textract      # verified staging beta parser; Marker is optional
 
 AI_PROVIDER=gemini
 GEMINI_API_KEY=                        # must be AIzaSy... format from aistudio.google.com/apikey

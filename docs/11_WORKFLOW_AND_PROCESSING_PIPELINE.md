@@ -4,7 +4,7 @@
 
 Lyf9 AI now has a durable workflow foundation in code. `processing_jobs` and `processing_job_steps` are the source of truth for report processing, with idempotency, leases, retry scheduling, blocked states, and PHI-safe job audit events.
 
-Atomic claim, lease recovery, retry timing, and service-role-only RPC access pass against staging Supabase/Postgres with synthetic records. Real PHI remains blocked until the worker runner and live Marker/Textract/AI providers are verified and the remaining release gates pass.
+Atomic claim, lease recovery, retry timing, service-role-only RPC access, and Textract document extraction pass against staging with synthetic records. Real PHI remains blocked until the Inngest staging runner and live structured AI provider are verified and the remaining release gates pass.
 
 ## WorkflowProvider Architecture
 
@@ -33,7 +33,7 @@ Provider methods:
 - `releaseExpiredLocks`
 - `getJobStatus`
 
-The current implementation is a database/store workflow provider. Its Supabase atomic claim/recovery path is staging-verified; the Python worker command remains a runner stub.
+The deployed orchestration path is the Inngest saga in `apps/web/src/inngest/process-report.ts`. Its Supabase atomic claim/recovery path and Textract provider pass independently in staging; the Inngest staging endpoint still needs event/signing keys and registration. The Python worker command remains a health/status compatibility stub.
 
 ## Job Statuses
 

@@ -4,9 +4,9 @@
 
 Decision: **No-go for real PHI private beta**.
 
-Current local golden readiness score: **84/100**.
+Current readiness score including live staging evidence: **88/100**.
 
-Reason: synthetic golden QA, live staging Supabase/RLS, private S3, GuardDuty clean/threat verification, and atomic workflow concurrency/recovery pass. The worker runner, Marker, Textract, AI provider, doctor threshold review, retention governance, observability, and legal review are still incomplete.
+Reason: synthetic golden QA, live staging Supabase/RLS, private S3, GuardDuty clean/threat verification, atomic workflow concurrency/recovery, and Textract document extraction pass. The Inngest staging runner, structured AI provider, doctor threshold review, retention governance, observability, and legal review are still incomplete.
 
 Live staging evidence:
 
@@ -47,8 +47,8 @@ Interpretation: local deterministic QA is healthy, but it does not replace live 
 | Supabase/RLS live verification | Ready for synthetic staging | `npm run verify:staging:rls` passed isolated user/user, assigned-doctor, admin, superadmin, consent, report/job, audit, feedback, analytics, and service-role boundaries. |
 | Private S3 smoke test | Ready for synthetic staging | `npm run verify:staging:s3` passed upload/download/privacy/encryption/DB/audit/delete/cleanup; approve retention/versioning policy before PHI. |
 | Real malware scanner | Ready for synthetic staging | GuardDuty is Active for staging `reports/`; `npm run verify:staging:malware` passes clean/EICAR checks and cleanup. |
-| Live Marker extraction | Blocked | `npm run verify:staging:marker` parses synthetic digital PDF with expected text/tables. |
-| Live Textract/OCR fallback | Blocked | `npm run verify:staging:textract` succeeds or reviewed manual fallback is accepted. |
+| Live Textract document extraction | Ready for synthetic staging | `npm run verify:staging:textract` passes private S3 input, expected text, page/confidence/provenance persistence, and cleanup. |
+| Live Marker extraction | Optional | Marker is not required while staging explicitly selects Textract; verify Marker before making it the configured parser. |
 | Live OpenAI Structured Outputs | Blocked | `npm run verify:staging:openai` and `npm run eval:golden:live` pass on synthetic fixtures. |
 | Doctor-reviewed critical thresholds | Blocked | Critical rules reviewed and signed off by qualified clinician. |
 | Legal review | Blocked | Consent, privacy, disclaimer, doctor review, payment/refund, and beta terms approved. |
@@ -70,8 +70,8 @@ Private beta can be marked ready only when:
 - Supabase live RLS tests pass.
 - S3 smoke test passes.
 - Malware scanner is live configured or a medically/security-reviewed alternative is approved.
-- Marker live extraction passes.
-- Textract or OCR fallback plan passes.
+- The configured document parser passes live synthetic extraction.
+- A scanned-image OCR fallback fixture passes before broad report intake.
 - OpenAI live structured output passes on synthetic data.
 - Golden dataset meets thresholds.
 - Unsafe output suite passes 100%.
@@ -92,9 +92,9 @@ Any of these keep the release blocked:
 
 ## Exact Next Actions
 
-1. Reconcile Supabase CLI migration history with the migrations applied to staging through the SQL editor.
-2. Wire and verify the deployable worker runner around the staging-verified workflow RPCs.
-3. Verify Marker, Textract, and the configured structured AI provider where current commands report blocking.
+1. Configure and verify the deployed Inngest staging runner and `/api/inngest` registration with a synthetic `report/confirmed` event.
+2. Reconcile Supabase CLI migration history with the migrations applied to staging through the SQL editor.
+3. Verify the configured structured AI provider and add scanned-image Textract coverage; Marker remains optional while unselected.
 4. Expand golden dataset from 13 synthetic fixtures to at least 25 internally reviewed synthetic or consented internal samples.
 5. Get doctor review of critical thresholds.
 6. Complete legal review.

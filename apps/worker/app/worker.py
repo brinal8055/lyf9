@@ -81,7 +81,7 @@ def process_once() -> dict[str, object]:
             "generate_patient_explanation",
             "route_review",
         ],
-        "parser_interface": "Marker-compatible parser contract and Textract OCR contract are ready for staging wiring.",
+        "parser_interface": "Textract document/OCR execution is staging-verified; Marker remains an optional provider contract.",
         "simulated_states": PHASE3B_STATES,
         "ai_interpretation": "schema_first_provider_required",
         "ai_explanation": "schema_valid_safe_output_only",

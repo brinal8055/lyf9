@@ -6,9 +6,9 @@ Use this checklist for the first 30-50 early users. This is a private beta gate,
 
 Current decision: **No-go for real PHI private beta**.
 
-Private beta readiness score from latest local golden gate: **84/100**.
+Private beta readiness score including current live staging evidence: **88/100**.
 
-This repo is ready for scaffold/operator rehearsal and now has live-tested staging Supabase Auth/Postgres/RLS, private S3, GuardDuty malware enforcement, and atomic workflow concurrency/recovery, plus document extraction/classification and schema-first AI foundations. Real 30-50 user testing remains blocked by reliable signup email delivery, a deployable worker runner, live Marker/Textract/AI verification, expanded human-reviewed golden QA, observability, retention governance, doctor threshold review, and legal review.
+This repo is ready for scaffold/operator rehearsal and now has live-tested staging Supabase Auth/Postgres/RLS, private S3, GuardDuty malware enforcement, atomic workflow concurrency/recovery, and Textract document extraction. Real 30-50 user testing remains blocked by reliable signup email delivery, a configured Inngest staging runner, live structured AI verification, expanded human-reviewed golden QA, observability, retention governance, doctor threshold review, and legal review.
 
 ## Current Readiness Matrix
 
@@ -19,8 +19,8 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Storage security | Ready for synthetic staging | Backend/DevOps | Guarded app-level upload/download/privacy/encryption/DB/audit/delete verification passed; approve retention/versioning and key-management policy before real PHI. |
 | Malware scanning | Ready for synthetic staging | Backend/Security/DevOps | GuardDuty is Active for staging `reports/`; least-privilege tag read and clean/EICAR verification pass. Re-run after scanner, IAM, bucket, or prefix changes. |
 | Upload flow | Ready for synthetic staging | Engineering | Deployed consent gate, private S3 upload/download/delete, and real GuardDuty clean/threat behavior pass with synthetic fixtures. |
-| Processing pipeline | Partially ready | Backend/Platform | Atomic claims, leases, retry timing, expired-step recovery, and service-role-only RPC access pass against staging Postgres; wire and rehearse the deployable worker runner. |
-| Marker/OCR | Partially ready | AI/Backend | Provider contracts and durable steps exist; configure and verify Marker and Textract fallback in staging. |
+| Processing pipeline | Partially ready | Backend/Platform | Atomic claims/recovery and Textract pass independently; configure Inngest staging keys, register `/api/inngest`, and rehearse the event-driven saga. |
+| Document extraction/OCR | Ready for synthetic staging | AI/Backend | Textract primary parsing passed against a synthetic PDF with persistence and cleanup. Marker remains optional while Textract is selected; image/scanned OCR coverage should be added before broadening report intake. |
 | AI structured outputs | Blocked | AI/Backend | Schema-first local path exists; wire OpenAI Structured Outputs and Pydantic validation in worker. |
 | Safety rules | Partially ready | AI/Safety/Medical | Unsafe-language filter and routing exist; doctor-review critical thresholds with real report set. |
 | Unsupported report handling | Partially ready | AI/Safety | Unsupported reports are blocked from AI-only interpretation; expand internal fixture coverage. |
@@ -34,7 +34,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Error monitoring | Partially ready | Engineering | Logging helper and env contract exist; wire Sentry with PHI scrubbing. |
 | Payments sandbox | Ready for scaffold beta | Product/Legal | Razorpay placeholder/sandbox only; do not enable real public charges. |
 | Legal review | Blocked | Founders/Legal | Complete DPDP, doctor, disclaimer, payment/refund, and public claims review before public paid launch. |
-| Deployment | Partially ready | DevOps | Vercel Preview `dev` reports healthy Supabase Postgres and live-verified S3; configure workflow, scanner, OCR/parser, AI, and observability probes. |
+| Deployment | Partially ready | DevOps | Vercel Preview `dev` reports healthy Supabase Postgres and live-verified S3; configure the Inngest runner, structured AI, and observability probes. |
 | Runbook | Ready for scaffold beta | Ops/Product | Runbook exists; rehearse failed report, unsafe output, pause upload, export/delete paths. |
 
 ## Supabase Foundation Gate
@@ -77,8 +77,9 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Retry/backoff | Ready for synthetic staging | Future retries remain unavailable until due; recovered retry jobs can be reclaimed, while max-attempt jobs fail terminally. |
 | Failed/blocked visibility | Partially ready | Admin helper exposes blocked/failed jobs; dedicated UI retry/cancel controls remain a gap. |
 | Scan-gated processing | Ready for synthetic staging | `malware_scan` is the durable first step; live GuardDuty clean/threat mapping and cleanup pass. |
-| Marker extraction | Partially ready | Provider contract and mock parser exist; configure and verify Marker in staging. |
-| OCR fallback | Partially ready | OCR provider contract and Textract stub exist; configure and verify Textract in staging. |
+| Textract extraction | Ready for synthetic staging | Primary parser uses async Textract against private S3; live synthetic PDF text/page/confidence/persistence and cleanup pass. |
+| Marker extraction | Optional | Marker contract remains available but is not a beta release blocker while `DOCUMENT_PARSER_PROVIDER=textract`. |
+| OCR fallback | Partially ready | The Textract OCR interface is executable and verified on a digital synthetic PDF; add a scanned-image fixture before relying on the fallback for broad intake. |
 | Report classification | Ready in code | Deterministic supported/limited/unsupported classifier is tested locally. |
 | Unsupported report handling | Ready in code | Unsupported/unknown reports block safely and do not proceed to AI. |
 | Admin extraction visibility | Partially ready | Admin parser output and OCR/unknown queue counts exist; dedicated retry controls remain a UI gap. |
@@ -160,8 +161,8 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Workflow concurrency check | Ready | `npm run verify:staging:workflow` | Self-seeding staging harness passed concurrent claims, retries, lease recovery, RPC denial, audit safety, and cleanup. Re-run after workflow migration/provider changes. |
 | S3 private smoke check | Ready for synthetic staging | `npm run verify:staging:s3` passed app routes, S3 privacy/metadata/encryption/delete, DB metadata, audit events, and cleanup | Re-run after storage/IAM/signing changes; approve retention/versioning policy before PHI. |
 | Malware scanner live check | Ready | `npm run verify:staging:malware` | GuardDuty is Active on staging `reports/`; tag-read IAM and clean/EICAR outcomes pass with synthetic cleanup. |
-| Marker live check | Blocked | `npm run verify:staging:marker` | Wire Marker command/API execution. |
-| Textract live check | Blocked | `npm run verify:staging:textract` | Wire Textract OCR execution or approved manual fallback. |
+| Marker live check | Optional | `npm run verify:staging:marker` | Run before selecting Marker; Textract is the current verified parser. |
+| Textract live check | Ready for synthetic staging | `npm run verify:staging:textract` | Live synthetic PDF extraction/persistence/cleanup pass; add scanned-image coverage. |
 | OpenAI live check | Blocked | `npm run verify:staging:openai` | Wire live Structured Outputs execution with synthetic text only. |
 | Live golden subset | Blocked | `npm run eval:golden:live` | Enable only after live OpenAI execution is wired. |
 | Live report | Ready as template | `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` | Replace blocked statuses with evidence only after commands pass. |

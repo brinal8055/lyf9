@@ -2,6 +2,23 @@
 
 ## Run Summary
 
+### 2026-09-02 Live Textract Document Extraction Pass
+
+Environment: Supabase `lyf9-staging` (`wjjwdakfyigwwohbntyv`) and `lyf9-reports-storage-staging` in `ap-south-1` only. Production was not changed and no real PHI was used.
+
+Passed evidence:
+
+- Implemented asynchronous Textract document text detection against the private staging S3 object, including bounded polling, pagination, deterministic line ordering, page count, confidence, and PHI-safe failure codes.
+- Added explicit `DOCUMENT_PARSER_PROVIDER=textract`; Marker remains optional while Textract is selected.
+- The initial live run failed closed with `textract_access_denied` and cleaned up its synthetic fixtures.
+- Added only `textract:StartDocumentTextDetection` and `textract:GetDocumentTextDetection` to the staging application IAM policy, restricted by `aws:RequestedRegion=ap-south-1`. No broad Textract administration or production access was granted.
+- `npm run verify:staging:textract` passed all three checks using a one-page synthetic CBC PDF.
+- The live result contained expected synthetic text, one page, and confidence above 0.8; the corresponding `extracted_documents` row preserved parser/version/user provenance.
+- The harness deleted its staging S3 object and synthetic Supabase Auth user in `finally`.
+- Artifact `artifacts/staging-verification/textract.json` records pass/fail metadata only and contains no extracted report text.
+
+Verdict: Textract document extraction is **ready for synthetic staging**. Scanned-image OCR coverage, deployed Inngest saga verification, live structured AI, and the remaining release gates still block real PHI.
+
 ### 2026-09-02 Live Durable Workflow Pass
 
 Environment: Supabase `lyf9-staging` (`wjjwdakfyigwwohbntyv`) only. Production was not changed and no real PHI was used.
@@ -181,12 +198,12 @@ npm run eval:golden:live
 | Supabase migrations | Partially ready | Schema through `202609010002_consent_rpc_rls_guard.sql` applied in staging SQL editor | Reconcile CLI migration history and run `npm run verify:staging:supabase`. |
 | RLS/JWT | Ready for core boundaries | Six-identity live JWT harness passed with synthetic cleanup | Re-run after every RLS migration. |
 | Deployed Auth/API | Partially ready | Login/session, persistence, route denial, consent transitions, and backend upload gate passed | Configure custom SMTP/approved email quota and rerun public signup without fixture fallback. |
-| Workflow concurrency | Ready for synthetic staging | Self-seeding harness passed unique claims, retry timing, lease/step recovery, RPC denial, safe audits, and cleanup | Re-run after workflow migration/provider changes; wire the deployable worker runner. |
+| Workflow concurrency | Ready for synthetic staging | Self-seeding harness passed unique claims, retry timing, lease/step recovery, RPC denial, safe audits, and cleanup | Re-run after workflow migration/provider changes; configure and rehearse the deployed Inngest runner. |
 | S3 private storage | Ready for synthetic staging | Guarded app-level harness passed against the staging-only bucket | Re-run after IAM, bucket-policy, or signing changes; approve retention policy before PHI. |
 | Signed upload/download/delete | Ready for synthetic staging | App routes, S3 privacy/encryption, DB metadata, audit rows, delete, and cleanup passed | Keep production unchanged until remaining release gates pass. |
-| Malware scanner | Blocked | Current scanner code has mock and fail-closed stub only | Wire real scanner or document approved manual fail-closed process. |
-| Marker | Blocked | Provider contract exists; live runner not wired | Wire Marker command/API execution and run synthetic PDF smoke. |
-| Textract/OCR | Blocked | Provider contract exists; live runner not wired | Wire Textract OCR execution or approved manual fallback. |
+| Malware scanner | Ready for synthetic staging | GuardDuty clean/EICAR harness passes with cleanup | Re-run after IAM, bucket, scanner, or prefix changes. |
+| Marker | Optional | Provider contract remains available but unselected | Verify before selecting Marker as the parser. |
+| Textract/OCR | Ready for synthetic staging | Live synthetic PDF text/page/confidence/persistence and cleanup pass | Add scanned-image coverage before broad report intake. |
 | OpenAI Structured Outputs | Blocked | Provider contract exists; live requests not wired | Wire live structured-output calls and run synthetic subset. |
 | Golden live subset | Blocked | Local golden eval passes; live provider eval not wired | Run `npm run eval:golden:live` after OpenAI runner is wired. |
 | E2E synthetic staging pipeline | Blocked | Depends on live providers above | Run only after Supabase, S3, scanner, Marker/OCR, and OpenAI checks pass. |
@@ -211,7 +228,7 @@ Actual artifact summary:
 | s3 | Blocked | AWS/S3 env missing. |
 | malware | Blocked | Scanner provider env missing. |
 | marker | Blocked | Document parser provider env missing. |
-| textract | Blocked | OCR provider/Textract region env missing. |
+| textract | Ready for synthetic staging | `npm run verify:staging:textract` passed with guarded synthetic extraction and cleanup. |
 | openai | Blocked | OpenAI provider/key/model env missing. |
 | e2e | Blocked | App base URL env missing. |
 | golden-live | Blocked | Live OpenAI eval flag/provider/key/model env missing. |
@@ -238,8 +255,8 @@ P0 risks remain:
 
 - Supabase live RLS and deployed core Auth/API consent checks have passed; public signup email delivery remains quota-limited.
 - Private S3 app and audit verification passes against the staging-only bucket; retention/versioning policy remains open.
-- Real malware scanner is absent.
-- Marker, Textract, and OpenAI providers are contract-only for live execution.
+- GuardDuty malware scanning and Textract document extraction pass with synthetic staging evidence.
+- Marker remains optional and OpenAI/live structured AI remains unverified.
 - Doctor-reviewed thresholds and legal review are incomplete.
 
 ## Go/No-Go

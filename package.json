@@ -33,6 +33,7 @@
     "test:auth-live": "npm --workspace apps/web run test:auth-live",
     "test:s3-live": "npm --workspace apps/web run test:s3-live",
     "test:malware-live": "npm --workspace apps/web run test:malware-live",
+    "test:textract-live": "npm --workspace apps/web run test:textract-live",
     "test:workflow-live": "npm --workspace apps/web run test:workflow-live",
     "api:dev": "cd apps/api && python3 -m uvicorn app.main:app --reload --port 8000",
     "api:health": "cd apps/api && python3 -m app.main",

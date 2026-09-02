@@ -32,6 +32,10 @@ export function getDocumentParserProvider(): DocumentParserProvider {
     return new MarkerProvider();
   }
 
+  if (provider === "textract") {
+    return new TextractOcrProvider();
+  }
+
   throw new Error(`Unsupported document parser provider: ${provider}`);
 }
 

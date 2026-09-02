@@ -4,13 +4,49 @@
 
 Staging foundation reconciliation is in progress for a **production-shaped private beta MVP**.
 
-Supabase staging now has the current schema, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, live GuardDuty clean/threat enforcement, and live-verified atomic workflow claims, lease recovery, and retry timing. The product is not approved for real 30-50 user PHI until the worker runner, Marker/OCR, production AI structured outputs, observability/privacy review, retention governance, clinical threshold review, and legal review are completed in staging.
+Supabase staging now has the current schema, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, live GuardDuty clean/threat enforcement, live-verified atomic workflow claims, and a live-verified AWS Textract document-extraction path. The product is not approved for real 30-50 user PHI until the Inngest staging runner, production AI structured outputs, observability/privacy review, retention governance, clinical threshold review, and legal review are completed in staging.
 
-Current private beta readiness score: **8.6/10**.
+Current private beta readiness score: **8.8/10**.
 
 No public launch, autonomous diagnosis, prescriptions, medicine-change advice, supplement protocols, pharmacy commerce, lab booking, full doctor marketplace, mobile app, wearables, ABDM/ABHA, genetics, employer, or insurance workflows have been added.
 
 ## Completed In This Pass
+
+### 2026-09-02 Live Textract Document Extraction Pass
+
+- Implemented AWS Textract asynchronous document text detection using `StartDocumentTextDetection` and bounded `GetDocumentTextDetection` polling against the existing private staging S3 bucket.
+- Added explicit `DOCUMENT_PARSER_PROVIDER=textract` support so staging can use Textract as its primary beta parser while Marker remains an optional future parser.
+- Added pagination, deterministic line ordering, page count, confidence, provider/version provenance, timeout handling, storage-key validation, and PHI-safe failure codes.
+- Persisted `user_id`, parser provider, OCR provider, and error provenance to `extracted_documents`; no extracted report text is written to verification artifacts or audit metadata.
+- Fixed the saga OCR step so a failed OCR result cannot be recorded as succeeded.
+- Added deterministic provider tests and a guarded live harness that creates a synthetic CBC PDF, uploads it to staging S3, runs Textract, verifies expected text/page/confidence and the persisted extraction row, then deletes the object and synthetic Auth user in `finally`.
+- The first live call failed closed with `textract_access_denied`. The staging IAM policy was then updated only with `textract:StartDocumentTextDetection` and `textract:GetDocumentTextDetection`, restricted to `ap-south-1`; no broad Textract or production access was added.
+- `npm run verify:staging:textract` then passed all three checks in about 20 seconds. Production was not changed and no real PHI was used.
+- Added `docs/35_TEXTRACT_STAGING_SETUP.md` with the least-privilege IAM policy, environment contract, verification procedure, cleanup behavior, and failure runbook.
+
+Verification passed so far:
+
+```txt
+npm --workspace apps/web run test -- --run src/lib/document-extraction/textract-ocr-provider.test.ts src/lib/document-extraction/staging-textract-live.test.ts src/lib/reports/reports.test.ts  # 77 passed, 1 live skipped
+npm run verify:staging:textract  # 3 passed, including live synthetic PDF extraction and cleanup
+npm test  # 147 passed, 6 credential-gated live tests skipped
+npm run typecheck
+npm run lint
+npm run copy:scan
+npm run build:web
+npm run api:test  # 8 passed
+npm run api:health
+npm run worker:health
+git diff --check
+```
+
+Current remaining blocker: configure the staging Inngest event/signing keys and register the deployed `/api/inngest` endpoint so `report/confirmed` runs the durable saga automatically. The Python worker remains a health/status compatibility stub; the production-shaped execution path is the Inngest saga in `apps/web`. Marker is optional for the beta while Textract is selected. Live structured AI and the other release gates remain blocked.
+
+Known dependency risk: `npm audit` currently reports 17 findings (1 low, 4 moderate, 11 high, 1 critical). This scoped pass did not apply a broad or breaking audit fix; run a dedicated dependency review before real PHI.
+
+Next recommended prompt:
+
+> Configure and verify the Lyf9 AI staging Inngest runner for the `dev` deployment: add staging-only event/signing keys, register `https://lyf9-dev.vercel.app/api/inngest`, send a synthetic `report/confirmed` event, verify GuardDuty and Textract saga steps plus Postgres/audit transitions, stop before unconfigured AI, clean up all fixtures, and leave Production unchanged.
 
 ### 2026-09-02 Live Durable Workflow Concurrency And Recovery Pass
 

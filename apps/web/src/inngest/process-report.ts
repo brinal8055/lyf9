@@ -165,6 +165,7 @@ export const processReport = inngest.createFunction(
         const parser = getDocumentParserProvider();
         let result: ExtractedDocumentResult = await parser.parseDocument(parseParams);
         let parserName = parser.name;
+        let ocrProviderName: string | null = null;
 
         const textTooShort = (result.extractedText?.length ?? 0) < minExtractedTextChars();
         if (result.status === "ocr_required" || (result.status === "low_text_confidence" && textTooShort)) {
@@ -172,12 +173,22 @@ export const processReport = inngest.createFunction(
           await updateJobState(jobId, "ocr_required");
           const ocr = getOcrProvider();
           result = await ocr.extractText(parseParams);
-          parserName = ocr.name;
-          await workflow.markStepSucceeded({
-            jobId,
-            outputSnapshot: { provider: parserName, status: result.status },
-            stepName: "ocr_fallback"
-          });
+          ocrProviderName = ocr.name;
+          if (result.status === "success" || result.status === "low_text_confidence") {
+            await workflow.markStepSucceeded({
+              jobId,
+              outputSnapshot: { provider: ocrProviderName, status: result.status },
+              stepName: "ocr_fallback"
+            });
+          } else {
+            await workflow.markStepFailed({
+              errorCode: result.errorCode ?? "ocr_failed",
+              errorMessage: result.errorMessage ?? "OCR extraction failed.",
+              jobId,
+              retryable: true,
+              stepName: "ocr_fallback"
+            });
+          }
         }
 
         if (result.status === "failed" || !result.extractedText) {
@@ -202,9 +213,11 @@ export const processReport = inngest.createFunction(
         const extractedDocumentId = await insertExtractedDocument({
           extractionVersion: EXTRACTION_VERSION,
           labReportId,
+          ocrProviderName,
           parserName,
           reportFileId,
-          result
+          result,
+          userId
         });
         await workflow.markStepSucceeded({
           jobId,

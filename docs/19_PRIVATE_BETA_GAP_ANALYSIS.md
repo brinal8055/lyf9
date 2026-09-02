@@ -6,7 +6,7 @@
 
 The product can be used for internal scaffold rehearsal. The end-to-end user journey exists, but core PHI safety infrastructure is not production-ready.
 
-Private beta readiness score from latest local golden gate: **84/100**
+Private beta readiness score including current live staging evidence: **88/100**
 
 ## P0 Blockers Before Any Real PHI
 
@@ -17,8 +17,8 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 | Blocker | Evidence | Required Fix |
 | --- | --- | --- |
 | Signup email delivery is rate-limited | Live `npm run test:auth-live` staging run | Configure custom SMTP or an approved Supabase Auth email quota, then require public invite signup to pass without service-role fixture provisioning. |
-| Deployable worker runner not rehearsed | `apps/worker/app/worker.py`, `apps/web/src/lib/workflow/workflow-provider.ts` | Wrap the staging-verified claim/lease/retry primitives in the deployed worker process and verify clean shutdown/restart behavior. |
-| Marker/Textract not live-verified | `apps/web/src/lib/document-extraction/`, `apps/worker/app/providers/document.py` | Configure and verify Marker plus Textract fallback in staging. |
+| Inngest staging runner not rehearsed | `apps/web/src/inngest/process-report.ts`, `apps/web/src/app/api/inngest/route.ts` | Configure staging-only Inngest event/signing keys, register the deployed route, and verify a synthetic `report/confirmed` saga. The Python worker is a health/status compatibility stub, not the selected runner. |
+| Scanned-image OCR coverage incomplete | `apps/web/src/lib/document-extraction/staging-textract-live.test.ts` | Textract primary extraction is live-verified on a synthetic PDF; add a synthetic scanned/image report before broadening intake. Marker is optional while Textract is selected. |
 | Live OpenAI structured path not verified | `apps/web/src/lib/ai/openai-structured-provider.ts` | Configure OpenAI models in staging, execute live structured-output calls, and run golden dataset QA. |
 | Golden dataset too small for PHI beta | `tests/golden/`, `docs/26_GOLDEN_DATASET_EVALUATION_REPORT.md` | Expand beyond synthetic smoke coverage to at least 25 internally reviewed samples and retain 100% safety gate pass. |
 | Observability not production-ready | `apps/web/src/lib/observability/logger.ts` | Sentry + PHI scrubbing + alert routing. |
@@ -48,7 +48,8 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 - Root scripts now include `npm run verify:staging:*` for Supabase, RLS, workflow, S3, malware, Marker, Textract, OpenAI, E2E, and live golden subset checks.
 - Existing live RLS and workflow harnesses are routed through the staging verifier.
 - S3 direct signed PUT/GET/delete smoke harness exists, but full app audit-row verification still requires deployed app E2E.
-- GuardDuty verification now passes with live AWS staging evidence; Marker, Textract, OpenAI, live golden subset, and full E2E still lack live evidence.
+- GuardDuty verification now passes with live AWS staging evidence; Marker, structured AI, live golden subset, and full E2E still lack live evidence.
+- Textract asynchronous document extraction now passes against a synthetic staging PDF, including private S3 input, expected text, page count, confidence, `extracted_documents` provenance, and guaranteed cleanup. Marker remains optional while Textract is the selected parser.
 - `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` records the current no-go live status.
 
 ## Fixed Or Improved In The Foundation Hardening Pass
@@ -155,11 +156,11 @@ No-go for real users until:
 - RLS is tested.
 - S3 is re-verified after any storage, IAM, signing, or bucket-policy change.
 - Real malware scanning is live.
-- The deployable worker process loop is rehearsed using the verified staging claim/lease/retry primitives.
-- Parser/OCR and live OpenAI providers are production-wired and staging-verified.
+- The deployed Inngest saga is rehearsed using the verified staging claim/lease/retry primitives.
+- The selected parser/OCR path and live structured AI provider are production-wired and staging-verified.
 - At least 25 internal reports across 5 supported categories pass human review.
 - Legal accepts consent/disclaimer/doctor/payment language.
 
 ## First Fix
 
-Wire and live-verify document parsing plus Textract fallback on synthetic staging reports, then connect those steps to the deployable worker runner. Keep extraction blocked unless the live GuardDuty step has passed.
+Configure and live-verify the staging Inngest runner around the existing GuardDuty and Textract saga steps. Keep the event synthetic, stop before unconfigured AI, verify Postgres/audit transitions, and leave Production unchanged.

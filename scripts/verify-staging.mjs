@@ -93,7 +93,20 @@ const sections = {
     run: verifyMarker
   },
   textract: {
-    required: ["OCR_PROVIDER", "AWS_TEXTRACT_REGION"],
+    required: [
+      "AWS_ACCESS_KEY_ID",
+      "AWS_REGION",
+      "AWS_SECRET_ACCESS_KEY",
+      "AWS_TEXTRACT_REGION",
+      "DOCUMENT_PARSER_PROVIDER",
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "OCR_PROVIDER",
+      "PRODUCTION_S3_BUCKET",
+      "S3_REPORT_BUCKET",
+      "STAGING_S3_BUCKET",
+      "STAGING_SUPABASE_PROJECT_REF",
+      "SUPABASE_SERVICE_ROLE_KEY"
+    ],
     run: verifyTextract
   },
   openai: {
@@ -252,12 +265,10 @@ function verifyMarker() {
 }
 
 function verifyTextract() {
-  const checks = [
-    check("textract_selected", process.env.OCR_PROVIDER === "textract"),
-    check("textract_region_configured", Boolean(process.env.AWS_TEXTRACT_REGION)),
-    check("textract_runner_available", false, "Textract provider currently exposes the contract and fail-closed behavior; live OCR execution is not wired.")
-  ];
-  return { checks, status: "blocked" };
+  assertStagingSupabaseTarget();
+  return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:textract-live"], {
+    RUN_LIVE_STAGING_TEXTRACT: "true"
+  }, "live_textract_harness_passed");
 }
 
 function verifyOpenAi() {

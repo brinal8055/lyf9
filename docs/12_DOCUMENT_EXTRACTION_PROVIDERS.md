@@ -2,7 +2,7 @@
 
 ## Status
 
-Lyf9 AI now has a document extraction foundation in code. The durable workflow can run `extract_document`, `ocr_fallback`, and `classify_report` after `malware_scan` passes. Real PHI beta remains blocked until Marker and OCR are configured and verified in staging.
+Lyf9 AI now has a live-verified AWS Textract document extraction path for controlled staging. The durable workflow can run `extract_document`, `ocr_fallback`, and `classify_report` after `malware_scan` passes. Real PHI beta remains blocked by the remaining release gates, including deployed saga and structured AI verification.
 
 Document extraction does not itself generate AI interpretation. Supported reports now advance into the schema-first AI workflow after classification.
 
@@ -22,13 +22,13 @@ Providers:
 
 - `MarkerProvider`: Marker-ready production parser contract. It fails closed when `MARKER_COMMAND` or `MARKER_API_URL` is missing.
 - `MockFixtureDocumentParser`: local/test fixtures only.
-- `TextractOcrProvider`: AWS Textract-ready OCR contract. It fails closed when Textract is not configured.
+- `TextractOcrProvider`: executable AWS Textract parser/OCR provider using asynchronous S3 document text detection with bounded polling and pagination. It fails closed when Textract is not configured.
 - `MockOcrProvider`: local/test fixtures only.
 
 ## Environment Variables
 
 ```txt
-DOCUMENT_PARSER_PROVIDER=marker
+DOCUMENT_PARSER_PROVIDER=textract
 MARKER_COMMAND=
 MARKER_API_URL=
 MARKER_TIMEOUT_SECONDS=120
@@ -37,6 +37,7 @@ MIN_EXTRACTED_TEXT_CHARS=500
 OCR_PROVIDER=textract
 AWS_TEXTRACT_REGION=ap-south-1
 OCR_TIMEOUT_SECONDS=180
+OCR_POLL_INTERVAL_MS=2000
 ```
 
 Local/test may use:
@@ -153,18 +154,18 @@ npm run lint
 npm test
 ```
 
-Staging verification still required:
+Staging verification:
 
 1. Apply migrations through `202606060006_document_extraction_foundation.sql`.
-2. Configure `DOCUMENT_PARSER_PROVIDER=marker` and either `MARKER_COMMAND` or `MARKER_API_URL`.
-3. Configure `OCR_PROVIDER=textract` and AWS Textract permissions.
-4. Upload digital PDF, scanned/image report, unsupported report, and unknown report fixtures.
-5. Verify extracted rows, audit rows, unsupported blocking, and future `extract_biomarkers` block.
+2. Configure `DOCUMENT_PARSER_PROVIDER=textract`, `OCR_PROVIDER=textract`, and the scoped AWS permissions in `docs/35_TEXTRACT_STAGING_SETUP.md`.
+3. Run `npm run verify:staging:textract`; the current harness verifies a digital synthetic PDF, persisted provider/user provenance, and cleanup.
+4. Before broad report intake, add scanned/image, unsupported, and unknown report fixtures through the deployed saga.
+5. Verify audit rows, unsupported blocking, and the future `extract_biomarkers` boundary.
 
 ## Current Limitations
 
-- Marker execution is a configured contract, not live-verified.
-- Textract execution is a configured contract, not live-verified.
-- Supabase persistence for extracted documents needs staging verification.
+- Marker execution remains an optional configured contract and is not live-verified.
+- Textract text extraction and Supabase persistence pass with a synthetic staging PDF; table extraction is not implemented and `extracted_tables_json` remains empty.
+- Scanned-image OCR and extracted-document RLS boundary verification remain.
 - Admin UI shows parser output and queue counts, but dedicated retry controls remain a gap.
 - Live OpenAI execution remains contract-only until staging verification; local/test schema-first AI is implemented.

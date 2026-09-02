@@ -99,14 +99,14 @@ The live workflow harness is self-seeding and uses synthetic records only. It re
 ## Document Extraction
 
 ```txt
-DOCUMENT_PARSER_PROVIDER=marker
+DOCUMENT_PARSER_PROVIDER=textract
 MARKER_COMMAND=
 MARKER_API_URL=
 MARKER_TIMEOUT_SECONDS=120
 MIN_EXTRACTED_TEXT_CHARS=500
 ```
 
-At least one of `MARKER_COMMAND` or `MARKER_API_URL` must be configured for real Marker verification. Current code still treats live Marker execution as a contract until the runner is wired.
+The controlled beta default is `textract`, which uses the same private S3 report object and is live-verified on a synthetic PDF. Marker remains an optional provider; when `DOCUMENT_PARSER_PROVIDER=marker`, at least one of `MARKER_COMMAND` or `MARKER_API_URL` must be configured and separately verified.
 
 ## OCR
 
@@ -114,9 +114,10 @@ At least one of `MARKER_COMMAND` or `MARKER_API_URL` must be configured for real
 OCR_PROVIDER=textract
 AWS_TEXTRACT_REGION=ap-south-1
 OCR_TIMEOUT_SECONDS=180
+OCR_POLL_INTERVAL_MS=2000
 ```
 
-If Textract is not configured or the runner is not wired, OCR verification must fail closed and the release gate remains blocked.
+The application IAM principal needs only `textract:StartDocumentTextDetection` and `textract:GetDocumentTextDetection` in `ap-south-1`, plus its existing private staging S3 access. Setup and verification are documented in `docs/35_TEXTRACT_STAGING_SETUP.md`. Missing configuration, access denial, unsupported documents, timeouts, and empty extraction fail closed.
 
 ## AI
 

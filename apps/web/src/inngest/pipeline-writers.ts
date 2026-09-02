@@ -80,14 +80,17 @@ export async function updateLabReportClassification(
 export async function insertExtractedDocument(input: {
   extractionVersion: number;
   labReportId: string;
+  ocrProviderName?: string | null;
   parserName: string;
   reportFileId: string;
   result: ExtractedDocumentResult;
+  userId: string;
 }): Promise<string> {
   const { data, error } = await client()
     .from("extracted_documents")
     .insert({
       confidence_score: input.result.confidenceScore ?? null,
+      error_code: input.result.errorCode ?? null,
       error_message: input.result.errorMessage ?? null,
       extracted_tables_json: input.result.extractedTablesJson ?? null,
       extracted_text: input.result.extractedText ?? null,
@@ -96,9 +99,12 @@ export async function insertExtractedDocument(input: {
       page_count: input.result.pageCount ?? null,
       page_metadata_json: input.result.pageMetadataJson ?? {},
       parser_name: input.parserName,
+      parser_provider: input.parserName,
       parser_version: input.result.parserVersion,
+      ocr_provider: input.ocrProviderName ?? null,
       report_file_id: input.reportFileId,
-      status: input.result.status
+      status: input.result.status,
+      user_id: input.userId
     })
     .select("id")
     .single();

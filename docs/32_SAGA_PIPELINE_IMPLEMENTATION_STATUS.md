@@ -2,6 +2,8 @@
 
 *Date: 2026-07-08 | For: TL review | Author: Darshil*
 
+> 2026-09-02 update: GuardDuty, workflow concurrency/recovery, and Textract primary document extraction now pass guarded synthetic staging verification. Marker remains optional. The deployed Inngest endpoint still needs staging event/signing keys and registration before the saga is considered rehearsed; see `docs/PROGRESS.md` for the current gate.
+
 ---
 
 ## 1. What Was Asked

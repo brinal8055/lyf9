@@ -1887,13 +1887,13 @@ describe("document extraction providers", () => {
     }
   });
 
-  it("rejects provider names that do not match the parser and OCR contracts", () => {
+  it("supports explicit Textract parsing and rejects Marker in the OCR slot", () => {
     const previousParser = process.env.DOCUMENT_PARSER_PROVIDER;
     const previousOcr = process.env.OCR_PROVIDER;
     try {
       process.env.DOCUMENT_PARSER_PROVIDER = "textract";
       process.env.OCR_PROVIDER = "marker";
-      expect(() => getDocumentParserProvider()).toThrow("Unsupported document parser provider: textract");
+      expect(getDocumentParserProvider()).toBeInstanceOf(TextractOcrProvider);
       expect(() => getOcrProvider()).toThrow("Unsupported OCR provider: marker");
     } finally {
       restoreEnv("DOCUMENT_PARSER_PROVIDER", previousParser);
@@ -1906,11 +1906,19 @@ describe("document extraction providers", () => {
     const previousMarkerCommand = process.env.MARKER_COMMAND;
     const previousMarkerApiUrl = process.env.MARKER_API_URL;
     const previousTextractRegion = process.env.AWS_TEXTRACT_REGION;
+    const previousAwsRegion = process.env.AWS_REGION;
+    const previousBucket = process.env.S3_REPORT_BUCKET;
+    const previousAccessKey = process.env.AWS_ACCESS_KEY_ID;
+    const previousSecret = process.env.AWS_SECRET_ACCESS_KEY;
     try {
       process.env.APP_ENV = "production";
       delete process.env.MARKER_COMMAND;
       delete process.env.MARKER_API_URL;
       delete process.env.AWS_TEXTRACT_REGION;
+      delete process.env.AWS_REGION;
+      delete process.env.S3_REPORT_BUCKET;
+      delete process.env.AWS_ACCESS_KEY_ID;
+      delete process.env.AWS_SECRET_ACCESS_KEY;
 
       const marker = await new MarkerProvider().parseDocument({
         filename: "cbc-report.pdf",
@@ -1932,6 +1940,10 @@ describe("document extraction providers", () => {
       restoreEnv("MARKER_COMMAND", previousMarkerCommand);
       restoreEnv("MARKER_API_URL", previousMarkerApiUrl);
       restoreEnv("AWS_TEXTRACT_REGION", previousTextractRegion);
+      restoreEnv("AWS_REGION", previousAwsRegion);
+      restoreEnv("S3_REPORT_BUCKET", previousBucket);
+      restoreEnv("AWS_ACCESS_KEY_ID", previousAccessKey);
+      restoreEnv("AWS_SECRET_ACCESS_KEY", previousSecret);
     }
   });
 });
