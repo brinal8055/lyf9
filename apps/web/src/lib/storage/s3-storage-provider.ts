@@ -46,7 +46,15 @@ export const s3StorageProvider: StorageProvider = {
       },
       storageBucket: bucket,
       storageKey,
-      uploadUrl: await getSignedUrl(getS3Client(), command, { expiresIn })
+      uploadUrl: await getSignedUrl(getS3Client(), command, {
+        expiresIn,
+        signableHeaders: new Set(["content-type"]),
+        unhoistableHeaders: new Set([
+          "x-amz-meta-checksum_sha256",
+          "x-amz-meta-report_file_id",
+          "x-amz-server-side-encryption"
+        ])
+      })
     };
   },
   async createDownloadUrl(params) {

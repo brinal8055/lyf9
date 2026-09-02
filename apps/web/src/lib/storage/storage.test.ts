@@ -42,6 +42,14 @@ describe("private report storage", () => {
       "x-amz-meta-report_file_id": "report-id",
       "x-amz-server-side-encryption": "AES256"
     });
+    const signedHeaders = new URL(result.uploadUrl).searchParams.get("X-Amz-SignedHeaders")?.split(";") ?? [];
+    expect(signedHeaders).toEqual(expect.arrayContaining([
+      "content-type",
+      "host",
+      "x-amz-meta-checksum_sha256",
+      "x-amz-meta-report_file_id",
+      "x-amz-server-side-encryption"
+    ]));
   });
 
   it("keeps mock object keys opaque too", async () => {

@@ -127,7 +127,8 @@ describeLive("live staging private S3 API verification", () => {
         headers: requiredHeaders,
         method: "PUT"
       });
-      expect(upload.status).toBe(200);
+      const uploadFailure = upload.ok ? "" : await upload.text();
+      expect(upload.status, `S3 PUT failed: ${sanitizeS3Failure(uploadFailure)}`).toBe(200);
 
       const head = await s3.send(new HeadObjectCommand({
         Bucket: env.stagingBucket,
@@ -290,6 +291,13 @@ function stringRecord(value: unknown) {
 
 function encodeKey(key: string) {
   return key.split("/").map(encodeURIComponent).join("/");
+}
+
+function sanitizeS3Failure(value: string) {
+  return value
+    .replace(/<RequestId>[\s\S]*?<\/RequestId>/g, "<RequestId>[redacted]</RequestId>")
+    .replace(/<HostId>[\s\S]*?<\/HostId>/g, "<HostId>[redacted]</HostId>")
+    .slice(0, 2_000);
 }
 
 function getLiveEnv() {
