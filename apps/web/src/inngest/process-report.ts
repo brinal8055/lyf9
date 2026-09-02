@@ -30,6 +30,7 @@ import { createSupabaseAtomicWorkflowProvider } from "@/lib/workflow";
 
 import { inngest } from "./client";
 import { compensate } from "./compensations";
+import { PROCESS_REPORT_CONCURRENCY_LIMIT } from "./config";
 import {
   fetchReportFileRow,
   insertBiomarkerResults,
@@ -72,7 +73,7 @@ export type ReportConfirmedEvent = {
 
 export const processReport = inngest.createFunction(
   {
-    concurrency: { limit: 10 },
+    concurrency: { limit: PROCESS_REPORT_CONCURRENCY_LIMIT },
     id: "process-report",
     retries: 3,
     triggers: [{ event: "report/confirmed" }]
