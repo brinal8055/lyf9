@@ -96,6 +96,18 @@ PROCESSING_VERSION=v1
 
 The live workflow harness is self-seeding and uses synthetic records only. It requires the staging Supabase URL, service-role key, and exact staging project reference already listed above; no anon key or persistent fixture job ID is required. The service key is used only by the test process, while an ordinary authenticated session verifies that worker RPC execution is denied.
 
+## Inngest Saga
+
+Vercel Preview branch `dev` only:
+
+```txt
+INNGEST_EVENT_KEY=
+INNGEST_SIGNING_KEY=
+INNGEST_DEV=
+```
+
+Both keys are server-only. `INNGEST_DEV=1` is local-only and does not satisfy staging/production configuration. Sync `https://lyf9-dev.vercel.app/api/inngest` in the same non-Production Inngest environment as the event key. The local verifier calls the deployed authenticated upload flow and therefore does not require either Inngest key in the developer shell. Setup details are in `docs/36_INNGEST_STAGING_SETUP.md`.
+
 ## Document Extraction
 
 ```txt

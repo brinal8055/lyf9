@@ -157,6 +157,7 @@ Before real users:
 - Restrict upload MIME types to PDF, JPG, JPEG, PNG.
 - Enable GuardDuty Malware Protection for S3 on `reports/`, enable object tagging, add staging-prefix `s3:GetObjectTagging` to the app IAM policy, and run `npm run verify:staging:malware` as documented in `docs/34_GUARDDUTY_S3_MALWARE_SETUP.md`.
 - Configure scoped Textract document detection permissions and run `npm run verify:staging:textract` as documented in `docs/35_TEXTRACT_STAGING_SETUP.md`.
+- Configure the staging-only Inngest keys, sync `/api/inngest`, and pass `npm run verify:staging:inngest` as documented in `docs/36_INNGEST_STAGING_SETUP.md`.
 - Add retention/deletion policy reviewed for DPDP compliance.
 
 Current status:

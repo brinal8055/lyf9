@@ -5,11 +5,14 @@ import {
   getSupabaseServerConfig,
   getSupabaseServerKeyType
 } from "@/lib/auth/providers/supabase-server";
+import { isInngestConfigured } from "@/inngest/client";
 import { getStoreHealth } from "@/lib/reports/repository";
 
 export async function GET() {
   const store = await getStoreHealth();
   const supabase = getSupabaseServerConfig();
+  const deployed = process.env.APP_ENV === "staging" || process.env.APP_ENV === "production";
+  const inngestConfigured = isInngestConfigured();
   const aiProvider = (process.env.AI_PROVIDER ?? "unconfigured").toLowerCase();
   const aiConfigured =
     (aiProvider === "gemini" && Boolean(process.env.GEMINI_API_KEY)) ||
@@ -23,7 +26,7 @@ export async function GET() {
       authSecret: Boolean(process.env.LYF9_AUTH_SECRET),
       databaseConfigured: Boolean(process.env.DATABASE_URL),
       emailConfigured: Boolean(process.env.EMAIL_PROVIDER),
-      inngestConfigured: Boolean(process.env.INNGEST_EVENT_KEY && process.env.INNGEST_SIGNING_KEY),
+      inngestConfigured,
       paymentSandboxConfigured: Boolean(process.env.RAZORPAY_KEY_ID),
       queueConfigured: Boolean(process.env.REDIS_URL),
       reportUrlSecret: Boolean(process.env.LYF9_REPORT_URL_SECRET),
@@ -42,7 +45,8 @@ export async function GET() {
       storageProvider: process.env.STORAGE_PROVIDER ?? "local"
     },
     service: "web",
-    status: store.ok && supabase.serviceRoleKeyConfigured && Boolean(supabase.url && supabase.anonKey)
+    status: store.ok && supabase.serviceRoleKeyConfigured && Boolean(supabase.url && supabase.anonKey) &&
+      (!deployed || inngestConfigured)
       ? "ok"
       : "degraded"
   });

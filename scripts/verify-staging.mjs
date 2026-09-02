@@ -88,6 +88,26 @@ const sections = {
     ],
     run: verifyMalware
   },
+  inngest: {
+    required: [
+      "APP_ENV",
+      "AWS_ACCESS_KEY_ID",
+      "AWS_REGION",
+      "AWS_SECRET_ACCESS_KEY",
+      "AWS_TEXTRACT_REGION",
+      "DOCUMENT_PARSER_PROVIDER",
+      "MALWARE_SCANNER_PROVIDER",
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "OCR_PROVIDER",
+      "PRODUCTION_S3_BUCKET",
+      "S3_REPORT_BUCKET",
+      "STAGING_APP_ORIGIN",
+      "STAGING_S3_BUCKET",
+      "STAGING_SUPABASE_PROJECT_REF",
+      "SUPABASE_SERVICE_ROLE_KEY"
+    ],
+    run: verifyInngest
+  },
   marker: {
     required: ["DOCUMENT_PARSER_PROVIDER"],
     run: verifyMarker
@@ -253,6 +273,13 @@ function verifyMalware() {
   return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:malware-live"], {
     RUN_LIVE_STAGING_MALWARE: "true"
   }, "live_guardduty_s3_harness_passed");
+}
+
+function verifyInngest() {
+  assertStagingSupabaseTarget();
+  return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:inngest-live"], {
+    RUN_LIVE_STAGING_INNGEST: "true"
+  }, "live_inngest_saga_harness_passed");
 }
 
 function verifyMarker() {

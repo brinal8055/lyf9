@@ -2,6 +2,17 @@
 
 ## Run Summary
 
+### 2026-09-02 Inngest Staging Preflight
+
+Environment: Vercel Preview `dev` and the local guarded verifier. Production was not changed and no real PHI was used.
+
+- `https://lyf9-dev.vercel.app/api/inngest` currently returns HTTP 500.
+- Staging health reports `inngestConfigured: false`; event and signing keys are absent.
+- Added fail-closed configuration checks, pre-mutation upload rejection, degraded deployed health, and `npm run verify:staging:inngest`.
+- The verifier uses a synthetic unsupported radiology PDF and the deployed authenticated upload flow. Its intended terminal state is `unsupported` after GuardDuty, Textract, and deterministic classification, with zero AI outputs.
+
+Verdict: code-side safety and verification foundations are **ready**, but the deployed saga remains **blocked** pending non-Production Inngest keys, Vercel Preview `dev` configuration, redeployment, and endpoint sync.
+
 ### 2026-09-02 Live Textract Document Extraction Pass
 
 Environment: Supabase `lyf9-staging` (`wjjwdakfyigwwohbntyv`) and `lyf9-reports-storage-staging` in `ap-south-1` only. Production was not changed and no real PHI was used.

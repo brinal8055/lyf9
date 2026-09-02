@@ -57,7 +57,7 @@ Interpretation: local deterministic QA is healthy, but it does not replace live 
 
 | Blocker | Status | Required evidence |
 | --- | --- | --- |
-| Workflow concurrency | Ready for synthetic staging | `202609020001_workflow_rpc_hardening.sql` is applied and the self-seeding `npm run verify:staging:workflow` concurrency/recovery harness passes with cleanup. The deployable worker runner remains separate work. |
+| Workflow concurrency | Ready for synthetic staging | Database claims/recovery pass. The event-driven saga verifier is implemented but remains blocked until staging-only Inngest keys and endpoint registration exist. |
 | Observability | Partial | Sentry or equivalent with PHI scrubbing and alert routing. |
 | Admin QA UI | Partial | Operators can see golden failures, low confidence, unmapped markers, unsafe blocks, model failures. |
 | Broader E2E | Partial | Deployed staging E2E covers auth, consent, upload, admin, doctor assignment, audit. |
@@ -92,7 +92,7 @@ Any of these keep the release blocked:
 
 ## Exact Next Actions
 
-1. Configure and verify the deployed Inngest staging runner and `/api/inngest` registration with a synthetic `report/confirmed` event.
+1. Follow `docs/36_INNGEST_STAGING_SETUP.md`, then pass `npm run verify:staging:inngest` against the deployed authenticated upload path.
 2. Reconcile Supabase CLI migration history with the migrations applied to staging through the SQL editor.
 3. Verify the configured structured AI provider and add scanned-image Textract coverage; Marker remains optional while unselected.
 4. Expand golden dataset from 13 synthetic fixtures to at least 25 internally reviewed synthetic or consented internal samples.

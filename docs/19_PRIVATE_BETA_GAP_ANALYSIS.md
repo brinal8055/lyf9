@@ -17,7 +17,7 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 | Blocker | Evidence | Required Fix |
 | --- | --- | --- |
 | Signup email delivery is rate-limited | Live `npm run test:auth-live` staging run | Configure custom SMTP or an approved Supabase Auth email quota, then require public invite signup to pass without service-role fixture provisioning. |
-| Inngest staging runner not rehearsed | `apps/web/src/inngest/process-report.ts`, `apps/web/src/app/api/inngest/route.ts` | Configure staging-only Inngest event/signing keys, register the deployed route, and verify a synthetic `report/confirmed` saga. The Python worker is a health/status compatibility stub, not the selected runner. |
+| Inngest staging runner not rehearsed | `apps/web/src/inngest/process-report.ts`, `apps/web/src/inngest/staging-inngest-live.test.ts` | Fail-closed gates and a live verifier exist. Configure staging-only event/signing keys, register the deployed route, and pass `npm run verify:staging:inngest`. The Python worker is a health/status compatibility stub, not the selected runner. |
 | Scanned-image OCR coverage incomplete | `apps/web/src/lib/document-extraction/staging-textract-live.test.ts` | Textract primary extraction is live-verified on a synthetic PDF; add a synthetic scanned/image report before broadening intake. Marker is optional while Textract is selected. |
 | Live OpenAI structured path not verified | `apps/web/src/lib/ai/openai-structured-provider.ts` | Configure OpenAI models in staging, execute live structured-output calls, and run golden dataset QA. |
 | Golden dataset too small for PHI beta | `tests/golden/`, `docs/26_GOLDEN_DATASET_EVALUATION_REPORT.md` | Expand beyond synthetic smoke coverage to at least 25 internally reviewed samples and retain 100% safety gate pass. |
@@ -163,4 +163,4 @@ No-go for real users until:
 
 ## First Fix
 
-Configure and live-verify the staging Inngest runner around the existing GuardDuty and Textract saga steps. Keep the event synthetic, stop before unconfigured AI, verify Postgres/audit transitions, and leave Production unchanged.
+Follow `docs/36_INNGEST_STAGING_SETUP.md`: add staging-only keys to Vercel Preview `dev`, sync the exact `/api/inngest` URL in a non-Production Inngest environment, and pass the guarded unsupported-report saga verifier. Leave Production unchanged.

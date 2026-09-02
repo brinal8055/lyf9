@@ -12,6 +12,34 @@ No public launch, autonomous diagnosis, prescriptions, medicine-change advice, s
 
 ## Completed In This Pass
 
+### 2026-09-02 Inngest Staging Gate And Verifier Foundation
+
+- Reconciled the manual cleanup commit `fe2fc51`; local `dev` and `origin/dev` matched and the worktree was clean before this pass.
+- Confirmed the deployed `/api/inngest` route returns HTTP 500 and `/api/health` reports `inngestConfigured: false`; the staging cloud keys are not configured yet.
+- Added `isInngestConfigured()` with a strict deployed rule: staging/production require both event and signing keys, and `INNGEST_DEV=1` is accepted only for local development.
+- Upload initialization and completion now return HTTP 503 before accepting a new report or changing completion state when Supabase mode is active but the deployed saga is unavailable.
+- Deployed health now reports `degraded` when staging/production lacks Inngest, rather than presenting the report-processing service as fully healthy.
+- Added a guarded synthetic Inngest saga harness and `npm run verify:staging:inngest`. It uses the deployed authenticated upload flow, waits for GuardDuty, verifies Textract and deterministic unsupported classification, proves no AI/model/biomarker/insight rows were created, and guarantees fixture cleanup.
+- Added `docs/36_INNGEST_STAGING_SETUP.md` with Preview `dev` scoping, endpoint registration, verification, and failure handling.
+
+Verification passed so far:
+
+```txt
+npm --workspace apps/web run test -- --run src/inngest/client.test.ts src/inngest/staging-inngest-live.test.ts  # 6 passed, 1 live skipped
+npm test  # 153 passed, 7 credential-gated live tests skipped
+npm run typecheck
+npm run lint
+npm run copy:scan
+npm run build:web
+npm run api:test  # 8 passed
+npm run api:health
+npm run worker:health
+git diff --check
+APP_ENV=staging npm run verify:staging:inngest  # fails closed while staging keys are absent
+```
+
+Current blocker requiring environment access: create/select a non-Production Inngest environment, add its event and signing keys to Vercel Preview branch `dev` only, redeploy, and sync `https://lyf9-dev.vercel.app/api/inngest`. Then run `npm run verify:staging:inngest` and retain only the PHI-free passing artifact. Production must remain unchanged.
+
 ### 2026-09-02 Live Textract Document Extraction Pass
 
 - Implemented AWS Textract asynchronous document text detection using `StartDocumentTextDetection` and bounded `GetDocumentTextDetection` polling against the existing private staging S3 bucket.

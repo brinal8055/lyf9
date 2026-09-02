@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { inngest } from "@/inngest/client";
+import { inngest, isInngestConfigured } from "@/inngest/client";
 import { getRequestUser, requestMetadata, unauthorizedResponse } from "@/lib/auth/request";
 import { shouldUseSupabaseAuth } from "@/lib/auth/supabase-auth";
 import { completeUpload } from "@/lib/reports/repository";
@@ -16,6 +16,14 @@ export async function POST(
   }
 
   const params = await context.params;
+  const usesSupabase = shouldUseSupabaseAuth();
+
+  if (usesSupabase && !isInngestConfigured()) {
+    return NextResponse.json(
+      { error: "Report processing is temporarily unavailable." },
+      { status: 503 }
+    );
+  }
 
   try {
     const result = await completeUpload({
@@ -26,7 +34,7 @@ export async function POST(
 
     // In Supabase mode, completeUpload only persists state — fire the saga to start processing.
     // In local mock mode, completeUpload already runs processUploadedReport synchronously.
-    if (shouldUseSupabaseAuth()) {
+    if (usesSupabase) {
       await inngest.send({
         data: {
           jobId: result.job.id,

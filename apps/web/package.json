@@ -15,6 +15,7 @@
     "test:auth-live": "vitest run src/lib/auth/staging-auth-api-live.test.ts",
     "test:s3-live": "vitest run src/lib/storage/staging-s3-api-live.test.ts",
     "test:malware-live": "vitest run src/lib/malware/staging-guardduty-s3-live.test.ts",
+    "test:inngest-live": "vitest run src/inngest/staging-inngest-live.test.ts",
     "test:textract-live": "vitest run src/lib/document-extraction/staging-textract-live.test.ts",
     "test:workflow-live": "vitest run src/lib/workflow/supabase-live-workflow.test.ts",
     "typecheck": "tsc --noEmit"
