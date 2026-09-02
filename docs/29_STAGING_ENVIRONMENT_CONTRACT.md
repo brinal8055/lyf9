@@ -134,12 +134,12 @@ The application IAM principal needs only `textract:StartDocumentTextDetection` a
 ## AI
 
 ```txt
-AI_PROVIDER=openai
-OPENAI_API_KEY=
-OPENAI_MODEL_EXTRACTION=
-OPENAI_MODEL_EXPLANATION=
-OPENAI_MODEL_DOCTOR_SUMMARY=
-OPENAI_TIMEOUT_SECONDS=120
+AI_PROVIDER=gemini
+AI_REQUEST_TIMEOUT_SECONDS=120
+GEMINI_API_KEY=
+GEMINI_MODEL_EXTRACTION=gemini-2.5-flash
+GEMINI_MODEL_EXPLANATION=gemini-2.5-flash
+GEMINI_MODEL_DOCTOR_SUMMARY=gemini-2.5-flash
 ```
 
 Prompt/model versions:
@@ -149,14 +149,16 @@ BIOMARKER_EXTRACTION_PROMPT_VERSION=v1
 PATIENT_EXPLANATION_PROMPT_VERSION=v1
 DOCTOR_SUMMARY_PROMPT_VERSION=v1
 SAFETY_RULES_VERSION=v1
-RUN_LIVE_OPENAI_EVAL=true
+RUN_LIVE_STAGING_AI=true
+RUN_LIVE_AI_EVAL=true
 ```
 
 Rules:
 
 - Live eval is opt-in only.
 - Only synthetic extracted text may be sent.
-- Unsupported reports must be blocked before OpenAI.
+- Unsupported reports must be blocked before the selected AI adapter.
+- Do not configure automatic fallback between providers for private beta.
 
 ## Observability
 
@@ -190,7 +192,7 @@ npm run verify:staging:s3
 npm run verify:staging:malware
 npm run verify:staging:marker
 npm run verify:staging:textract
-npm run verify:staging:openai
+npm run verify:staging:ai
 npm run verify:staging:e2e
 npm run eval:golden:live
 ```
@@ -214,7 +216,7 @@ s3.json
 malware.json
 marker.json
 textract.json
-openai.json
+ai.json
 e2e.json
 golden-live.json
 ```

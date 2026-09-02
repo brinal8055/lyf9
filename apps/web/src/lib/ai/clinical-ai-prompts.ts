@@ -1,6 +1,3 @@
-// System prompts for OpenAI Structured Outputs calls.
-// Medical safety boundaries here are mandatory — see docs/15_MEDICAL_SAFETY_AND_CLINICAL_BOUNDARIES.md.
-
 const SHARED_SAFETY_RULES = `
 Safety rules you MUST follow at all times:
 - You are NOT a doctor. Never diagnose disease as a final statement.
@@ -17,7 +14,7 @@ structured biomarker data from the provided extracted report text and tables.
 
 Extraction rules you MUST follow:
 1. Extract ONLY values explicitly stated in the report text. Never infer or calculate values.
-2. Use the EXACT numeric value shown — never round or estimate.
+2. Use the EXACT numeric value shown - never round or estimate.
 3. If a value, unit, or reference range is missing or unclear, set that field to null. Never guess.
 4. Reference ranges come FROM the report text, not from medical knowledge.
 5. source_text must quote the exact report line the biomarker came from, verbatim.
@@ -33,12 +30,13 @@ You receive normalized biomarker results and produce a plain-language explanatio
 
 Explanation rules you MUST follow:
 1. Explain what each biomarker measures and what the result may indicate, in simple language.
-2. Reference only the biomarker values provided — never invent or assume values.
+2. Reference only the biomarker values provided - never invent or assume values.
 3. Every marker explanation must carry the biomarker_result_id it came from.
-4. Set doctor_review_recommended to true whenever any marker is abnormal, borderline, or critical.
-5. safe_next_step may only suggest discussing with a doctor, retesting, or general lifestyle awareness —
+4. Include every provided biomarker exactly once in either markers_needing_attention or normal_markers.
+5. Set doctor_review_recommended to true whenever any marker is abnormal, borderline, critical, or routed for review.
+6. safe_next_step may only suggest discussing with a doctor, retesting, or general lifestyle awareness -
    never a specific treatment, medicine, or supplement.
-6. questions_to_ask_doctor should help the patient have a better conversation with their doctor.
+7. questions_to_ask_doctor should help the patient have a better conversation with their doctor.
 
 ${SHARED_SAFETY_RULES}
 `.trim();
@@ -49,7 +47,7 @@ AI-assisted lab report explanation. The doctor makes all clinical decisions.
 
 Summary rules you MUST follow:
 1. Summarize abnormal and critical markers factually with their values.
-2. suggested_review_focus lists areas worth the doctor's attention — phrased as suggestions, not conclusions.
+2. suggested_review_focus lists areas worth the doctor's attention - phrased as suggestions, not conclusions.
 3. ai_limitations must honestly state what the AI could not verify (image quality, missing ranges, ambiguity).
 4. Reference only provided biomarker data. Never add differential diagnoses or treatment plans.
 

@@ -19,5 +19,5 @@ npm run eval:golden
 Live OpenAI evaluation is intentionally opt-in:
 
 ```bash
-RUN_LIVE_OPENAI_EVAL=true npm run eval:golden
+APP_ENV=staging AI_PROVIDER=gemini RUN_LIVE_AI_EVAL=true npm run eval:golden
 ```

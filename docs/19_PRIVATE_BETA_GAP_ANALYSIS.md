@@ -18,7 +18,7 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 | --- | --- | --- |
 | Signup email delivery is rate-limited | Live `npm run test:auth-live` staging run | Configure custom SMTP or an approved Supabase Auth email quota, then require public invite signup to pass without service-role fixture provisioning. |
 | Scanned-image OCR coverage incomplete | `apps/web/src/lib/document-extraction/staging-textract-live.test.ts` | Textract primary extraction is live-verified on a synthetic PDF; add a synthetic scanned/image report before broadening intake. Marker is optional while Textract is selected. |
-| Live OpenAI structured path not verified | `apps/web/src/lib/ai/openai-structured-provider.ts` | Configure OpenAI models in staging, execute live structured-output calls, and run golden dataset QA. |
+| Selected structured AI path not verified live | `apps/web/src/lib/ai/clinical-ai-gateway.ts`, `apps/web/src/lib/ai/staging-ai-live.test.ts` | Configure the Gemini adapter in staging, run `npm run verify:staging:ai`, then run provider-neutral golden QA. |
 | Golden dataset too small for PHI beta | `tests/golden/`, `docs/26_GOLDEN_DATASET_EVALUATION_REPORT.md` | Expand beyond synthetic smoke coverage to at least 25 internally reviewed samples and retain 100% safety gate pass. |
 | Observability not production-ready | `apps/web/src/lib/observability/logger.ts` | Sentry + PHI scrubbing + alert routing. |
 | Health checks shallow | `apps/web/src/app/api/health/route.ts`, `apps/api/app/main.py`, `apps/worker/app/worker.py` | Real database/storage/queue connectivity probes. |
@@ -44,7 +44,7 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 - Synthetic Auth users and profiles were independently confirmed at zero after cleanup.
 - `docs/29_STAGING_ENVIRONMENT_CONTRACT.md` lists every required staging env var and fail-closed rule.
 - `scripts/verify-staging.mjs` adds synthetic-only staging verification commands and writes artifacts under `artifacts/staging-verification/`.
-- Root scripts now include `npm run verify:staging:*` for Supabase, RLS, workflow, S3, malware, Marker, Textract, OpenAI, E2E, and live golden subset checks.
+- Root scripts now include `npm run verify:staging:*` for Supabase, RLS, workflow, S3, malware, Marker, Textract, the selected AI provider, E2E, and live golden subset checks.
 - Existing live RLS and workflow harnesses are routed through the staging verifier.
 - S3 direct signed PUT/GET/delete smoke harness exists, but full app audit-row verification still requires deployed app E2E.
 - GuardDuty verification now passes with live AWS staging evidence; Marker, structured AI, live golden subset, and full E2E still lack live evidence.
@@ -97,12 +97,12 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 - Extracted document rows persist parser/OCR provider metadata, extracted text/tables, status, confidence, and safe error fields locally.
 - Deterministic report classifier covers supported panels, limited urine routine, unsupported reports, and unknown/manual-review routing.
 - Unsupported reports stop safely and do not generate AI interpretation.
-- Supported reports advance into the schema-first AI workflow locally; live OpenAI execution remains blocked until staging verification.
+- Supported reports advance through the provider-neutral schema-first AI workflow locally; live Gemini execution remains blocked until staging verification.
 - Tests cover providers, scan gating, OCR routing, classification, unsupported blocking, and PHI-minimal audit events.
 
 ## Fixed Or Improved In The Schema-First AI Pass
 
-- `AiProvider`, `OpenAiStructuredOutputsProvider`, and `MockAiProvider` exist in `apps/web/src/lib/ai/`.
+- `ClinicalAiGateway` fronts Gemini, OpenAI, and mock adapters in `apps/web/src/lib/ai/`.
 - Strict biomarker extraction, patient explanation, doctor summary, and safety schemas are implemented.
 - Durable workflow now supports `extract_biomarkers`, `normalize_biomarkers`, `validate_biomarkers`, `run_safety_rules`, `generate_patient_explanation`, and `route_review`.
 - Model runs are logged with input/output hashes, provider, prompt version, schema version, status, and safe error metadata.

@@ -165,7 +165,7 @@ Environment used: local workspace with `APP_ENV=staging` for verifier refusal te
 
 Verdict: **No-go for real PHI private beta**.
 
-Reason: the live staging verification harness now exists and produced blocked artifacts, but this workspace does not have staging Supabase, S3, malware scanner, Marker, Textract, or OpenAI env configured. No real PHI was used.
+Reason for this historical refusal artifact: required staging env was not present in that local shell, including the selected AI provider configuration. No real PHI was used.
 
 ## Commands
 
@@ -200,7 +200,7 @@ npm run verify:staging:malware
 npm run verify:staging:inngest
 npm run verify:staging:marker
 npm run verify:staging:textract
-npm run verify:staging:openai
+npm run verify:staging:ai
 npm run verify:staging:e2e
 npm run eval:golden:live
 ```
@@ -219,9 +219,9 @@ npm run eval:golden:live
 | Malware scanner | Ready for synthetic staging | GuardDuty clean/EICAR harness passes with cleanup | Re-run after IAM, bucket, scanner, or prefix changes. |
 | Marker | Optional | Provider contract remains available but unselected | Verify before selecting Marker as the parser. |
 | Textract/OCR | Ready for synthetic staging | Live synthetic PDF text/page/confidence/persistence and cleanup pass | Add scanned-image coverage before broad report intake. |
-| OpenAI Structured Outputs | Blocked | Provider contract exists; live requests not wired | Wire live structured-output calls and run synthetic subset. |
-| Golden live subset | Blocked | Local golden eval passes; live provider eval not wired | Run `npm run eval:golden:live` after OpenAI runner is wired. |
-| E2E synthetic staging pipeline | Blocked | Depends on live providers above | Run only after Supabase, S3, scanner, Marker/OCR, and OpenAI checks pass. |
+| Structured AI adapter | Blocked | Provider-neutral gateway and Gemini live harness exist locally; no live Gemini evidence yet | Configure Gemini in Preview `dev` and run `npm run verify:staging:ai`. |
+| Golden live subset | Blocked | Provider-neutral live runner exists; Gemini has not been exercised | Run `npm run eval:golden:live` after the adapter harness passes. |
+| E2E synthetic staging pipeline | Blocked | Depends on live AI evidence above | Run only after Supabase, S3, scanner, OCR, and selected-provider checks pass. |
 
 ## Latest Artifact Summary
 
@@ -244,9 +244,9 @@ Actual artifact summary:
 | malware | Blocked | Scanner provider env missing. |
 | marker | Blocked | Document parser provider env missing. |
 | textract | Ready for synthetic staging | `npm run verify:staging:textract` passed with guarded synthetic extraction and cleanup. |
-| openai | Blocked | OpenAI provider/key/model env missing. |
+| ai | Blocked | Selected provider/key/model env missing in the historical refusal run. |
 | e2e | Blocked | App base URL env missing. |
-| golden-live | Blocked | Live OpenAI eval flag/provider/key/model env missing. |
+| golden-live | Blocked | Live selected-provider eval configuration was missing. |
 
 ## Artifact Paths
 
@@ -271,7 +271,7 @@ P0 risks remain:
 - Supabase live RLS and deployed core Auth/API consent checks have passed; public signup email delivery remains quota-limited.
 - Private S3 app and audit verification passes against the staging-only bucket; retention/versioning policy remains open.
 - GuardDuty malware scanning and Textract document extraction pass with synthetic staging evidence.
-- Marker remains optional and OpenAI/live structured AI remains unverified.
+- Marker remains optional and Gemini/live structured AI remains unverified.
 - Doctor-reviewed thresholds and legal review are incomplete.
 
 ## Go/No-Go

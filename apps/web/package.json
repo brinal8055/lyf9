@@ -17,6 +17,7 @@
     "test:malware-live": "vitest run src/lib/malware/staging-guardduty-s3-live.test.ts",
     "test:inngest-live": "vitest run src/inngest/staging-inngest-live.test.ts",
     "test:textract-live": "vitest run src/lib/document-extraction/staging-textract-live.test.ts",
+    "test:ai-live": "vitest run src/lib/ai/staging-ai-live.test.ts",
     "test:workflow-live": "vitest run src/lib/workflow/supabase-live-workflow.test.ts",
     "typecheck": "tsc --noEmit"
   },

@@ -8,23 +8,52 @@ import {
   type PatientExplanationOutput,
   type SafetyCheckResult
 } from "./ai-schemas";
-import { isLocalLikeAiEnv, type AiProvider } from "./ai-provider";
+import { isLocalLikeAiEnv, type AiProvider, type AiTask } from "./ai-provider";
 import {
   BIOMARKER_EXTRACTION_JSON_SCHEMA,
   DOCTOR_SUMMARY_JSON_SCHEMA,
   PATIENT_EXPLANATION_JSON_SCHEMA
-} from "./openai-json-schemas";
+} from "./clinical-ai-json-schemas";
 import {
   BIOMARKER_EXTRACTION_SYSTEM_PROMPT,
   DOCTOR_SUMMARY_SYSTEM_PROMPT,
   PATIENT_EXPLANATION_SYSTEM_PROMPT
-} from "./openai-prompts";
+} from "./clinical-ai-prompts";
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-const REQUEST_TIMEOUT_MS = 120_000;
 
 export class GeminiStructuredOutputsProvider implements AiProvider {
   name = "gemini_structured_outputs";
+  providerId = "gemini" as const;
+
+  getModelName(task: AiTask) {
+    const envName = task === "biomarker_extraction"
+      ? "GEMINI_MODEL_EXTRACTION"
+      : task === "patient_explanation"
+        ? "GEMINI_MODEL_EXPLANATION"
+        : "GEMINI_MODEL_DOCTOR_SUMMARY";
+    return process.env[envName]?.trim() || null;
+  }
+
+  getConfigurationStatus() {
+    const hasKey = Boolean(process.env.GEMINI_API_KEY?.trim());
+    const capability = (task: AiTask) => ({
+      configured: hasKey && Boolean(this.getModelName(task)),
+      model: this.getModelName(task)
+    });
+    const capabilities = {
+      biomarker_extraction: capability("biomarker_extraction"),
+      doctor_summary: capability("doctor_summary"),
+      patient_explanation: capability("patient_explanation")
+    };
+    return {
+      capabilities,
+      providerId: this.providerId,
+      providerName: this.name,
+      readyForReportPipeline:
+        capabilities.biomarker_extraction.configured && capabilities.patient_explanation.configured
+    };
+  }
 
   async extractBiomarkers(
     params: Parameters<AiProvider["extractBiomarkers"]>[0]
@@ -115,8 +144,7 @@ export class GeminiStructuredOutputsProvider implements AiProvider {
   }
 }
 
-// Gemini's responseSchema (OpenAPI 3.0 subset) rejects `additionalProperties`
-// and nullable unions like `["string", "null"]` — strip/convert them.
+// Normalize the Lyf9 JSON Schema contract to Gemini's responseSchema subset.
 function toGeminiSchema(schema: unknown): unknown {
   if (Array.isArray(schema)) {
     return schema.map(toGeminiSchema);
@@ -163,11 +191,11 @@ async function callGeminiStructured<T>(input: {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), requestTimeoutMs());
 
   try {
     const response = await fetch(
-      `${GEMINI_API_BASE}/${input.model}:generateContent?key=${apiKey}`,
+      `${GEMINI_API_BASE}/${input.model}:generateContent`,
       {
         body: JSON.stringify({
           contents: [{ parts: [{ text: JSON.stringify(input.userPayload) }], role: "user" }],
@@ -178,15 +206,17 @@ async function callGeminiStructured<T>(input: {
           },
           systemInstruction: { parts: [{ text: input.systemPrompt }] }
         }),
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey
+        },
         method: "POST",
         signal: controller.signal
       }
     );
 
     if (!response.ok) {
-      const errorBody = await response.text().catch(() => "");
-      throw new Error(`gemini_request_failed_${response.status}: ${errorBody.slice(0, 500)}`);
+      throw new Error(`gemini_request_failed_${response.status}`);
     }
 
     const body = (await response.json()) as {
@@ -215,4 +245,9 @@ async function callGeminiStructured<T>(input: {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function requestTimeoutMs() {
+  const seconds = Number(process.env.AI_REQUEST_TIMEOUT_SECONDS ?? "120");
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 120_000;
 }

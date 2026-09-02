@@ -1,9 +1,8 @@
 {
   "blockers": [
-    "Live Supabase/RLS staging verification is missing.",
-    "Real S3 bucket/IAM smoke test is missing.",
-    "Real malware scanner is not configured.",
-    "Marker/Textract/OpenAI live providers are not staging-verified.",
+    "The selected AI provider has not passed live staging golden evaluation.",
+    "Scanned-image OCR coverage is incomplete.",
+    "The golden dataset requires broader human-reviewed coverage.",
     "Doctor-reviewed critical thresholds and legal review are incomplete."
   ],
   "fixtureResults": [
@@ -269,9 +268,10 @@
       "validationOk": true
     }
   ],
-  "generatedAt": "2026-08-16T09:08:50.634Z",
-  "liveOpenAiEval": {
-    "configured": false,
+  "generatedAt": "2026-09-02T14:46:36.141Z",
+  "liveAiEval": {
+    "configured": true,
+    "provider": "mock",
     "requested": false,
     "status": "not_requested"
   },

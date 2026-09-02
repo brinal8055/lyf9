@@ -21,13 +21,13 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Upload flow | Ready for synthetic staging | Engineering | Deployed consent gate, private S3 upload/download/delete, and real GuardDuty clean/threat behavior pass with synthetic fixtures. |
 | Processing pipeline | Ready for synthetic staging | Backend/Platform | The deployed Inngest saga passed authenticated upload, GuardDuty, Textract, Postgres transitions, and unsupported classification with cleanup. Add scanned-image OCR and live structured AI verification before PHI. |
 | Document extraction/OCR | Ready for synthetic staging | AI/Backend | Textract primary parsing passed against a synthetic PDF with persistence and cleanup. Marker remains optional while Textract is selected; image/scanned OCR coverage should be added before broadening report intake. |
-| AI structured outputs | Blocked | AI/Backend | Schema-first local path exists; wire OpenAI Structured Outputs and Pydantic validation in worker. |
+| AI structured outputs | Partially ready | AI/Backend | Provider-neutral gateway, Gemini/OpenAI adapters, fail-closed config, source-trace validation, and synthetic live harness exist; Gemini staging evidence is pending. |
 | Safety rules | Partially ready | AI/Safety/Medical | Unsafe-language filter and routing exist; doctor-review critical thresholds with real report set. |
 | Unsupported report handling | Partially ready | AI/Safety | Unsupported reports are blocked from AI-only interpretation; expand internal fixture coverage. |
 | Admin correction | Partially ready | Ops/Engineering | Correction flow preserves originals and audits locally; migrate to Postgres. |
 | Doctor review | Partially ready | Medical/Ops/Engineering | Assigned versus unassigned doctor RLS passes with real staging JWTs; validate full approve/edit/reject UI and contracts. |
 | Audit logs | Partially ready | Engineering/Ops | Live staging writes and user insert/read restrictions pass for onboarding, consent, and blocked upload paths; append-only governance and admin review operations remain. |
-| Model runs | Partially ready | AI/Backend | Local model run logs exist; ensure all OpenAI calls log status/cost/latency/hash. |
+| Model runs | Partially ready | AI/Backend | Saga attempts log provider/model/status/hash/sanitized error/latency; normalize provider token usage and cost after live adapter verification. |
 | Data export/delete | Partially ready | Engineering/Legal | Internal flow exists; DPDP retention/deletion process needs legal review. |
 | Feedback capture | Ready for scaffold beta | Product/Ops | Feedback capture and admin view exist; triage daily. |
 | Analytics | Ready for scaffold beta | Product/Engineering | Local analytics events exist; pick PostHog or internal-only path after privacy review. |
@@ -83,7 +83,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Report classification | Ready in code | Deterministic supported/limited/unsupported classifier is tested locally. |
 | Unsupported report handling | Ready in code | Unsupported/unknown reports block safely and do not proceed to AI. |
 | Admin extraction visibility | Partially ready | Admin parser output and OCR/unknown queue counts exist; dedicated retry controls remain a UI gap. |
-| Schema-first AI workflow | Partially ready | Biomarker extraction, normalization, validation, safety, explanation, and review routing run locally with mock AI; live OpenAI staging verification remains blocked. |
+| Schema-first AI workflow | Partially ready | Production flows use `ClinicalAiGateway`; local mock QA passes, while live Gemini adapter and golden verification remain blocked. |
 
 ## Product Go/No-Go
 
@@ -131,10 +131,10 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 - [x] AI-only output does not create supplement treatment protocols in tested deterministic paths.
 - [x] Every generated insight stores source biomarker IDs where possible.
 - [x] Disclaimer is persisted on generated insights.
-- [ ] Live OpenAI Structured Outputs provider is configured and tested in staging.
+- [ ] Selected Gemini structured-output adapter is configured and tested in staging.
 - [x] Synthetic golden dataset review passes locally.
 - [ ] Golden dataset is expanded to at least 25 internally reviewed samples before real PHI beta.
-- [ ] Live OpenAI golden evaluation passes on synthetic staging data.
+- [ ] Provider-neutral live golden evaluation passes on synthetic staging data.
 
 ## Golden Dataset Gate
 
@@ -163,8 +163,8 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Malware scanner live check | Ready | `npm run verify:staging:malware` | GuardDuty is Active on staging `reports/`; tag-read IAM and clean/EICAR outcomes pass with synthetic cleanup. |
 | Marker live check | Optional | `npm run verify:staging:marker` | Run before selecting Marker; Textract is the current verified parser. |
 | Textract live check | Ready for synthetic staging | `npm run verify:staging:textract` | Live synthetic PDF extraction/persistence/cleanup pass; add scanned-image coverage. |
-| OpenAI live check | Blocked | `npm run verify:staging:openai` | Wire live Structured Outputs execution with synthetic text only. |
-| Live golden subset | Blocked | `npm run eval:golden:live` | Enable only after live OpenAI execution is wired. |
+| Selected AI live check | Blocked | `npm run verify:staging:ai` | Add Gemini server-only staging configuration and run with synthetic text only. |
+| Live golden subset | Blocked | `npm run eval:golden:live` | Run only after the selected adapter smoke test passes. |
 | Live report | Ready as template | `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` | Replace blocked statuses with evidence only after commands pass. |
 
 ## Admin Go/No-Go

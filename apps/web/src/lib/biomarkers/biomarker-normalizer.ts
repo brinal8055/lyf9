@@ -48,11 +48,13 @@ function normalizeBiomarkerItem(input: {
   const strictItem = toStrictItem(input.item, catalog?.canonicalName ?? input.item.canonical_name ?? null);
   const isCritical = isCriticalValue(strictItem, catalog);
   const systemFlag = isCritical ? "critical" : strictItem.system_flag;
-  const reviewStatus = reviewStatusForConfidence({
-    confidenceScore: strictItem.confidence,
-    isCritical,
-    systemFlag
-  });
+  const reviewStatus = catalog
+    ? reviewStatusForConfidence({
+        confidenceScore: strictItem.confidence,
+        isCritical,
+        systemFlag
+      })
+    : "manual_review_required";
 
   return {
     aiModelRunId: input.aiModelRunId,

@@ -1,6 +1,8 @@
 import argparse
 import os
 
+from app.providers.ai import ai_provider_config
+
 PHASE3B_STATES = [
     "uploaded",
     "malware_scan",
@@ -34,6 +36,7 @@ PHASE3B_STATES = [
 
 
 def health() -> dict[str, object]:
+    ai = ai_provider_config()
     return {
         "status": "ok",
         "service": "worker",
@@ -49,7 +52,8 @@ def health() -> dict[str, object]:
             ),
             "supabase_url_configured": bool(os.getenv("SUPABASE_URL")),
             "supabase_service_role_configured": bool(os.getenv("SUPABASE_SERVICE_ROLE_KEY")),
-            "openai_configured": bool(os.getenv("OPENAI_API_KEY")),
+            "ai_configured": ai.configured,
+            "ai_provider": ai.provider,
             "processing_version": os.getenv("PROCESSING_VERSION", "v1"),
             "queue_name": os.getenv("QUEUE_NAME", "report-processing"),
             "document_parser_provider": os.getenv("DOCUMENT_PARSER_PROVIDER", "mock"),

@@ -1,8 +1,9 @@
 import {
   BIOMARKER_EXTRACTION_SCHEMA_VERSION,
   PATIENT_EXPLANATION_SCHEMA_VERSION,
+  aiFailureDetails,
   biomarkerExtractionPromptVersion,
-  getAiProvider,
+  getClinicalAiGateway,
   hashModelPayload,
   patientExplanationPromptVersion
 } from "@/lib/ai";
@@ -24,7 +25,6 @@ import {
 import { logError } from "@/lib/observability/logger";
 import { claimDoctorForReview } from "@/lib/doctors/assignment";
 import { assignDoctorReview } from "@/lib/reports/repository";
-import { runUnsafeLanguageFilter } from "@/lib/reports/safety";
 import type { ReportType } from "@/lib/reports/types";
 import { createSupabaseAtomicWorkflowProvider } from "@/lib/workflow";
 
@@ -46,20 +46,6 @@ import {
 
 const WORKER_ID = "inngest-saga";
 const EXTRACTION_VERSION = 1;
-
-function resolveModelName(providerName: string, task: "extraction" | "explanation") {
-  if (providerName === "gemini_structured_outputs") {
-    return task === "extraction"
-      ? process.env.GEMINI_MODEL_EXTRACTION
-      : process.env.GEMINI_MODEL_EXPLANATION;
-  }
-  if (providerName === "openai_structured_outputs") {
-    return task === "extraction"
-      ? process.env.OPENAI_MODEL_EXTRACTION
-      : process.env.OPENAI_MODEL_EXPLANATION;
-  }
-  return undefined;
-}
 
 export type ReportConfirmedEvent = {
   data: {
@@ -276,7 +262,6 @@ export const processReport = inngest.createFunction(
         await workflow.runJobStep({ jobId, stepName: "extract_biomarkers", workerId: WORKER_ID });
         await updateJobState(jobId, "biomarker_extraction_pending");
 
-        const ai = getAiProvider();
         const aiInput = {
           extractedDocumentId: extraction.extractedDocumentId,
           extractedTablesJson: extraction.extractedTablesJson,
@@ -286,21 +271,28 @@ export const processReport = inngest.createFunction(
           userId
         };
 
-        let output;
+        let ai: ReturnType<typeof getClinicalAiGateway> | null = null;
+        let invocation;
         try {
-          output = await ai.extractBiomarkers(aiInput);
+          ai = getClinicalAiGateway();
+          invocation = await ai.extractBiomarkers(aiInput);
         } catch (caught) {
-          const message = caught instanceof Error ? caught.message : "ai_extraction_failed";
+          const failure = aiFailureDetails(caught, {
+            modelName: ai?.getModelName("biomarker_extraction") ?? "unconfigured",
+            provider: ai?.providerName ?? "unconfigured",
+            task: "biomarker_extraction"
+          });
           await insertModelRun({
-            errorCode: "ai_extraction_failed",
-            errorMessage: message,
+            errorCode: failure.code,
+            errorMessage: failure.message,
             extractedDocumentId: extraction.extractedDocumentId,
             inputHash: hashModelPayload(aiInput),
             jobId,
             labReportId,
-            modelName: resolveModelName(ai.name, "extraction") ?? ai.name,
+            latencyMs: failure.latencyMs,
+            modelName: failure.modelName,
             promptVersion: biomarkerExtractionPromptVersion(),
-            provider: ai.name,
+            provider: failure.provider,
             reportFileId,
             schemaVersion: BIOMARKER_EXTRACTION_SCHEMA_VERSION,
             status: "failed",
@@ -309,17 +301,19 @@ export const processReport = inngest.createFunction(
           });
           throw caught;
         }
+        const { metadata: aiMetadata, output } = invocation;
 
         const modelRunId = await insertModelRun({
           extractedDocumentId: extraction.extractedDocumentId,
           inputHash: hashModelPayload(aiInput),
           jobId,
           labReportId,
-          modelName: resolveModelName(ai.name, "extraction") ?? ai.name,
+          latencyMs: aiMetadata.latencyMs,
+          modelName: aiMetadata.modelName,
           outputHash: hashModelPayload(output),
           outputJson: output as unknown as Record<string, unknown>,
           promptVersion: biomarkerExtractionPromptVersion(),
-          provider: ai.name,
+          provider: aiMetadata.provider,
           reportFileId,
           schemaVersion: BIOMARKER_EXTRACTION_SCHEMA_VERSION,
           status: "succeeded",
@@ -394,28 +388,58 @@ export const processReport = inngest.createFunction(
         });
         await updateJobState(jobId, "insight_generation_pending");
 
-        const ai = getAiProvider();
         const withIds = biomarkers.normalized.map(
           (marker: Record<string, unknown>, index: number) => ({
             ...marker,
             id: biomarkers.inserted[index]?.id ?? marker.id
           })
         );
-        const output = await ai.generatePatientExplanation({
-          biomarkers: withIds,
-          labReportId,
-          userId
-        });
+        let ai: ReturnType<typeof getClinicalAiGateway> | null = null;
+        let invocation;
+        try {
+          ai = getClinicalAiGateway();
+          invocation = await ai.generatePatientExplanation({
+            biomarkers: withIds,
+            labReportId,
+            userId
+          });
+        } catch (caught) {
+          const failure = aiFailureDetails(caught, {
+            modelName: ai?.getModelName("patient_explanation") ?? "unconfigured",
+            provider: ai?.providerName ?? "unconfigured",
+            task: "patient_explanation"
+          });
+          await insertModelRun({
+            errorCode: failure.code,
+            errorMessage: failure.message,
+            extractedDocumentId: extraction.extractedDocumentId,
+            inputHash: hashModelPayload({ labReportId, markerCount: withIds.length }),
+            jobId,
+            labReportId,
+            latencyMs: failure.latencyMs,
+            modelName: failure.modelName,
+            promptVersion: patientExplanationPromptVersion(),
+            provider: failure.provider,
+            reportFileId,
+            schemaVersion: PATIENT_EXPLANATION_SCHEMA_VERSION,
+            status: "failed",
+            taskType: "patient_explanation",
+            userId
+          });
+          throw caught;
+        }
+        const { metadata: aiMetadata, output, safety } = invocation;
         const modelRunId = await insertModelRun({
           extractedDocumentId: extraction.extractedDocumentId,
           inputHash: hashModelPayload({ labReportId, markerCount: withIds.length }),
           jobId,
           labReportId,
-          modelName: resolveModelName(ai.name, "explanation") ?? ai.name,
+          latencyMs: aiMetadata.latencyMs,
+          modelName: aiMetadata.modelName,
           outputHash: hashModelPayload(output),
           outputJson: output as unknown as Record<string, unknown>,
           promptVersion: patientExplanationPromptVersion(),
-          provider: ai.name,
+          provider: aiMetadata.provider,
           reportFileId,
           schemaVersion: PATIENT_EXPLANATION_SCHEMA_VERSION,
           status: "succeeded",
@@ -430,7 +454,6 @@ export const processReport = inngest.createFunction(
         await updateJobState(jobId, "insight_generated");
 
         await workflow.runJobStep({ jobId, stepName: "run_safety_rules", workerId: WORKER_ID });
-        const safety = runUnsafeLanguageFilter(JSON.stringify(output));
         await workflow.markStepSucceeded({
           jobId,
           outputSnapshot: { blocked: safety.blocked, matchedCount: safety.matchedPhrases.length },
@@ -450,6 +473,7 @@ export const processReport = inngest.createFunction(
         );
         const reviewMarkers = biomarkers.inserted.filter(
           (marker: { reviewRouting: string }) =>
+            marker.reviewRouting === "soft_review" ||
             marker.reviewRouting === "manual_review_required" ||
             marker.reviewRouting === "critical_review_required"
         );

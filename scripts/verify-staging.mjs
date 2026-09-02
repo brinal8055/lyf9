@@ -129,16 +129,16 @@ const sections = {
     ],
     run: verifyTextract
   },
-  openai: {
-    required: ["AI_PROVIDER", "OPENAI_API_KEY", "OPENAI_MODEL_EXTRACTION", "OPENAI_MODEL_EXPLANATION"],
-    run: verifyOpenAi
+  ai: {
+    required: ["AI_PROVIDER"],
+    run: verifyAi
   },
   e2e: {
     required: ["APP_BASE_URL", "NEXT_PUBLIC_APP_BASE_URL"],
     run: verifyE2E
   },
   "golden-live": {
-    required: ["RUN_LIVE_OPENAI_EVAL", "AI_PROVIDER", "OPENAI_API_KEY", "OPENAI_MODEL_EXTRACTION"],
+    required: ["AI_PROVIDER"],
     run: verifyGoldenLive
   }
 };
@@ -298,30 +298,24 @@ function verifyTextract() {
   }, "live_textract_harness_passed");
 }
 
-function verifyOpenAi() {
-  const checks = [
-    check("openai_selected", process.env.AI_PROVIDER === "openai"),
-    check("openai_models_configured", Boolean(process.env.OPENAI_MODEL_EXTRACTION && process.env.OPENAI_MODEL_EXPLANATION)),
-    check("openai_runner_available", false, "OpenAI Structured Outputs provider currently exposes the contract and fail-closed behavior; live requests are not wired.")
-  ];
-  return { checks, status: "blocked" };
+function verifyAi() {
+  return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:ai-live"], {
+    RUN_LIVE_STAGING_AI: "true"
+  }, "live_ai_adapter_harness_passed");
 }
 
 function verifyE2E() {
   const checks = [
     check("synthetic_only", true),
-    check("all_live_provider_sections_passed", false, "Full staging E2E is blocked until Supabase/RLS, workflow, S3, scanner, Marker, Textract, and OpenAI live checks pass.")
+    check("all_live_provider_sections_passed", false, "Full staging E2E is blocked until Supabase/RLS, workflow, S3, scanner, Marker, Textract, and the selected AI provider checks pass.")
   ];
   return { checks, status: "blocked" };
 }
 
 function verifyGoldenLive() {
-  const checks = [
-    check("live_openai_eval_requested", process.env.RUN_LIVE_OPENAI_EVAL === "true"),
-    check("synthetic_golden_only", true),
-    check("live_openai_runner_available", false, "Live golden subset cannot run until OpenAI Structured Outputs execution is wired.")
-  ];
-  return { checks, status: "blocked" };
+  return runNpmHarness("npm", ["--workspace", "apps/web", "run", "eval:golden"], {
+    RUN_LIVE_AI_EVAL: "true"
+  }, "live_ai_golden_harness_passed");
 }
 
 function runNpmHarness(command, args, extraEnv, checkName) {

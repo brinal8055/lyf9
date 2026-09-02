@@ -1055,3 +1055,42 @@ Known risks:
 Next recommended prompt:
 
 > Deploy the verified `dev` reconciliation commit, confirm `lyf9-dev.vercel.app/api/health` uses staging Supabase, run synthetic auth/consent/RLS smoke tests, and keep upload processing fail-closed until S3, Inngest, and a real malware scanner are configured. Do not change production.
+
+## 2026-09-02 Provider-Neutral Clinical AI Gateway
+
+Current phase: **structured AI adapter foundation complete locally; Gemini staging integration pending**.
+
+Completed:
+
+- Added `ClinicalAiGateway` as the production-facing AI boundary for extraction, patient explanation, and doctor summary tasks.
+- Kept Gemini, OpenAI, and mock implementations behind one explicit `AiProvider` contract with capability-level configuration status.
+- Removed automatic key-based provider selection; missing/unknown deployed providers now fail closed and there is no automatic provider fallback.
+- Renamed prompts and JSON schemas to provider-neutral Lyf9 clinical contracts.
+- Moved Gemini credentials from the request URL to the `x-goog-api-key` header and sanitized upstream errors.
+- Made health readiness depend on configured extraction and explanation capabilities instead of API-key presence alone.
+- Wired Inngest and local durable workflows through the gateway; provider-specific model env lookup no longer exists in orchestration.
+- Added authoritative disclaimer handling, exact persisted biomarker source tracing, deterministic marker facts, and conservative human-review routing for soft-review/unmapped results.
+- Logged latency and sanitized failure metadata for extraction and explanation attempts; token/cost fields remain nullable pending normalized adapter usage metadata.
+- Added provider-neutral synthetic live commands: `npm run verify:staging:ai` and `npm run eval:golden:live`.
+
+Verification:
+
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm test`: passed, **159 tests passed and 8 explicitly gated live tests skipped**.
+- `npm run build:web`: passed; existing Next.js ESLint-plugin warning remains.
+- `npm run copy:scan`: passed.
+- `npm run api:test`: passed, **9 tests**.
+- `npm run api:health` and `npm run worker:health`: passed; health output now reports selected AI provider rather than OpenAI-specific state.
+- No live Gemini request was made and no staging/production environment was changed.
+
+Known risks:
+
+- Gemini structured output has not yet been exercised with the staging account/key/quota.
+- The live golden runner is implemented but has not produced staging evidence.
+- Provider token usage, request IDs, finish reasons, and cost estimates are not normalized into model runs yet.
+- The golden dataset still needs at least 25 human-reviewed samples, clinician-approved critical thresholds, scanned-image OCR coverage, PHI-safe observability, retention governance, and legal review.
+
+Next recommended prompt:
+
+> Configure Gemini server-only variables in Vercel Preview branch `dev` only, redeploy staging, confirm `/api/health` reports Gemini extraction and explanation capabilities ready, run `npm run verify:staging:ai` with synthetic CBC data, then run `npm run eval:golden:live`. Do not change Production, do not use real PHI, and stop if schema, source trace, safety, or accuracy thresholds fail.

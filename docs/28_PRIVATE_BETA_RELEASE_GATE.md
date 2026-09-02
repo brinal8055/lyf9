@@ -49,7 +49,7 @@ Interpretation: local deterministic QA is healthy, but it does not replace live 
 | Real malware scanner | Ready for synthetic staging | GuardDuty is Active for staging `reports/`; `npm run verify:staging:malware` passes clean/EICAR checks and cleanup. |
 | Live Textract document extraction | Ready for synthetic staging | `npm run verify:staging:textract` passes private S3 input, expected text, page/confidence/provenance persistence, and cleanup. |
 | Live Marker extraction | Optional | Marker is not required while staging explicitly selects Textract; verify Marker before making it the configured parser. |
-| Live OpenAI Structured Outputs | Blocked | `npm run verify:staging:openai` and `npm run eval:golden:live` pass on synthetic fixtures. |
+| Live structured AI provider | Blocked | Configure Gemini in staging; `npm run verify:staging:ai` and `npm run eval:golden:live` must pass on synthetic fixtures. |
 | Doctor-reviewed critical thresholds | Blocked | Critical rules reviewed and signed off by qualified clinician. |
 | Legal review | Blocked | Consent, privacy, disclaimer, doctor review, payment/refund, and beta terms approved. |
 
@@ -72,7 +72,7 @@ Private beta can be marked ready only when:
 - Malware scanner is live configured or a medically/security-reviewed alternative is approved.
 - The configured document parser passes live synthetic extraction.
 - A scanned-image OCR fallback fixture passes before broad report intake.
-- OpenAI live structured output passes on synthetic data.
+- The selected AI adapter passes structured-output checks on synthetic data.
 - Golden dataset meets thresholds.
 - Unsafe output suite passes 100%.
 - Critical thresholds are doctor-reviewed or explicitly disabled from final medical routing.
@@ -88,7 +88,7 @@ Any of these keep the release blocked:
 - Any critical output publishes AI-only.
 - Any live RLS cross-user access succeeds.
 - Any public report file URL exists.
-- Any missing scanner/OpenAI/Marker/Textract config silently succeeds in staging/production.
+- Any missing scanner/AI/Marker/Textract config silently succeeds in staging/production.
 
 ## Exact Next Actions
 

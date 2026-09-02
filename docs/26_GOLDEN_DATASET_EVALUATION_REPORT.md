@@ -1,6 +1,6 @@
 # Golden Dataset Evaluation Report
 
-Generated: 2026-08-16T09:08:50.634Z
+Generated: 2026-09-02T14:46:36.141Z
 
 ## Verdict
 
@@ -8,7 +8,7 @@ Private beta recommendation: **Not ready**.
 
 Overall private beta score: **84/100**.
 
-Live OpenAI evaluation: **not_requested**.
+Live AI evaluation: **not_requested** (mock).
 
 ## Dataset Summary
 
@@ -37,15 +37,15 @@ Live OpenAI evaluation: **not_requested**.
 
 ## Blockers
 
-- Live Supabase/RLS staging verification is missing.
-- Real S3 bucket/IAM smoke test is missing.
-- Real malware scanner is not configured.
-- Marker/Textract/OpenAI live providers are not staging-verified.
+- The selected AI provider has not passed live staging golden evaluation.
+- Scanned-image OCR coverage is incomplete.
+- The golden dataset requires broader human-reviewed coverage.
 - Doctor-reviewed critical thresholds and legal review are incomplete.
 
 ## Next Actions
 
-1. Run live Supabase/RLS, S3, malware scanner, Marker, Textract, and OpenAI staging checks.
-2. Review critical thresholds with a qualified doctor.
-3. Expand golden fixtures to at least 25 internally reviewed synthetic or consented internal samples before real PHI beta.
-4. Keep private beta marked no-go until P0 live checks pass.
+1. Run the selected-provider AI adapter and live golden checks with synthetic data.
+2. Add scanned-image OCR coverage.
+3. Review critical thresholds with a qualified doctor.
+4. Expand golden fixtures to at least 25 internally reviewed synthetic or consented internal samples before real PHI beta.
+5. Keep private beta marked no-go until P0 live checks pass.

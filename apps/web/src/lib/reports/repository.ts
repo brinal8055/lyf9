@@ -27,9 +27,10 @@ import {
 import {
   BIOMARKER_EXTRACTION_SCHEMA_VERSION,
   PATIENT_EXPLANATION_SCHEMA_VERSION,
+  aiFailureDetails,
   biomarkerExtractionPromptVersion,
   createModelRunRecord,
-  getAiProvider,
+  getClinicalAiGateway,
   patientExplanationPromptVersion,
   requiredDisclaimer,
   validateBiomarkerExtractionSchema,
@@ -2390,10 +2391,13 @@ async function runExtractBiomarkersStep(store: ReportStore, jobId: string, worke
 
   let output: BiomarkerExtractionOutput;
   let providerName = "unconfigured";
+  let modelName = "unconfigured";
+  let latencyMs: number | null = null;
   try {
-    const provider = getAiProvider();
-    providerName = provider.name;
-    output = await provider.extractBiomarkers({
+    const gateway = getClinicalAiGateway();
+    providerName = gateway.providerName;
+    modelName = gateway.getModelName("biomarker_extraction");
+    const invocation = await gateway.extractBiomarkers({
       extractedDocumentId: extractedDocument.id,
       extractedTablesJson: extractedDocument.extractedTablesJson,
       extractedText: extractedDocument.extractedText,
@@ -2401,21 +2405,27 @@ async function runExtractBiomarkersStep(store: ReportStore, jobId: string, worke
       reportFileId: reportFile.id,
       userId: labReport.userId
     });
+    output = invocation.output;
+    latencyMs = invocation.metadata.latencyMs;
+    modelName = invocation.metadata.modelName;
   } catch (caught) {
-    const message = caught instanceof Error ? caught.message : "AI provider is not configured.";
-    const errorCode = message.includes("configuration") || message.includes("Mock AI provider is disabled")
-      ? "ai_configuration_required"
-      : "ai_provider_failed";
+    const failure = aiFailureDetails(caught, {
+      modelName,
+      provider: providerName,
+      task: "biomarker_extraction"
+    });
+    const errorCode = failure.code;
     recordAiModelRun(store, {
       errorCode,
-      errorMessage: message,
+      errorMessage: failure.message,
       extractedDocumentId: extractedDocument.id,
       input: aiInputSummary(job, extractedDocument),
       job,
-      modelName: process.env.OPENAI_MODEL_EXTRACTION || providerName,
+      latencyMs: failure.latencyMs,
+      modelName: failure.modelName,
       output: null,
       promptVersion: biomarkerExtractionPromptVersion(),
-      provider: providerName,
+      provider: failure.provider,
       safetyFilterStatus: "not_applicable",
       schemaVersion: BIOMARKER_EXTRACTION_SCHEMA_VERSION,
       status: "failed",
@@ -2437,7 +2447,8 @@ async function runExtractBiomarkersStep(store: ReportStore, jobId: string, worke
       extractedDocumentId: extractedDocument.id,
       input: aiInputSummary(job, extractedDocument),
       job,
-      modelName: process.env.OPENAI_MODEL_EXTRACTION || providerName,
+      latencyMs,
+      modelName,
       output,
       promptVersion: biomarkerExtractionPromptVersion(),
       provider: providerName,
@@ -2458,7 +2469,8 @@ async function runExtractBiomarkersStep(store: ReportStore, jobId: string, worke
     extractedDocumentId: extractedDocument.id,
     input: aiInputSummary(job, extractedDocument),
     job,
-    modelName: process.env.OPENAI_MODEL_EXTRACTION || providerName,
+    latencyMs,
+    modelName,
     output,
     promptVersion: biomarkerExtractionPromptVersion(),
     provider: providerName,
@@ -2673,34 +2685,52 @@ async function runGeneratePatientExplanationStep(store: ReportStore, jobId: stri
 
   let explanation: PatientExplanationOutput;
   let providerName = "unconfigured";
+  let modelName = "unconfigured";
+  let latencyMs: number | null = null;
   try {
-    const provider = getAiProvider();
-    providerName = provider.name;
-    explanation = await provider.generatePatientExplanation({
+    const gateway = getClinicalAiGateway();
+    providerName = gateway.providerName;
+    modelName = gateway.getModelName("patient_explanation");
+    const invocation = await gateway.generatePatientExplanation({
       biomarkers,
       labReportId: labReport.id,
       userId: labReport.userId
     });
+    explanation = invocation.output;
+    latencyMs = invocation.metadata.latencyMs;
+    modelName = invocation.metadata.modelName;
   } catch (caught) {
-    const message = caught instanceof Error ? caught.message : "AI explanation provider is not configured.";
+    const failure = aiFailureDetails(caught, {
+      modelName,
+      provider: providerName,
+      task: "patient_explanation"
+    });
     recordAiModelRun(store, {
-      errorCode: "ai_configuration_required",
-      errorMessage: message,
+      errorCode: failure.code,
+      errorMessage: failure.message,
       input: { biomarkerIds: biomarkers.map((marker) => marker.id), labReportId: labReport.id },
       job,
-      modelName: process.env.OPENAI_MODEL_EXPLANATION || providerName,
+      latencyMs: failure.latencyMs,
+      modelName: failure.modelName,
       output: null,
       promptVersion: patientExplanationPromptVersion(),
-      provider: providerName,
+      provider: failure.provider,
       safetyFilterStatus: "blocked",
       schemaVersion: PATIENT_EXPLANATION_SCHEMA_VERSION,
       status: "failed",
       taskType: "patient_explanation",
       workerId: workerIdValue
     });
-    addAiAudit(store, "ai_configuration_required", workerIdValue, "lab_report", labReport.id, {});
-    await failAndBlockWorkflowJob(store, job.id, "generate_patient_explanation", "ai_configuration_required", "AI patient explanation is not configured.");
-    return { job, processed: true, reason: "ai_configuration_required" };
+    addAiAudit(
+      store,
+      failure.code === "ai_configuration_required" ? "ai_configuration_required" : "model_run_failed",
+      workerIdValue,
+      "lab_report",
+      labReport.id,
+      { errorCode: failure.code }
+    );
+    await failAndBlockWorkflowJob(store, job.id, "generate_patient_explanation", failure.code, "AI patient explanation is unavailable.");
+    return { job, processed: true, reason: failure.code };
   }
 
   if (!explanation.disclaimer) {
@@ -2715,7 +2745,8 @@ async function runGeneratePatientExplanationStep(store: ReportStore, jobId: stri
     errorMessage: schemaValidation.ok ? null : schemaValidation.errors.join("; "),
     input: { biomarkerIds: biomarkers.map((marker) => marker.id), labReportId: labReport.id },
     job,
-    modelName: process.env.OPENAI_MODEL_EXPLANATION || providerName,
+    latencyMs,
+    modelName,
     output: explanation,
     promptVersion: patientExplanationPromptVersion(),
     provider: providerName,

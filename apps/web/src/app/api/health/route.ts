@@ -6,6 +6,7 @@ import {
   getSupabaseServerKeyType
 } from "@/lib/auth/providers/supabase-server";
 import { isInngestConfigured } from "@/inngest/client";
+import { getAiRuntimeStatus } from "@/lib/ai";
 import { getStoreHealth } from "@/lib/reports/repository";
 
 export async function GET() {
@@ -13,16 +14,17 @@ export async function GET() {
   const supabase = getSupabaseServerConfig();
   const deployed = process.env.APP_ENV === "staging" || process.env.APP_ENV === "production";
   const inngestConfigured = isInngestConfigured();
-  const aiProvider = (process.env.AI_PROVIDER ?? "unconfigured").toLowerCase();
-  const aiConfigured =
-    (aiProvider === "gemini" && Boolean(process.env.GEMINI_API_KEY)) ||
-    (aiProvider === "openai" && Boolean(process.env.OPENAI_API_KEY)) ||
-    (aiProvider === "mock" && process.env.APP_ENV !== "staging" && process.env.APP_ENV !== "production");
+  const ai = getAiRuntimeStatus();
 
   return NextResponse.json({
     checks: {
-      aiConfigured,
-      aiProvider,
+      aiCapabilities: {
+        biomarkerExtraction: ai.capabilities.biomarker_extraction.configured,
+        doctorSummary: ai.capabilities.doctor_summary.configured,
+        patientExplanation: ai.capabilities.patient_explanation.configured
+      },
+      aiConfigured: ai.readyForReportPipeline,
+      aiProvider: ai.providerId,
       authSecret: Boolean(process.env.LYF9_AUTH_SECRET),
       databaseConfigured: Boolean(process.env.DATABASE_URL),
       emailConfigured: Boolean(process.env.EMAIL_PROVIDER),
@@ -46,7 +48,7 @@ export async function GET() {
     },
     service: "web",
     status: store.ok && supabase.serviceRoleKeyConfigured && Boolean(supabase.url && supabase.anonKey) &&
-      (!deployed || inngestConfigured)
+      (!deployed || (inngestConfigured && ai.readyForReportPipeline))
       ? "ok"
       : "degraded"
   });

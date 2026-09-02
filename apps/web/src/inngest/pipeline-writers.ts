@@ -119,6 +119,7 @@ export async function insertModelRun(input: {
   inputHash: string;
   jobId: string;
   labReportId: string;
+  latencyMs?: number | null;
   modelName: string;
   outputHash?: string | null;
   outputJson?: Record<string, unknown> | null;
@@ -129,6 +130,8 @@ export async function insertModelRun(input: {
   schemaVersion: string;
   status: "succeeded" | "failed";
   taskType: string;
+  tokenInputCount?: number | null;
+  tokenOutputCount?: number | null;
   userId: string;
 }): Promise<string> {
   const { data, error } = await client()
@@ -139,6 +142,7 @@ export async function insertModelRun(input: {
       extracted_document_id: input.extractedDocumentId ?? null,
       input_hash: input.inputHash,
       lab_report_id: input.labReportId,
+      latency_ms: input.latencyMs ?? null,
       model_name: input.modelName,
       output_hash: input.outputHash ?? null,
       output_json: input.outputJson ?? null,
@@ -150,6 +154,8 @@ export async function insertModelRun(input: {
       schema_version: input.schemaVersion,
       status: input.status,
       task_type: input.taskType,
+      token_input_count: input.tokenInputCount ?? null,
+      token_output_count: input.tokenOutputCount ?? null,
       user_id: input.userId
     })
     .select("id")

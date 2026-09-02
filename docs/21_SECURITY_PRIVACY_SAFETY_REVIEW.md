@@ -35,7 +35,7 @@ Partially implemented:
 - Atomic Supabase RPCs use Postgres row locking for job claim and expired lock release; concurrent claims, retry timing, job/step recovery, RPC denial, and PHI-minimal audits pass in staging.
 - Document extraction now uses provider contracts, persists extracted text/tables, and audits only provider/status/count metadata. Full extracted text is not written to audit logs.
 - Unsupported/unknown report classification blocks automated interpretation and does not proceed to biomarker AI extraction.
-- Schema-first AI workflow now logs model runs with hashes and safe metadata, validates output schemas before persistence, blocks missing OpenAI config in deployed env, and prevents unsupported reports from entering AI interpretation.
+- Schema-first AI now runs through a provider-neutral gateway, logs attempts with hashes/sanitized metadata, validates output/source traces before persistence, blocks incomplete selected-provider config in deployed environments, and prevents unsupported reports from entering AI interpretation.
 
 Gaps:
 
@@ -65,8 +65,8 @@ Implemented:
 Gaps:
 
 - Critical thresholds are placeholders and not doctor-reviewed.
-- OpenAI Structured Outputs provider is contract-only and fails closed when unconfigured.
-- No live prompt execution yet.
+- Gemini, OpenAI, and mock adapters share one explicit provider contract; unknown providers and incomplete deployed configuration fail closed.
+- No live Gemini prompt execution has been verified in staging yet.
 - Synthetic golden dataset validation exists locally; expanded human-reviewed sample coverage is still required.
 - Live staging verification artifacts are generated under `artifacts/staging-verification/`; these artifacts must not contain secrets or full extracted report text.
 - No public proof that every generated output was reviewed for unsafe copy across real reports.

@@ -1,7 +1,3 @@
-// OpenAI Structured Outputs JSON schemas (strict mode).
-// Strict mode requires: every property listed in `required`,
-// `additionalProperties: false`, optionality expressed as nullable types.
-
 const BIOMARKER_FLAG_ENUM = ["low", "high", "normal", "borderline", "critical", "unknown"];
 
 const BIOMARKER_ITEM_SCHEMA = {

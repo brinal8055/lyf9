@@ -8,23 +8,52 @@ import {
   type PatientExplanationOutput,
   type SafetyCheckResult
 } from "./ai-schemas";
-import { isLocalLikeAiEnv, type AiProvider } from "./ai-provider";
+import { isLocalLikeAiEnv, type AiProvider, type AiTask } from "./ai-provider";
 import {
   BIOMARKER_EXTRACTION_JSON_SCHEMA,
   DOCTOR_SUMMARY_JSON_SCHEMA,
   PATIENT_EXPLANATION_JSON_SCHEMA
-} from "./openai-json-schemas";
+} from "./clinical-ai-json-schemas";
 import {
   BIOMARKER_EXTRACTION_SYSTEM_PROMPT,
   DOCTOR_SUMMARY_SYSTEM_PROMPT,
   PATIENT_EXPLANATION_SYSTEM_PROMPT
-} from "./openai-prompts";
+} from "./clinical-ai-prompts";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
-const REQUEST_TIMEOUT_MS = 120_000;
 
 export class OpenAiStructuredOutputsProvider implements AiProvider {
   name = "openai_structured_outputs";
+  providerId = "openai" as const;
+
+  getModelName(task: AiTask) {
+    const envName = task === "biomarker_extraction"
+      ? "OPENAI_MODEL_EXTRACTION"
+      : task === "patient_explanation"
+        ? "OPENAI_MODEL_EXPLANATION"
+        : "OPENAI_MODEL_DOCTOR_SUMMARY";
+    return process.env[envName]?.trim() || null;
+  }
+
+  getConfigurationStatus() {
+    const hasKey = Boolean(process.env.OPENAI_API_KEY?.trim());
+    const capability = (task: AiTask) => ({
+      configured: hasKey && Boolean(this.getModelName(task)),
+      model: this.getModelName(task)
+    });
+    const capabilities = {
+      biomarker_extraction: capability("biomarker_extraction"),
+      doctor_summary: capability("doctor_summary"),
+      patient_explanation: capability("patient_explanation")
+    };
+    return {
+      capabilities,
+      providerId: this.providerId,
+      providerName: this.name,
+      readyForReportPipeline:
+        capabilities.biomarker_extraction.configured && capabilities.patient_explanation.configured
+    };
+  }
 
   async extractBiomarkers(
     params: Parameters<AiProvider["extractBiomarkers"]>[0]
@@ -131,7 +160,7 @@ async function callOpenAiStructured<T>(input: {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), requestTimeoutMs());
 
   try {
     const response = await fetch(OPENAI_API_URL, {
@@ -160,8 +189,7 @@ async function callOpenAiStructured<T>(input: {
     });
 
     if (!response.ok) {
-      const errorBody = await response.text().catch(() => "");
-      throw new Error(`openai_request_failed_${response.status}: ${errorBody.slice(0, 500)}`);
+      throw new Error(`openai_request_failed_${response.status}`);
     }
 
     const body = (await response.json()) as {
@@ -170,7 +198,7 @@ async function callOpenAiStructured<T>(input: {
     const choice = body.choices?.[0]?.message;
 
     if (choice?.refusal) {
-      throw new Error(`openai_refused: ${choice.refusal.slice(0, 300)}`);
+      throw new Error("openai_refused");
     }
     if (!choice?.content) {
       throw new Error("openai_empty_response");
@@ -185,4 +213,9 @@ async function callOpenAiStructured<T>(input: {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function requestTimeoutMs() {
+  const seconds = Number(process.env.AI_REQUEST_TIMEOUT_SECONDS ?? "120");
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 120_000;
 }
