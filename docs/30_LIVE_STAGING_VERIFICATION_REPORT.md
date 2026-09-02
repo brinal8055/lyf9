@@ -11,8 +11,9 @@ Environment: local guarded verifier using staging-only Gemini configuration and 
 - `npm run verify:staging:ai` passed in 72.84 seconds with schema-valid extraction and patient explanation, exact persisted biomarker source tracing, authoritative disclaimer, and deterministic unsafe-language checks.
 - `npm run eval:golden:live` then exercised multiple synthetic requests for 109 seconds and stopped fail-closed on `ai_provider_quota_exhausted` during patient explanation. AI Studio confirmed the free-tier `gemini-3.5-flash` daily counter at 21/20 RPD while RPM and TPM remained below their limits. The golden gate is not marked passed.
 - PHI-free evidence is stored in `artifacts/staging-verification/ai.json` and `artifacts/staging-verification/golden-live.json`.
+- A subsequent read-only deployed health check returned `aiProvider: openai` while Supabase Postgres, S3, and Inngest remained healthy. This is Preview environment configuration drift, not an adapter-code failure. Preview branch `dev` must be restored to `AI_PROVIDER=gemini` with all three Gemini task models set to `gemini-3.5-flash`, then redeployed and rechecked. Production remains untouched.
 
-Verdict: the selected Gemini adapter is **ready for synthetic smoke testing**. Real PHI remains no-go until provider-backed golden QA passes with adequate quota and the other release gates are resolved.
+Verdict: the selected Gemini adapter is **ready for synthetic smoke testing**, but the deployed Preview provider selection is not currently aligned. Real PHI remains no-go until the environment drift is corrected, provider-backed golden QA passes with adequate quota, and the other release gates are resolved.
 
 ### 2026-09-02 Live Inngest Staging Saga Pass
 
