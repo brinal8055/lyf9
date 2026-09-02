@@ -6,7 +6,7 @@ Decision: **No-go for real PHI private beta**.
 
 Current local golden readiness score: **84/100**.
 
-Reason: synthetic golden QA passes locally, and live staging verification commands now exist, but live Supabase/RLS, S3, malware scanner, Marker, Textract, OpenAI, doctor threshold review, and legal review are still incomplete.
+Reason: synthetic golden QA, live staging Supabase/RLS, private S3, and GuardDuty clean/threat verification pass. Workflow concurrency, Marker, Textract, OpenAI, doctor threshold review, retention governance, observability, and legal review are still incomplete.
 
 Live staging evidence:
 
@@ -46,7 +46,7 @@ Interpretation: local deterministic QA is healthy, but it does not replace live 
 | --- | --- | --- |
 | Supabase/RLS live verification | Partially ready | Staging schema and policies are applied; `npm run verify:staging:rls` must still pass with isolated staging users. |
 | Private S3 smoke test | Ready for synthetic staging | `npm run verify:staging:s3` passed upload/download/privacy/encryption/DB/audit/delete/cleanup; approve retention/versioning policy before PHI. |
-| Real malware scanner | Blocked | `npm run verify:staging:malware` passes with real scanner or approved fail-closed/manual process. |
+| Real malware scanner | Ready for synthetic staging | GuardDuty is Active for staging `reports/`; `npm run verify:staging:malware` passes clean/EICAR checks and cleanup. |
 | Live Marker extraction | Blocked | `npm run verify:staging:marker` parses synthetic digital PDF with expected text/tables. |
 | Live Textract/OCR fallback | Blocked | `npm run verify:staging:textract` succeeds or reviewed manual fallback is accepted. |
 | Live OpenAI Structured Outputs | Blocked | `npm run verify:staging:openai` and `npm run eval:golden:live` pass on synthetic fixtures. |
@@ -94,8 +94,8 @@ Any of these keep the release blocked:
 
 1. Reconcile Supabase CLI migration history with the migrations applied to staging through the SQL editor.
 2. Deploy the updated `dev` branch with its dev-only Vercel staging environment variables.
-3. Run `npm run verify:staging` with synthetic data only and attach artifacts to `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md`.
-4. Wire a real scanner and verify Textract plus the configured structured AI provider where current commands report blocking.
+3. Verify concurrent workflow claims, leases, retries, and recovery against staging Postgres.
+4. Verify Marker, Textract, and the configured structured AI provider where current commands report blocking.
 5. Expand golden dataset from 13 synthetic fixtures to at least 25 internally reviewed synthetic or consented internal samples.
 6. Get doctor review of critical thresholds.
 7. Complete legal review.

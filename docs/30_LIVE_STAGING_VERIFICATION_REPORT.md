@@ -2,6 +2,26 @@
 
 ## Run Summary
 
+### 2026-09-02 Live GuardDuty Malware Pass
+
+Environment: `lyf9-reports-storage-staging` in `ap-south-1` and Vercel Preview branch `dev`. Production was not changed and no real PHI was used.
+
+Completed evidence:
+
+- Added a real GuardDuty Malware Protection for S3 provider that reads `GuardDutyMalwareScanStatus` from private report-object tags.
+- Only `NO_THREATS_FOUND` advances; threats fail closed, unsupported/access-denied outcomes require intervention, and pending/failed scans remain retryable.
+- Updated the Inngest path so an asynchronous pending tag does not mark the report failed before retry.
+- Added deterministic unit coverage for clean, threat, unsupported, access denied, failed, pending, invalid key, and provider selection outcomes.
+- Added `npm run verify:staging:malware`, which now runs a guarded clean/EICAR live harness and always deletes synthetic objects.
+- Added exact AWS/IAM/Vercel activation steps in `docs/34_GUARDDUTY_S3_MALWARE_SETUP.md`.
+- Added staging-prefix `s3:GetObjectTagging` to `Lyf9StagingReportStoragePolicy`; the app principal received no GuardDuty administration permissions.
+- Activated GuardDuty Malware Protection for S3 on `reports/`, with managed object tagging and a dedicated GuardDuty service role.
+- Scoped Vercel Preview branch `dev` to `MALWARE_SCANNER_PROVIDER=guardduty-s3`, a 20-second app poll window, and 2-second polling.
+- `npm run verify:staging:malware` passed four tests: guardrails plus a live clean PDF `NO_THREATS_FOUND` result and EICAR `THREATS_FOUND` result in 6.7 seconds.
+- The verifier deleted both synthetic objects in `finally`; no production setting or bucket was changed.
+
+Verdict: the real malware-scanning blocker is **resolved for synthetic staging**. The overall real-PHI decision remains **No-go** until the other release gates pass.
+
 ### 2026-09-02 Live Private S3 Pass
 
 Environment: Supabase `lyf9-staging` (`wjjwdakfyigwwohbntyv`), `https://lyf9-dev.vercel.app`, and `lyf9-reports-storage-staging` in `ap-south-1`. Production was not changed and no real PHI was used.

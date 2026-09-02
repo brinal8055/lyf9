@@ -14,7 +14,13 @@ import {
   type ExtractedDocumentResult
 } from "@/lib/document-extraction";
 import { minExtractedTextChars } from "@/lib/document-extraction/document-parser-provider";
-import { getMalwareScannerProvider, toReportScanStatus } from "@/lib/malware";
+import {
+  getMalwareScannerProvider,
+  GuardDutyMalwareScannerUnavailableError,
+  GuardDutyMalwareScanPendingError,
+  type MalwareScanResult,
+  toReportScanStatus
+} from "@/lib/malware";
 import { logError } from "@/lib/observability/logger";
 import { claimDoctorForReview } from "@/lib/doctors/assignment";
 import { assignDoctorReview } from "@/lib/reports/repository";
@@ -83,12 +89,31 @@ export const processReport = inngest.createFunction(
         await workflow.runJobStep({ jobId, stepName: "malware_scan", workerId: WORKER_ID });
         await updateJobState(jobId, "malware_scan");
         const reportFile = await fetchReportFileRow(reportFileId);
-        const result = await getMalwareScannerProvider().scanFile({
-          filename: String(reportFile.original_filename ?? ""),
-          mimeType: String(reportFile.mime_type ?? ""),
-          reportFileId,
-          storageKey: String(reportFile.storage_key ?? "")
-        });
+        let result: MalwareScanResult;
+        try {
+          result = await getMalwareScannerProvider().scanFile({
+            filename: String(reportFile.original_filename ?? ""),
+            mimeType: String(reportFile.mime_type ?? ""),
+            reportFileId,
+            storageKey: String(reportFile.storage_key ?? "")
+          });
+        } catch (caught) {
+          if (
+            caught instanceof GuardDutyMalwareScanPendingError ||
+            caught instanceof GuardDutyMalwareScannerUnavailableError
+          ) {
+            await workflow.markStepFailed({
+              errorCode: caught.code,
+              errorMessage: caught.message,
+              jobId,
+              retryable: true,
+              stepName: "malware_scan"
+            });
+            await updateReportFileScan(reportFileId, "scan_pending", "scan_pending");
+            await updateJobState(jobId, "scan_pending");
+          }
+          throw caught;
+        }
         const scanStatus = toReportScanStatus(result.status);
         await updateReportFileScan(reportFileId, scanStatus, scanStatus);
 
@@ -499,6 +524,13 @@ export const processReport = inngest.createFunction(
 
       return { jobId, reportFileId, status: final.jobState };
     } catch (error) {
+      if (
+        error instanceof GuardDutyMalwareScanPendingError ||
+        error instanceof GuardDutyMalwareScannerUnavailableError
+      ) {
+        throw error;
+      }
+
       const reason = error instanceof Error ? error.message : "processing_failed";
       await step.run("compensate", async () => {
         for (const name of [...completedSteps].reverse()) {

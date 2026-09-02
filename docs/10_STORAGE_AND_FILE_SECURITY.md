@@ -9,11 +9,12 @@ Lyf9 AI now has a production-shaped private report file layer in code:
 - `apps/web/src/lib/storage/mock-storage-provider.ts`
 - `apps/web/src/lib/malware/malware-scanner-provider.ts`
 - `apps/web/src/lib/malware/mock-malware-scanner.ts`
+- `apps/web/src/lib/malware/guardduty-s3-malware-scanner.ts`
 - `apps/web/src/lib/malware/s3-event-scanner-stub.ts`
 
 The web route handlers use the provider abstraction for signed upload URLs, signed download URLs, metadata checks, and deletion. Frontend code never receives AWS credentials or service-role secrets.
 
-Private S3 upload/download/privacy/encryption/audit/delete behavior is live-verified with synthetic staging data. Real PHI private beta remains blocked until a real malware scanner and retention/versioning governance are configured and verified.
+Private S3 upload/download/privacy/encryption/audit/delete behavior and GuardDuty clean/threat enforcement are live-verified with synthetic staging data. Real PHI private beta remains blocked by the remaining workflow, extraction, AI, observability, retention, clinical, and legal gates.
 
 ## StorageProvider Architecture
 
@@ -112,9 +113,11 @@ Statuses:
 - `scan_skipped_dev_only`
 - `scan_configuration_required`
 
-Local/test may use `MALWARE_SCANNER_PROVIDER=mock`. Staging may use the explicit mock override for synthetic-only integration work, but Production ignores that override and fails closed. If a real scanner is not configured, scan result remains `scan_configuration_required`, and processing does not advance to extraction.
+Local/test may use `MALWARE_SCANNER_PROVIDER=mock`. Staging and production use `MALWARE_SCANNER_PROVIDER=guardduty-s3` after GuardDuty Malware Protection for S3 is active for the private bucket. Production ignores the mock override and fails closed.
 
-`CLAMAV_ENDPOINT=http://localhost:8080` is local-only. A Vercel or hosted worker deployment needs a private network-reachable scanner endpoint and a defined request/response protocol.
+The GuardDuty provider reads the managed `GuardDutyMalwareScanStatus` object tag. Only `NO_THREATS_FOUND` passes. `THREATS_FOUND` fails, `UNSUPPORTED`/`ACCESS_DENIED` require manual/configuration handling, and missing/failed scans remain retryable. The app IAM principal needs `s3:GetObjectTagging` only for `reports/*`; GuardDuty uses its own dedicated service role.
+
+Activation and verification are documented in `docs/34_GUARDDUTY_S3_MALWARE_SETUP.md`.
 
 ## Processing Gate
 
@@ -125,7 +128,7 @@ Processing must not move to extraction until malware scan passes.
 - `scan_configuration_required`: blocked.
 - `scan_passed`: may advance to classification/extraction.
 
-The worker stub now advertises `malware_scan` as the first step. A durable queue and real scanner are still required before real PHI beta.
+The worker stub now advertises `malware_scan` as the first step. GuardDuty is the live staging scanner; durable worker concurrency still requires staging verification before real PHI beta.
 
 ## Delete Flow
 
@@ -166,5 +169,5 @@ Audit metadata must stay PHI-minimal: IDs, MIME type, size, storage provider, st
 
 - The synthetic app-level verifier passed through `npm run verify:staging:s3` against the staging-only bucket on 2026-09-02.
 - Signed upload/download, public denial, `AES256` encryption, metadata, audit actions, delete, and cleanup passed; lifecycle/retention and key-management policy still require approval before PHI.
-- Real ClamAV or S3 event scanner is not wired.
+- GuardDuty Malware Protection is Active on the staging `reports/` prefix with managed tagging. The clean PDF and EICAR synthetic threat both passed expected tag/status checks through `npm run verify:staging:malware` on 2026-09-02, with cleanup.
 - Durable queue is still a blocker.

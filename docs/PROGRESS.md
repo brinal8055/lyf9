@@ -4,13 +4,49 @@
 
 Staging foundation reconciliation is in progress for a **production-shaped private beta MVP**.
 
-Supabase staging now has the current schema, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, and live-verified private S3 report storage. The product is not approved for real 30-50 user PHI until real malware scanning, durable workflow execution, Marker/OCR, production AI structured outputs, observability/privacy review, retention governance, and legal review are completed in staging.
+Supabase staging now has the current schema, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, and live GuardDuty clean/threat enforcement. The product is not approved for real 30-50 user PHI until durable workflow execution, Marker/OCR, production AI structured outputs, observability/privacy review, retention governance, clinical threshold review, and legal review are completed in staging.
 
-Current private beta readiness score: **8.1/10**.
+Current private beta readiness score: **8.4/10**.
 
 No public launch, autonomous diagnosis, prescriptions, medicine-change advice, supplement protocols, pharmacy commerce, lab booking, full doctor marketplace, mobile app, wearables, ABDM/ABHA, genetics, employer, or insurance workflows have been added.
 
 ## Completed In This Pass
+
+### 2026-09-02 GuardDuty S3 Malware Gate Implementation
+
+- Selected Amazon GuardDuty Malware Protection for S3 for the existing private S3/Vercel architecture; no custom public scanner endpoint or raw-file proxy was introduced.
+- Added `guardduty-s3` provider support that reads the managed `GuardDutyMalwareScanStatus` object tag.
+- Mapped `NO_THREATS_FOUND` to pass, `THREATS_FOUND` to fail, `UNSUPPORTED`/`ACCESS_DENIED` to fail-closed configuration handling, and missing/`FAILED` results to retryable errors.
+- Restricted scanning to opaque `reports/` keys and kept scanner metadata PHI-minimal.
+- Updated Inngest behavior so asynchronous pending/unavailable GuardDuty results remain `scan_pending` and retry instead of prematurely marking a report failed.
+- Added unit tests for all GuardDuty outcomes, invalid keys, and explicit provider selection.
+- Added a staging-only clean/EICAR live harness with exact staging bucket/region guards and guaranteed object cleanup.
+- Wired `npm run test:malware-live` and `npm run verify:staging:malware` to the new harness.
+- Updated web/API/worker env examples and added `docs/34_GUARDDUTY_S3_MALWARE_SETUP.md` with the exact IAM, AWS, Vercel, verification, and failure-response procedure.
+- Added `s3:GetObjectTagging` only for the staging `reports/*` prefix and kept GuardDuty administration permissions out of the app IAM principal.
+- Activated GuardDuty Malware Protection for the staging `reports/` prefix in `ap-south-1`, with managed object tagging and a dedicated service role.
+- Updated Vercel Preview branch `dev` only; Production was not changed.
+- Passed `npm run verify:staging:malware`: clean PDF mapped to `NO_THREATS_FOUND`, EICAR mapped to `THREATS_FOUND`, and both synthetic objects were cleaned up.
+
+Verification passed so far:
+
+```txt
+npm --workspace apps/web run test -- src/lib/malware/guardduty-s3-malware-scanner.test.ts src/lib/malware/staging-guardduty-s3-live.test.ts  # 11 passed, 1 live skipped
+npm test  # 137 passed, 5 credential-gated live tests skipped
+npm run typecheck
+npm run lint
+npm run build:web
+npm run copy:scan
+npm run api:test  # 8 passed
+npm run worker:health
+npm run verify:staging:malware  # 4 passed, including live clean/EICAR; synthetic objects deleted
+```
+
+Current remaining blocker: deploy this code to Vercel Preview `dev`, then verify durable processing-job claim/lease/retry behavior with concurrent staging workers. Real PHI remains no-go until the full release gate passes.
+
+Next recommended prompt:
+
+> Deploy the GuardDuty-gated `dev` branch to Lyf9 AI staging, verify the deployed health/config state, then run concurrent processing-job claim, lease, retry, and recovery checks against staging Postgres using synthetic records only. Keep production unchanged and do not proceed to extraction unless malware scan status is `scan_passed`.
 
 ### 2026-09-02 Live Private S3 Verification
 
@@ -23,7 +59,7 @@ No public launch, autonomous diagnosis, prescriptions, medicine-change advice, s
 - Verified consent, app-signed PUT, private URL denial, encryption/metadata, app-signed GET, Postgres metadata, audit events, app deletion, and cleanup.
 - Independent cleanup check found zero `reports/` objects and zero `lyf9-staging-s3-*` Auth users remaining.
 
-Current remaining P0 blocker: replace the mock/fail-closed malware scanner with a real staging scanner before any real PHI upload.
+Current remaining P0 blocker at that checkpoint was replacing the mock/fail-closed scanner; the GuardDuty implementation and live staging evidence are now recorded above.
 
 ### 2026-09-01 Private S3 Verification Hardening
 

@@ -10,9 +10,7 @@ Private beta readiness score from latest local golden gate: **84/100**
 
 ## P0 Blockers Before Any Real PHI
 
-| Blocker | Evidence | Required Fix |
-| --- | --- | --- |
-| Malware scanner is mock/stub only | `apps/web/src/lib/malware/` | ClamAV or S3 event scanner before extraction. |
+The GuardDuty malware blocker is resolved for synthetic staging. The remaining no-go items are tracked below because the complete upload-to-reviewed-result path is not yet live-verified.
 
 ## P1 Blockers Before 30-50 Users
 
@@ -36,6 +34,8 @@ Private beta readiness score from latest local golden gate: **84/100**
 - Added a destructive app-level S3 harness with exact staging project/app/bucket guards and guaranteed cleanup.
 - S3 object keys are opaque, persisted bucket metadata is accurate, and signed PUT requirements include encryption and metadata headers.
 - Production cannot opt into the mock malware scanner; staging mock remains synthetic-only and does not satisfy the release gate.
+- Added a real GuardDuty S3 tag provider, retryable pending/failure behavior, deterministic status mapping, and a staging-only clean/EICAR live harness with guaranteed cleanup.
+- Activated GuardDuty Malware Protection for the staging `reports/` prefix, enabled managed object tags, granted only staging-prefix `s3:GetObjectTagging`, and passed the clean/EICAR live verifier with cleanup.
 - Provider names now fail closed instead of treating `textract` as a Marker parser alias.
 - Staging Supabase and the Vercel `dev` deployment are configured without changing Production.
 - Migrations through `202609010002_consent_rpc_rls_guard.sql` are applied in staging.
@@ -48,7 +48,7 @@ Private beta readiness score from latest local golden gate: **84/100**
 - Root scripts now include `npm run verify:staging:*` for Supabase, RLS, workflow, S3, malware, Marker, Textract, OpenAI, E2E, and live golden subset checks.
 - Existing live RLS and workflow harnesses are routed through the staging verifier.
 - S3 direct signed PUT/GET/delete smoke harness exists, but full app audit-row verification still requires deployed app E2E.
-- Malware, Marker, Textract, OpenAI, live golden subset, and full E2E commands intentionally report blocked until real runners/config are wired.
+- GuardDuty verification now passes with live AWS staging evidence; Marker, Textract, OpenAI, live golden subset, and full E2E still lack live evidence.
 - `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` records the current no-go live status.
 
 ## Fixed Or Improved In The Foundation Hardening Pass
@@ -68,7 +68,7 @@ Private beta readiness score from latest local golden gate: **84/100**
 - Upload-complete creates processing jobs with malware scan as the first gate.
 - Signed download URL endpoint authorizes owner, assigned doctor, admin, or superadmin and audits denied/generated access.
 - Delete endpoint marks report files deleted, calls the provider delete path, audits `report_deleted`, and blocks future signed URLs.
-- MalwareScannerProvider exists; mock scanner is local/test only and production mock use returns `configuration_required`.
+- MalwareScannerProvider includes a GuardDuty S3 implementation; mock remains local/test only and production mock use returns `configuration_required`.
 - Tests cover upload validation, signed access, scan gating, audit logging, ownership denial, and delete behavior.
 
 ## Fixed Or Improved In The Durable Workflow Pass
@@ -160,4 +160,4 @@ No-go for real users until:
 
 ## First Fix
 
-Configure real malware scanning in staging for Lyf9 AI: wire a network-reachable ClamAV service or S3 event scanner, keep uploads quarantined while scanning, test clean/infected/timeout/unavailable paths with synthetic fixtures, and verify processing does not advance unless scan passes.
+Verify durable processing-job claim, lease, retry, and recovery behavior against staging Postgres with concurrent workers. Keep extraction blocked unless the live GuardDuty step has passed.

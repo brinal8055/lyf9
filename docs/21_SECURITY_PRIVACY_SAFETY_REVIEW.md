@@ -13,10 +13,8 @@ Security/privacy score: **7.8/10** for real private beta readiness.
 | --- | --- | --- | --- | --- |
 | P1 | Signup email delivery is rate-limited in staging | Live `npm run test:auth-live` evidence | Login/session and authorization pass, but repeated invite signup cannot rely on Supabase's default sender quota. | Configure custom SMTP or an approved Auth email quota and rerun public signup without fixture fallback. |
 | P2 | Local scaffold fallback remains but is now fail-closed outside local/development | `apps/web/src/lib/auth/providers/supabase.ts`, `apps/web/src/lib/auth/request.ts` | Safe for local development only; staging/production now return setup/configuration errors instead of silently using local cookies when Supabase env is missing. | Keep `ENABLE_LOCAL_AUTH_FALLBACK` out of staging/production and verify deploy env. |
-| P0 | Private S3 not verified in staging | `apps/web/src/lib/storage/s3-storage-provider.ts` | Presigning code exists, but real bucket/IAM/public-access-block behavior is unverified. | Configure private S3 bucket and run signed upload/download/delete smoke tests. |
-| P0 | Mock/stub malware scanning | `apps/web/src/lib/malware/` | Unsafe files are not actually scanned. Production mock use fails closed, but real scanner is absent. | ClamAV/S3 event scanning. |
 | P1 | Workflow locking not verified under live concurrency | `apps/web/src/lib/workflow/workflow-provider.ts` | Best-effort local/store locks are tested, but concurrent Postgres worker behavior is unverified. | Apply migration and move claim to transaction/RPC before PHI concurrency. |
-| P1 | Non-Auth live provider verification remains incomplete | `scripts/verify-staging.mjs`, `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` | Auth/RLS and deployed consent paths pass; S3, scanner, workflow concurrency, extraction, and AI remain unverified. | Run each remaining staging verifier with synthetic data after its provider is configured. |
+| P1 | Non-Auth live provider verification remains incomplete | `scripts/verify-staging.mjs`, `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` | Auth/RLS, deployed consent, private S3, and GuardDuty paths pass; workflow concurrency, extraction, and AI remain unverified. | Run each remaining staging verifier with synthetic data after its provider is configured. |
 | P1 | Analytics endpoint accepts unauthenticated events | `apps/web/src/app/api/analytics/route.ts` | Event spam and possible metadata misuse. | Require auth for app events or constrain anonymous public events. |
 | P1 | Health checks are config-only | `apps/api/app/main.py`, `apps/worker/app/worker.py` | False confidence in deployment. | Real connectivity probes. |
 
@@ -43,8 +41,8 @@ Partially implemented:
 Gaps:
 
 - Supabase consent/audit core paths are verified, but append-only audit governance and operator review procedures still need definition.
-- S3 bucket policy, object metadata verification, and delete behavior still need staging verification.
-- Real malware scanner is not configured.
+- Private S3 upload/download/privacy/encryption/metadata/delete behavior passes synthetic staging verification; retention/versioning approval remains.
+- GuardDuty is Active for the staging `reports/` prefix; staging-only tag-read IAM and live clean/EICAR outcomes pass with synthetic cleanup.
 - Workflow RPC lease/retry behavior needs staging Postgres concurrency verification.
 - Marker and Textract provider execution need staging verification before PHI.
 - Extracted document Supabase rows and RLS behavior need live staging verification.

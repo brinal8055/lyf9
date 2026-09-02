@@ -8,7 +8,7 @@ Current decision: **No-go for real PHI private beta**.
 
 Private beta readiness score from latest local golden gate: **84/100**.
 
-This repo is ready for scaffold/operator rehearsal and now has live-tested staging Supabase Auth/Postgres/RLS and private S3 foundations, a durable workflow foundation, document extraction/classification foundation, schema-first AI workflow, synthetic golden QA gate, and live staging verification command layer. Real 30-50 user testing remains blocked by reliable signup email delivery, real malware scanning, staging worker concurrency verification, live Marker/Textract/AI verification, expanded human-reviewed golden QA, observability, retention governance, doctor threshold review, and legal review.
+This repo is ready for scaffold/operator rehearsal and now has live-tested staging Supabase Auth/Postgres/RLS, private S3, and GuardDuty malware foundations, a durable workflow foundation, document extraction/classification foundation, schema-first AI workflow, synthetic golden QA gate, and live staging verification command layer. Real 30-50 user testing remains blocked by reliable signup email delivery, staging worker concurrency verification, live Marker/Textract/AI verification, expanded human-reviewed golden QA, observability, retention governance, doctor threshold review, and legal review.
 
 ## Current Readiness Matrix
 
@@ -17,8 +17,8 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Auth/RBAC | Partially ready | Engineering/DevOps | Login/session and user/doctor/admin/superadmin JWT boundaries pass in staging; configure custom SMTP or an approved email quota before onboarding beta users. |
 | Database/RLS | Ready for synthetic staging | Backend/DevOps | Migrations through `202609010002_consent_rpc_rls_guard.sql` are applied and live cross-user/doctor/admin RLS tests pass; reconcile Supabase CLI migration history before automated promotion. |
 | Storage security | Ready for synthetic staging | Backend/DevOps | Guarded app-level upload/download/privacy/encryption/DB/audit/delete verification passed; approve retention/versioning and key-management policy before real PHI. |
-| Malware scanning | Blocked | Backend/Security | Provider abstraction and scan gate exist; replace mock/stub with ClamAV or S3 event scanner before real PHI. |
-| Upload flow | Ready for synthetic staging | Engineering | Deployed consent gate and private S3 upload/download/delete flow pass with synthetic fixtures; real malware scanning remains mandatory before PHI. |
+| Malware scanning | Ready for synthetic staging | Backend/Security/DevOps | GuardDuty is Active for staging `reports/`; least-privilege tag read and clean/EICAR verification pass. Re-run after scanner, IAM, bucket, or prefix changes. |
+| Upload flow | Ready for synthetic staging | Engineering | Deployed consent gate, private S3 upload/download/delete, and real GuardDuty clean/threat behavior pass with synthetic fixtures. |
 | Processing pipeline | Partially ready | Backend/Platform | Database workflow provider, idempotency, leases, retry scheduling, blocked state, and scan-gated process-once exist; verify against staging Postgres and real worker concurrency. |
 | Marker/OCR | Partially ready | AI/Backend | Provider contracts and durable steps exist; configure and verify Marker and Textract fallback in staging. |
 | AI structured outputs | Blocked | AI/Backend | Schema-first local path exists; wire OpenAI Structured Outputs and Pydantic validation in worker. |
@@ -62,7 +62,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Backend file validation | Ready | PDF/JPG/PNG only; empty, unknown, SVG, ZIP, DOC/DOCX, executable, and oversized files rejected server-side. |
 | Signed upload URLs | Ready for synthetic staging | Live PUT passed with signed content type, metadata, and `AES256` encryption headers. |
 | Signed download URLs | Ready for synthetic staging | Owner path, private public-URL denial, and app-signed download passed live; assigned doctor/admin paths remain part of broader role E2E. |
-| Malware scan gate | Partially ready | Processing is blocked unless scan passes; real scanner not configured. |
+| Malware scan gate | Ready for synthetic staging | Processing is blocked unless GuardDuty returns `NO_THREATS_FOUND`; clean/threat live verification passes. |
 | Raw report access audit | Ready for synthetic staging | Upload, signed URL, raw access, signed download, and delete audit actions passed live. |
 | Delete flow | Ready for synthetic staging | App deletion removed the S3 object and retained soft-deleted metadata; formal retention/versioning policy remains. |
 
@@ -76,7 +76,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Job locking/leases | Partially ready | Atomic `FOR UPDATE SKIP LOCKED` claim RPC exists; run live concurrent staging worker test before PHI. |
 | Retry/backoff | Ready in code | Default 3 attempts with immediate/+1 minute/+5 minute schedule. |
 | Failed/blocked visibility | Partially ready | Admin helper exposes blocked/failed jobs; dedicated UI retry/cancel controls remain a gap. |
-| Scan-gated processing | Partially ready | `malware_scan` is durable first step; real scanner still missing. |
+| Scan-gated processing | Ready for synthetic staging | `malware_scan` is the durable first step; live GuardDuty clean/threat mapping and cleanup pass. |
 | Marker extraction | Partially ready | Provider contract and mock parser exist; configure and verify Marker in staging. |
 | OCR fallback | Partially ready | OCR provider contract and Textract stub exist; configure and verify Textract in staging. |
 | Report classification | Ready in code | Deterministic supported/limited/unsupported classifier is tested locally. |
@@ -159,7 +159,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Deployed Auth/API check | Partially ready | `npm run test:auth-live` passed login, sessions, persistence, route denial, and consent gating | Configure custom SMTP or approved email limits, then require public signup to pass without fixture fallback. |
 | Workflow concurrency check | Blocked | `npm run verify:staging:workflow` | Seed a queued job and verify atomic claim behavior. |
 | S3 private smoke check | Ready for synthetic staging | `npm run verify:staging:s3` passed app routes, S3 privacy/metadata/encryption/delete, DB metadata, audit events, and cleanup | Re-run after storage/IAM/signing changes; approve retention/versioning policy before PHI. |
-| Malware scanner live check | Blocked | `npm run verify:staging:malware` | Wire a real scanner; current staging-safe behavior is fail-closed. |
+| Malware scanner live check | Ready | `npm run verify:staging:malware` | GuardDuty is Active on staging `reports/`; tag-read IAM and clean/EICAR outcomes pass with synthetic cleanup. |
 | Marker live check | Blocked | `npm run verify:staging:marker` | Wire Marker command/API execution. |
 | Textract live check | Blocked | `npm run verify:staging:textract` | Wire Textract OCR execution or approved manual fallback. |
 | OpenAI live check | Blocked | `npm run verify:staging:openai` | Wire live Structured Outputs execution with synthetic text only. |

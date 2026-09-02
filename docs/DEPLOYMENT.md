@@ -155,12 +155,12 @@ Before real users:
 - Set `PRODUCTION_S3_BUCKET` so destructive staging verification can prove the targets differ.
 - Use short-lived signed URLs only.
 - Restrict upload MIME types to PDF, JPG, JPEG, PNG.
-- Add malware scanning before processing.
+- Enable GuardDuty Malware Protection for S3 on `reports/`, enable object tagging, add staging-prefix `s3:GetObjectTagging` to the app IAM policy, and run `npm run verify:staging:malware` as documented in `docs/34_GUARDDUTY_S3_MALWARE_SETUP.md`.
 - Add retention/deletion policy reviewed for DPDP compliance.
 
-Current blocker:
+Current status:
 
-- The S3 provider and app-level synthetic verifier exist, but no staging-only bucket/credentials have passed `npm run verify:staging:s3` yet.
+- The staging-only S3 provider and GuardDuty clean/threat verifier pass with synthetic data. Retention/versioning and key-management approval remain before PHI.
 
 ## Queue And Redis
 

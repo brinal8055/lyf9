@@ -78,7 +78,16 @@ const sections = {
     run: verifyS3
   },
   malware: {
-    required: ["MALWARE_SCANNER_PROVIDER"],
+    required: [
+      "APP_ENV",
+      "AWS_ACCESS_KEY_ID",
+      "AWS_REGION",
+      "AWS_SECRET_ACCESS_KEY",
+      "MALWARE_SCANNER_PROVIDER",
+      "PRODUCTION_S3_BUCKET",
+      "S3_REPORT_BUCKET",
+      "STAGING_S3_BUCKET"
+    ],
     run: verifyMalware
   },
   marker: {
@@ -230,15 +239,9 @@ function verifyS3() {
 }
 
 function verifyMalware() {
-  const provider = process.env.MALWARE_SCANNER_PROVIDER;
-  const endpoint = process.env.CLAMAV_ENDPOINT;
-  const checks = [
-    check("mock_scanner_not_used", provider !== "mock", "Mock scanner is not allowed for staging verification."),
-    check("remote_scanner_endpoint_configured", Boolean(endpoint), "Set the real remote scanner endpoint."),
-    check("remote_scanner_not_localhost", Boolean(endpoint && !/localhost|127\.0\.0\.1/.test(endpoint)), "A deployed app cannot reach a scanner on its own localhost."),
-    check("real_scanner_runner_available", false, "No live malware scanner runner is wired in this repository yet; staging must fail closed.")
-  ];
-  return { checks, status: "blocked" };
+  return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:malware-live"], {
+    RUN_LIVE_STAGING_MALWARE: "true"
+  }, "live_guardduty_s3_harness_passed");
 }
 
 function verifyMarker() {
@@ -374,7 +377,7 @@ ${blockers || "- None"}
 }
 
 function sanitizeOutput(value) {
-  let sanitized = value;
+  let sanitized = value.split(process.cwd()).join("[workspace]");
   for (const key of Object.keys(process.env)) {
     if (key.includes("KEY") || key.includes("SECRET") || key.includes("TOKEN") || key.includes("PASSWORD")) {
       const secret = process.env[key];

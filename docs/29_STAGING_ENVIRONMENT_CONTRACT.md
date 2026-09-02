@@ -71,16 +71,17 @@ Rules:
 ## Malware Scanner
 
 ```txt
-MALWARE_SCANNER_PROVIDER=
+MALWARE_SCANNER_PROVIDER=guardduty-s3
 MALWARE_SCANNER_MODE=
-CLAMAV_ENDPOINT=
+MALWARE_SCAN_TIMEOUT_SECONDS=20
+MALWARE_SCAN_POLL_INTERVAL_MS=2000
 ```
 
-Equivalent scanner-specific env is acceptable if documented in `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md`.
+GuardDuty Malware Protection for S3 must be Active in `ap-south-1` for `S3_REPORT_BUCKET`, limited to `reports/`, with object tagging enabled. The application IAM principal needs `s3:GetObjectTagging` on the staging report prefix. Setup details are in `docs/34_GUARDDUTY_S3_MALWARE_SETUP.md`.
 
 If no real scanner exists, staging must return `scan_configuration_required`, block processing, and keep the release gate blocked.
 
-`CLAMAV_ENDPOINT=localhost` is valid only for local development. Deployed verification requires a network-reachable private endpoint. `MALWARE_SCANNER_PROVIDER=mock` is never acceptable for real PHI, and Production ignores the mock override.
+`MALWARE_SCANNER_PROVIDER=mock` is never acceptable for real PHI, and Production ignores the mock override. A missing GuardDuty result is retryable and must remain `scan_pending`; only `NO_THREATS_FOUND` may advance.
 
 ## Workflow
 
