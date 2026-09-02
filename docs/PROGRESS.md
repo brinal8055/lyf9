@@ -1102,4 +1102,4 @@ Known risks:
 
 Next recommended prompt:
 
-> Correct Vercel Preview branch `dev` to `AI_PROVIDER=gemini` with all three `GEMINI_MODEL_*` variables set to `gemini-3.5-flash`, redeploy the latest `dev` commit, and verify `/api/health` reports `aiProvider: gemini`. Do not change Production or rerun provider-backed tests until Gemini daily quota replenishes. After that, add the synthetic scanned-image CBC fixture to the Textract staging harness.
+> Correct Vercel Preview branch `dev` to `AI_PROVIDER=gemini` with all three `GEMINI_MODEL_*` variables set to `gemini-3.5-flash`, redeploy the latest `dev` commit, and verify `/api/health` reports `aiProvider: gemini`. Do not change Production. Do not rerun the complete 13-fixture golden suite under the 20-RPD free tier; obtain sufficient quota first, or run only a clearly labeled non-gating subset after the daily reset. Then add the synthetic scanned-image CBC fixture to the Textract staging harness.
