@@ -1,6 +1,6 @@
 # Live Staging Verification Artifact
 
-Generated: 2026-09-03T14:12:05.295Z
+Generated: 2026-09-03T14:21:48.762Z
 
 Environment: staging
 
@@ -12,7 +12,7 @@ Verification scope: **selected_sections**
 
 | Section | Status | Checks passed |
 | --- | --- | ---: |
-| textract | passed | 1/1 |
+| inngest | passed | 1/1 |
 
 ## Blockers
 

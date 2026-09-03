@@ -5,7 +5,7 @@
 Medical safety: **partially safe for scaffold rehearsal, not safe for real PHI beta**.
 
 Safety score: **7.0/10** for local scaffold behavior.  
-Security/privacy score: **7.8/10** for real private beta readiness.
+Security/privacy score: **8.0/10** for real private beta readiness.
 
 ## Security Findings
 
@@ -13,7 +13,7 @@ Security/privacy score: **7.8/10** for real private beta readiness.
 | --- | --- | --- | --- | --- |
 | P1 | Signup email delivery is rate-limited in staging | Live `npm run test:auth-live` evidence | Login/session and authorization pass, but repeated invite signup cannot rely on Supabase's default sender quota. | Configure custom SMTP or an approved Auth email quota and rerun public signup without fixture fallback. |
 | P2 | Local scaffold fallback remains but is now fail-closed outside local/development | `apps/web/src/lib/auth/providers/supabase.ts`, `apps/web/src/lib/auth/request.ts` | Safe for local development only; staging/production now return setup/configuration errors instead of silently using local cookies when Supabase env is missing. | Keep `ENABLE_LOCAL_AUTH_FALLBACK` out of staging/production and verify deploy env. |
-| P1 | Remaining live provider verification is incomplete | `scripts/verify-staging.mjs`, `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` | Auth/RLS, consent, private S3, GuardDuty, workflow concurrency, and Textract extraction pass; live structured AI remains unverified. | Run remaining staging verifiers with synthetic data after provider configuration. |
+| P1 | Provider-backed golden verification is incomplete | `artifacts/staging-verification/ai.json`, `artifacts/staging-verification/golden-live.json` | Auth/RLS, consent, private S3, GuardDuty, workflow concurrency, scanned-image Textract OCR, and a live Gemini smoke pass; the complete golden run remains quota-blocked. | Obtain sufficient provider quota and rerun the complete synthetic golden gate without weakening thresholds. |
 | P1 | Analytics endpoint accepts unauthenticated events | `apps/web/src/app/api/analytics/route.ts` | Event spam and possible metadata misuse. | Require auth for app events or constrain anonymous public events. |
 | P1 | Health checks are config-only | `apps/api/app/main.py`, `apps/worker/app/worker.py` | False confidence in deployment. | Real connectivity probes. |
 
@@ -31,7 +31,7 @@ Partially implemented:
 - Upload-init attempts blocked by missing required consent now write `report_upload_blocked` with minimal safe metadata.
 - Raw report access now requires an explicit signed download URL request; deleted files and unauthorized users cannot mint fresh URLs.
 - Upload-complete creates the processing job with malware scan as the first gate; scan pending/failed/configuration-required states do not advance to extraction.
-- Processing jobs now have lease, retry, blocked, and audit state in code. OCR and schema-first AI steps run locally with mock providers while live provider configuration remains fail-closed.
+- Processing jobs have lease, retry, blocked, and audit state. Selected Textract and Gemini adapters run in synthetic staging; local mock providers remain limited to local/test use and deployed misconfiguration fails closed.
 - Atomic Supabase RPCs use Postgres row locking for job claim and expired lock release; concurrent claims, retry timing, job/step recovery, RPC denial, and PHI-minimal audits pass in staging.
 - Document extraction now uses provider contracts, persists extracted text/tables, and audits only provider/status/count metadata. Full extracted text is not written to audit logs.
 - Unsupported/unknown report classification blocks automated interpretation and does not proceed to biomarker AI extraction.
@@ -43,7 +43,7 @@ Gaps:
 - Private S3 upload/download/privacy/encryption/metadata/delete behavior passes synthetic staging verification; retention/versioning approval remains.
 - GuardDuty is Active for the staging `reports/` prefix; staging-only tag-read IAM and live clean/EICAR outcomes pass with synthetic cleanup.
 - Workflow RPC lease/retry behavior and the deployed Inngest saga are verified against staging with synthetic cleanup; re-run after workflow or runner changes.
-- Textract execution and `extracted_documents` persistence pass on a synthetic staging PDF; scanned-image OCR coverage and extracted-document RLS boundary verification remain.
+- Textract execution and `extracted_documents` persistence pass on readable and blank synthetic staging PNG scans with page/line provenance, confidence gates, zero blocked-input AI output, and independent cleanup. Broader extracted-document RLS boundary verification remains.
 - Marker remains optional while Textract is the explicitly selected beta parser.
 - Data export/delete is local scaffold only.
 - No grievance/contact support workflow.

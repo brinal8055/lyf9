@@ -4,9 +4,9 @@
 
 Decision: **No-go for real PHI private beta**.
 
-Current readiness score including live staging evidence: **90/100**.
+Current readiness score including live staging evidence: **92/100**.
 
-Reason: synthetic golden QA, live staging Supabase/RLS, private S3, GuardDuty clean/threat verification, atomic workflow concurrency/recovery, Textract extraction, the deployed Inngest saga, and a live Gemini structured-output smoke pass. Provider-backed golden QA, scanned-image OCR, doctor threshold review, retention governance, observability, and legal review are still incomplete.
+Reason: synthetic golden QA, live staging Supabase/RLS, private S3, GuardDuty clean/threat verification, atomic workflow concurrency/recovery, scanned-image Textract OCR, the deployed Inngest saga, and a live Gemini structured-output smoke pass. Provider-backed golden QA, doctor threshold review, retention governance, observability, migration-history reconciliation, signup email reliability, and legal review are still incomplete.
 
 Live staging evidence:
 
@@ -47,7 +47,7 @@ Interpretation: local deterministic QA is healthy, but it does not replace live 
 | Supabase/RLS live verification | Ready for synthetic staging | `npm run verify:staging:rls` passed isolated user/user, assigned-doctor, admin, superadmin, consent, report/job, audit, feedback, analytics, and service-role boundaries. |
 | Private S3 smoke test | Ready for synthetic staging | `npm run verify:staging:s3` passed upload/download/privacy/encryption/DB/audit/delete/cleanup; approve retention/versioning policy before PHI. |
 | Real malware scanner | Ready for synthetic staging | GuardDuty is Active for staging `reports/`; `npm run verify:staging:malware` passes clean/EICAR checks and cleanup. |
-| Live Textract document extraction | Ready for synthetic staging | `npm run verify:staging:textract` passes private S3 input, expected text, page/confidence/provenance persistence, and cleanup. |
+| Live Textract document extraction | Ready for synthetic staging | `npm run verify:staging:textract` passes readable and blank synthetic PNG scans, page/line provenance, confidence quality gates, fail-closed blank handling, zero AI output, and independent S3/Postgres cleanup. |
 | Live Marker extraction | Optional | Marker is not required while staging explicitly selects Textract; verify Marker before making it the configured parser. |
 | Live structured AI provider | Ready for synthetic smoke | `npm run verify:staging:ai` passed with `gemini-3.5-flash`; the 13-fixture live golden run stopped fail-closed on exhausted provider quota. |
 | Doctor-reviewed critical thresholds | Blocked | Critical rules reviewed and signed off by qualified clinician. |
@@ -71,7 +71,7 @@ Private beta can be marked ready only when:
 - S3 smoke test passes.
 - Malware scanner is live configured or a medically/security-reviewed alternative is approved.
 - The configured document parser passes live synthetic extraction.
-- A scanned-image OCR fallback fixture passes before broad report intake.
+- A scanned-image OCR fallback fixture passes before broad report intake. **Passed in synthetic staging.**
 - The selected AI adapter passes structured-output checks on synthetic data.
 - Golden dataset meets thresholds.
 - Unsafe output suite passes 100%.
@@ -92,11 +92,12 @@ Any of these keep the release blocked:
 
 ## Exact Next Actions
 
-1. Add scanned-image Textract coverage; Marker remains optional while unselected.
-2. Reconcile Supabase CLI migration history with the migrations applied to staging through the SQL editor.
+1. Reconcile Supabase CLI migration history with the migrations applied to staging through the SQL editor.
+2. Configure custom SMTP or an approved Supabase Auth email quota and rerun public invite signup without fixture provisioning.
 3. Replenish Gemini quota, rerun the 13-fixture live golden gate, then expand to at least 25 internally reviewed synthetic or consented internal samples.
-4. Get doctor review of critical thresholds.
-5. Complete legal review.
-6. Add CI for the full release-gate command set.
+4. Add PHI-safe observability and approve retention/versioning governance.
+5. Get doctor review of critical thresholds.
+6. Complete legal review.
+7. Add CI for the full release-gate command set.
 
 Current release owner recommendation: **do not invite 30-50 real PHI users yet**.

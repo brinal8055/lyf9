@@ -2,11 +2,11 @@
 
 ## Current Phase
 
-Staging foundation reconciliation is in progress for a **production-shaped private beta MVP**.
+Staging foundation reconciliation and release-gate hardening are in progress for a **production-shaped private beta MVP**.
 
-Supabase staging now has the current schema, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, live GuardDuty clean/threat enforcement, live-verified atomic workflow claims, AWS Textract extraction, and a live-verified deployed Inngest saga. The product is not approved for real 30-50 user PHI until structured AI outputs, scanned-image OCR coverage, observability/privacy review, retention governance, clinical threshold review, and legal review are completed in staging.
+Supabase staging now has the current schema, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, live GuardDuty clean/threat enforcement, live-verified atomic workflow claims, scanned-image AWS Textract OCR, a live-verified deployed Inngest saga, and a live Gemini structured-output smoke. The product is not approved for real 30-50 user PHI until migration history is reconciled, signup email delivery is reliable, provider-backed golden QA passes, and observability/privacy, retention, clinical-threshold, and legal reviews are completed.
 
-Current private beta readiness score: **9.0/10**.
+Current private beta readiness score: **9.2/10**. The scanned-image OCR blocker itself is closed for synthetic staging with **9.7/10 confidence**.
 
 No public launch, autonomous diagnosis, prescriptions, medicine-change advice, supplement protocols, pharmacy commerce, lab booking, full doctor marketplace, mobile app, wearables, ABDM/ABHA, genetics, employer, or insurance workflows have been added.
 
@@ -1104,3 +1104,44 @@ Known risks:
 Next recommended prompt:
 
 > Add a synthetic scanned-image CBC fixture to the Textract staging harness, verify OCR text/page/confidence/provenance persistence and guaranteed cleanup, and keep unsupported/low-quality outputs fail-closed. Do not use real PHI or change Production. Separately, do not rerun the complete 13-fixture golden suite under the 20-RPD free tier; obtain sufficient quota first, or run only a clearly labeled non-gating subset after the daily reset.
+
+## 2026-09-03 Scanned-Image OCR Safety Gate
+
+Current phase: **scanned-image Textract OCR is verified for synthetic staging; real PHI private beta remains no-go**.
+
+Blocker confidence: **9.7/10** for the scanned-image OCR gate. This score applies only to the OCR blocker, not to overall private-beta readiness.
+
+Completed:
+
+- Added deterministic synthetic PNG fixtures for a readable CBC scan, a blank/low-information scan, and an unsupported radiology scan. Fixture hashes prevent unnoticed test-input drift.
+- Routed PNG/JPEG uploads directly through the configured OCR provider instead of performing duplicate parser and OCR calls.
+- Added page and line provenance, normalized bounding boxes, source offsets, page-level confidence, and low-confidence line ratios to Textract extraction metadata without duplicating extracted report text in metadata.
+- Added configurable minimum text and confidence thresholds. Blank and low-confidence scans now fail closed as `textract_no_text` or `textract_low_text_confidence` and cannot reach classification or AI.
+- Restricted automatic retry to transient Textract request, throttling, and timeout failures; deterministic quality failures require review rather than repeated provider calls.
+- Updated the deployed Inngest saga fixture from a digital PDF to a scanned unsupported PNG and asserted GuardDuty, OCR, classification, Postgres state, `ocr_provider=textract`, zero AI outputs, and cleanup.
+- Corrected section-only staging artifacts so they report `section_passed` with `selected_sections` scope instead of implying a full release verdict.
+- Committed and pushed implementation commit `76b13b0`; the matching Vercel Preview deployment reached Ready. Production was not changed.
+
+Verification:
+
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm test`: passed, **170 tests passed and 8 explicitly gated live tests skipped**.
+- `npm run build:web`: passed; the existing Next.js ESLint-plugin warning remains.
+- `npm run copy:scan`: passed.
+- `npm run verify:staging:textract`: passed **3 tests in 16.54 seconds** using readable and blank synthetic PNG scans, including provenance persistence, fail-closed blank handling, zero AI output, and independently verified S3/Postgres cleanup.
+- `npm run verify:staging:inngest`: passed **4 tests in 72.50 seconds** against the deployed Preview workflow. The synthetic radiology scan passed GuardDuty and Textract OCR, was classified unsupported, created no model runs/biomarkers/insights, and was cleaned up.
+- `https://lyf9-dev.vercel.app/api/health`: returned HTTP 200 with healthy Supabase Postgres, private S3, Inngest, and configured Gemini capabilities after deployment.
+- Staging artifacts are PHI-free and record section-scoped pass status under `artifacts/staging-verification/`.
+
+Known risks:
+
+- The complete 13-fixture provider-backed Gemini golden gate remains blocked by the current daily quota; a passing single-fixture smoke is not equivalent to golden QA.
+- Supabase migrations applied through the SQL editor still need CLI history reconciliation and drift protection before automated promotion.
+- Signup email delivery still needs custom SMTP or an approved Supabase Auth quota.
+- The golden dataset needs at least 25 human-reviewed samples, and critical thresholds need clinician approval.
+- PHI-safe observability, retention governance, data-rights operations, and legal review remain incomplete.
+
+Next recommended prompt:
+
+> Reconcile Lyf9 AI staging Supabase migration history with the repository without changing Production: inventory remote migration state, repair only verified staging history, run schema/RLS drift checks and all guarded Supabase verifiers, add a CI-safe migration drift check, and document rollback evidence. Keep real PHI private beta no-go if any migration or RLS boundary is uncertain.

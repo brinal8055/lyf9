@@ -6,7 +6,7 @@
 
 The product can be used for internal scaffold rehearsal. The end-to-end user journey exists, but core PHI safety infrastructure is not production-ready.
 
-Private beta readiness score including current live staging evidence: **90/100**
+Private beta readiness score including current live staging evidence: **92/100**
 
 ## P0 Blockers Before Any Real PHI
 
@@ -17,7 +17,6 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 | Blocker | Evidence | Required Fix |
 | --- | --- | --- |
 | Signup email delivery is rate-limited | Live `npm run test:auth-live` staging run | Configure custom SMTP or an approved Supabase Auth email quota, then require public invite signup to pass without service-role fixture provisioning. |
-| Scanned-image OCR coverage incomplete | `apps/web/src/lib/document-extraction/staging-textract-live.test.ts` | Textract primary extraction is live-verified on a synthetic PDF; add a synthetic scanned/image report before broadening intake. Marker is optional while Textract is selected. |
 | Provider-backed golden QA is quota-blocked | `artifacts/staging-verification/ai.json`, `artifacts/staging-verification/golden-live.json` | The Gemini smoke passes; replenish/upgrade Gemini quota and rerun the 13-fixture live golden gate. |
 | Golden dataset too small for PHI beta | `tests/golden/`, `docs/26_GOLDEN_DATASET_EVALUATION_REPORT.md` | Expand beyond synthetic smoke coverage to at least 25 internally reviewed samples and retain 100% safety gate pass. |
 | Observability not production-ready | `apps/web/src/lib/observability/logger.ts` | Sentry + PHI scrubbing + alert routing. |
@@ -50,6 +49,8 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 - GuardDuty, Textract, and the selected Gemini adapter now pass with live synthetic staging evidence; the live golden subset stopped fail-closed on exhausted provider quota, and full supported-report E2E still lacks live evidence.
 - Textract asynchronous document extraction now passes against a synthetic staging PDF, including private S3 input, expected text, page count, confidence, `extracted_documents` provenance, and guaranteed cleanup. Marker remains optional while Textract is the selected parser.
 - The deployed Inngest saga now passes the guarded synthetic upload path through GuardDuty, Textract, deterministic unsupported classification, Postgres state transitions, zero AI outputs, and cleanup. Its keys are encrypted Vercel secrets scoped only to Preview branch `dev`; Production is unchanged.
+- Scanned-image OCR now passes with deterministic PNG fixtures, page/line provenance, confidence quality gates, blank-scan fail-closed behavior, zero AI output for blocked inputs, and independently verified staging cleanup.
+- The deployed Inngest saga now routes an unsupported radiology PNG through GuardDuty and Textract OCR, persists `ocr_provider=textract`, and stops before AI.
 - `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` records the current no-go live status.
 
 ## Fixed Or Improved In The Foundation Hardening Pass
@@ -92,9 +93,9 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 - `DocumentParserProvider` abstraction exists in `apps/web/src/lib/document-extraction/`.
 - Marker-ready provider contract exists and fails closed when unconfigured.
 - Mock fixture document parser is local/test only.
-- `OcrProvider` abstraction exists with mock OCR and Textract-ready contract.
+- `OcrProvider` abstraction exists with local mock OCR and live Textract implementation.
 - Durable workflow supports `extract_document`, `ocr_fallback`, and `classify_report`.
-- Extracted document rows persist parser/OCR provider metadata, extracted text/tables, status, confidence, and safe error fields locally.
+- Extracted document rows persist parser/OCR provider metadata, extracted text/tables, page/line provenance, status, confidence, and safe error fields in staging Postgres.
 - Deterministic report classifier covers supported panels, limited urine routine, unsupported reports, and unknown/manual-review routing.
 - Unsupported reports stop safely and do not generate AI interpretation.
 - Supported reports advance through the provider-neutral schema-first AI workflow; `gemini-3.5-flash` passed the live synthetic CBC extraction/explanation harness.

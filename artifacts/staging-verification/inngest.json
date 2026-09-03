@@ -1,14 +1,14 @@
 {
   "checks": [
     {
-      "detail": "> @lyf9/web@0.1.0 test:inngest-live\n> vitest run src/inngest/staging-inngest-live.test.ts\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ✓ src/inngest/staging-inngest-live.test.ts (4 tests) 52280ms\n   ✓ live staging Inngest saga > runs a synthetic unsupported PDF through GuardDuty, Textract, and classification without AI 52276ms\n\n Test Files  1 passed (1)\n      Tests  4 passed (4)\n   Start at  18:05:52\n   Duration  52.92s (transform 89ms, setup 0ms, collect 200ms, tests 52.28s, environment 0ms, prepare 70ms)",
+      "detail": "> @lyf9/web@0.1.0 test:inngest-live\n> vitest run src/inngest/staging-inngest-live.test.ts\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ✓ src/inngest/staging-inngest-live.test.ts (4 tests) 71544ms\n   ✓ live staging Inngest saga > runs a synthetic unsupported scan through GuardDuty, OCR, and classification without AI 71541ms\n\n Test Files  1 passed (1)\n      Tests  4 passed (4)\n   Start at  19:50:36\n   Duration  72.50s (transform 108ms, setup 0ms, collect 218ms, tests 71.54s, environment 0ms, prepare 65ms)",
       "name": "live_inngest_saga_harness_passed",
       "passed": true
     }
   ],
-  "endedAt": "2026-09-02T12:36:45.493Z",
+  "endedAt": "2026-09-03T14:21:48.760Z",
   "section": "inngest",
-  "startedAt": "2026-09-02T12:35:51.513Z",
+  "startedAt": "2026-09-03T14:20:35.585Z",
   "status": "passed",
   "syntheticOnly": true
 }

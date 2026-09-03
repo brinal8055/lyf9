@@ -2,6 +2,21 @@
 
 ## Run Summary
 
+### 2026-09-03 Scanned-Image Textract OCR And Deployed Saga Pass
+
+Environment: Supabase `lyf9-staging` (`wjjwdakfyigwwohbntyv`), `lyf9-reports-storage-staging` in `ap-south-1`, and Vercel Preview branch `dev`. Production was not changed and no real PHI was used.
+
+- Added immutable synthetic PNG fixtures for a readable CBC scan, a blank scan, and an unsupported radiology scan.
+- Raster uploads now route directly through Textract OCR. The extractor persists page/line provenance, source offsets, normalized bounding boxes, page confidence, and low-confidence line ratios without duplicating extracted report text in metadata.
+- Minimum text and confidence gates fail closed. Blank and low-confidence scans cannot proceed to AI, and only transient request/throttle/timeout failures are retried automatically.
+- `npm run verify:staging:textract` passed three tests in 16.54 seconds. It verified readable CBC OCR, deterministic supported classification, `ocr_provider=textract`, page/line provenance, a blank-scan `textract_no_text` failure, zero AI output, and independent S3/Postgres cleanup.
+- Commit `76b13b0` was pushed to `dev`, and Vercel marked the exact matching Preview deployment Ready.
+- The stable staging health endpoint returned HTTP 200 with healthy Supabase Postgres/private S3 state, Inngest configured, and Gemini capabilities enabled.
+- `npm run verify:staging:inngest` then passed four tests in 72.50 seconds against the deployed workflow. A synthetic unsupported radiology PNG passed GuardDuty and Textract OCR, persisted `ocr_provider=textract`, completed deterministic unsupported classification, produced zero model runs/biomarkers/insights, and was cleaned up.
+- Section-only artifacts now report `section_passed` with `selected_sections` scope and no longer imply a full release verdict.
+
+Verdict: the scanned-image OCR blocker is **resolved for synthetic staging with 9.7/10 confidence**. This is not a real-PHI release approval; provider-backed golden QA, migration governance, signup delivery, clinician thresholds, PHI-safe operations, and legal review remain open.
+
 ### 2026-09-02 Live Gemini Smoke Pass And Golden Quota Block
 
 Environment: local guarded verifier using staging-only Gemini configuration and synthetic CBC text. Production was not changed and no real PHI was used.
@@ -28,7 +43,7 @@ Environment: Vercel Preview `dev` and the local guarded verifier. Production was
 - The verifier proved zero model runs, biomarker results, health insights, or AI interpretation, then removed the S3 object and synthetic Auth user.
 - Artifact `artifacts/staging-verification/inngest.json` contains PHI-free pass metadata only.
 
-Verdict: the deployed Inngest saga is **ready for synthetic staging**. Production was not changed. Live structured AI, scanned-image OCR coverage, and the remaining governance gates still block real PHI.
+Verdict: this historical deployed Inngest PDF saga was **ready for synthetic staging**. The newer 2026-09-03 PNG saga supersedes its OCR evidence. Production was not changed, and the remaining release gates still block real PHI.
 
 ### 2026-09-02 Live Textract Document Extraction Pass
 
@@ -45,7 +60,7 @@ Passed evidence:
 - The harness deleted its staging S3 object and synthetic Supabase Auth user in `finally`.
 - Artifact `artifacts/staging-verification/textract.json` records pass/fail metadata only and contains no extracted report text.
 
-Verdict: Textract document extraction is **ready for synthetic staging**. The deployed Inngest saga now also passes; scanned-image OCR coverage, live structured AI, and the remaining release gates still block real PHI.
+Verdict: this historical digital-PDF extraction pass established Textract connectivity. The newer 2026-09-03 PNG run supplies scanned-image OCR, quality-gate, provenance, and cleanup evidence. The remaining release gates still block real PHI.
 
 ### 2026-09-02 Live Durable Workflow Pass
 
@@ -232,10 +247,10 @@ npm run eval:golden:live
 | Signed upload/download/delete | Ready for synthetic staging | App routes, S3 privacy/encryption, DB metadata, audit rows, delete, and cleanup passed | Keep production unchanged until remaining release gates pass. |
 | Malware scanner | Ready for synthetic staging | GuardDuty clean/EICAR harness passes with cleanup | Re-run after IAM, bucket, scanner, or prefix changes. |
 | Marker | Optional | Provider contract remains available but unselected | Verify before selecting Marker as the parser. |
-| Textract/OCR | Ready for synthetic staging | Live synthetic PDF text/page/confidence/persistence and cleanup pass | Add scanned-image coverage before broad report intake. |
+| Textract/OCR | Ready for synthetic staging | Readable/blank synthetic PNG OCR, page/line provenance, confidence gates, persistence, zero blocked-input AI output, and independent cleanup pass | Re-run after OCR provider, quality threshold, or extraction schema changes. |
 | Structured AI adapter | Ready for synthetic smoke | `gemini-3.5-flash` passed extraction, explanation, schema, source trace, disclaimer, and unsafe-language checks | Re-run after provider/model/prompt/schema changes. |
 | Golden live subset | Blocked by provider quota | The 13-fixture runner reached Gemini but stopped fail-closed on `ai_provider_quota_exhausted` | Replenish/upgrade quota and rerun without weakening thresholds. |
-| E2E synthetic staging pipeline | Blocked | Depends on live AI evidence above | Run only after Supabase, S3, scanner, OCR, and selected-provider checks pass. |
+| E2E synthetic staging pipeline | Partial | The deployed unsupported PNG path passes Auth, consent, S3, GuardDuty, Textract OCR, classification, Postgres state, no-AI enforcement, and cleanup | Add a supported-report provider-backed golden E2E after sufficient Gemini quota is available. |
 
 ## Latest Artifact Summary
 
@@ -284,7 +299,7 @@ P0 risks remain:
 
 - Supabase live RLS and deployed core Auth/API consent checks have passed; public signup email delivery remains quota-limited.
 - Private S3 app and audit verification passes against the staging-only bucket; retention/versioning policy remains open.
-- GuardDuty malware scanning and Textract document extraction pass with synthetic staging evidence.
+- GuardDuty malware scanning and scanned-image Textract OCR pass with synthetic staging evidence, including quality gates and no-AI blocking.
 - Marker remains optional; Gemini smoke verification passes, while provider-backed golden QA remains quota-blocked.
 - Doctor-reviewed thresholds and legal review are incomplete.
 

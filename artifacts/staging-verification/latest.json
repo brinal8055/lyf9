@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-03T14:12:05.295Z",
+  "generatedAt": "2026-09-03T14:21:48.762Z",
   "environment": "staging",
   "releaseVerdict": "section_passed",
   "scope": "selected_sections",
@@ -8,14 +8,14 @@
     {
       "checks": [
         {
-          "detail": "> @lyf9/web@0.1.0 test:textract-live\n> vitest run src/lib/document-extraction/staging-textract-live.test.ts\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ✓ src/lib/document-extraction/staging-textract-live.test.ts (3 tests) 15562ms\n   ✓ live staging Textract document extraction > extracts a synthetic CBC scan, blocks a blank scan, persists provenance, and cleans up 15560ms\n\n Test Files  1 passed (1)\n      Tests  3 passed (3)\n   Start at  19:41:48\n   Duration  16.54s (transform 137ms, setup 0ms, collect 248ms, tests 15.56s, environment 0ms, prepare 121ms)",
-          "name": "live_textract_harness_passed",
+          "detail": "> @lyf9/web@0.1.0 test:inngest-live\n> vitest run src/inngest/staging-inngest-live.test.ts\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ✓ src/inngest/staging-inngest-live.test.ts (4 tests) 71544ms\n   ✓ live staging Inngest saga > runs a synthetic unsupported scan through GuardDuty, OCR, and classification without AI 71541ms\n\n Test Files  1 passed (1)\n      Tests  4 passed (4)\n   Start at  19:50:36\n   Duration  72.50s (transform 108ms, setup 0ms, collect 218ms, tests 71.54s, environment 0ms, prepare 65ms)",
+          "name": "live_inngest_saga_harness_passed",
           "passed": true
         }
       ],
-      "endedAt": "2026-09-03T14:12:05.293Z",
-      "section": "textract",
-      "startedAt": "2026-09-03T14:11:48.120Z",
+      "endedAt": "2026-09-03T14:21:48.760Z",
+      "section": "inngest",
+      "startedAt": "2026-09-03T14:20:35.585Z",
       "status": "passed",
       "syntheticOnly": true
     }
