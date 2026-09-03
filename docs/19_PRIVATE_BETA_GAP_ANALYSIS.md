@@ -6,7 +6,7 @@
 
 The product can be used for internal scaffold rehearsal. The end-to-end user journey exists, but core PHI safety infrastructure is not production-ready.
 
-Private beta readiness score including current live staging evidence: **92/100**
+Private beta readiness score including current live staging evidence: **93/100**
 
 ## P0 Blockers Before Any Real PHI
 
@@ -26,6 +26,9 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 
 ## Fixed Or Improved In The Staging Verification Pass
 
+- Reconciled the previously absent Supabase migration ledger in staging after all 11 repository migration sentinels passed. Exact-set verification reports 11 expected rows, no missing or unexpected versions/names, and non-empty statements.
+- Added a SHA-256 migration lock, local/remote drift verifiers, a staging-target guard, and a guarded history-repair generator. Production was not accessed or changed.
+- Re-ran the live staging RLS harness after reconciliation; synthetic user, doctor, admin, consent, service-role, and audit boundaries all passed.
 - Live private S3 verification passed upload, encryption/metadata, public denial, download, DB/audit evidence, deletion, and cleanup against the staging-only bucket.
 - The presigned PUT binds every required content, metadata, and encryption header; regression tests inspect `X-Amz-SignedHeaders`.
 - Independent cleanup confirmed zero synthetic report objects and zero synthetic S3 verifier users.
@@ -36,7 +39,7 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 - Activated GuardDuty Malware Protection for the staging `reports/` prefix, enabled managed object tags, granted only staging-prefix `s3:GetObjectTagging`, and passed the clean/EICAR live verifier with cleanup.
 - Provider names now fail closed instead of treating `textract` as a Marker parser alias.
 - Staging Supabase and the Vercel `dev` deployment are configured without changing Production.
-- Migrations through `202609010002_consent_rpc_rls_guard.sql` are applied in staging.
+- Migrations through `202609020001_workflow_rpc_hardening.sql` are applied and represented in the exact staging migration ledger.
 - Live RLS passed with two users, two doctors, one admin, and one superadmin using real Supabase JWTs.
 - Deployed login/session, profile, health profile, questionnaire, consent, audit, analytics, route denial, and backend upload consent-gate checks passed.
 - The required-consent RPC is caller-scoped and no longer exposes cross-user consent state to `anon` or unrelated authenticated callers.

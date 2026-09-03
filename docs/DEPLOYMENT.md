@@ -133,9 +133,9 @@ Private beta requirement:
 
 Before real users:
 
-- Create PostgreSQL schema from `docs/03_DATABASE_SCHEMA.md`.
-- Apply Supabase migration `supabase/migrations/202606060001_private_beta_core.sql`.
-- Apply Supabase hardening migration `supabase/migrations/202606060002_auth_persistence_rls_hardening.sql`.
+- Create PostgreSQL schema from the ordered files in `supabase/migrations/`; staging is currently applied through `202609020001_workflow_rpc_hardening.sql`.
+- Run `npm run verify:migrations` before every migration change. Never edit a migration already represented in `supabase/migration-lock.json`.
+- Run `npm run verify:staging:migrations` with the secure staging `DATABASE_URL` before promotion; this command refuses a production or mismatched Supabase project.
 - Enable RLS policies and test them with user, doctor, admin, and superadmin accounts.
 - Store users, consents, report metadata, jobs, biomarkers, insights, doctor reviews, payments, feedback, analytics events, notifications, audit logs, and beta invites in PostgreSQL.
 - Keep UUID primary keys and timestamps.
@@ -143,7 +143,7 @@ Before real users:
 
 Current status:
 
-- The Supabase Auth/Postgres/RLS foundation and backend consent gate pass with synthetic staging users. Supabase CLI migration-history reconciliation and reliable signup email delivery remain.
+- The Supabase Auth/Postgres/RLS foundation, backend consent gate, exact 11-row staging migration ledger, checksum lock, and post-reconciliation live RLS suite pass with synthetic staging users. Reliable signup email delivery remains.
 
 ## Storage Bucket
 

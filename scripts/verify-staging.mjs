@@ -2,6 +2,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
+import { verifyRemoteMigrationState } from "./lib/supabase-migration-state.mjs";
+
 const artifactDir = path.join(process.cwd(), "artifacts", "staging-verification");
 const now = () => new Date().toISOString();
 
@@ -241,6 +243,16 @@ async function verifySupabase() {
   }
 
   checks.push(check("expected_tables_queryable", missingTables.length === 0, missingTables.length ? `Missing or inaccessible tables: ${missingTables.join(", ")}` : undefined));
+  const migrationState = await verifyRemoteMigrationState({
+    databaseUrl: process.env.DATABASE_URL,
+    productionProjectRef: process.env.PRODUCTION_SUPABASE_PROJECT_REF,
+    projectRef: process.env.STAGING_SUPABASE_PROJECT_REF
+  });
+  checks.push(check(
+    "migration_history_matches_locked_repo",
+    true,
+    `${migrationState.migrationCount} migration rows and ${migrationState.sentinelCount} schema sentinels match.`
+  ));
   checks.push(check("rls_inventory_verified_elsewhere", true, "RLS/JWT boundaries are verified by the dedicated RLS live harness."));
 
   return { checks, status: missingTables.length === 0 ? "passed" : "failed" };

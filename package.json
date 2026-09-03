@@ -12,7 +12,11 @@
     "lint": "npm --workspace apps/web run lint",
     "copy:scan": "node scripts/copy-scan.mjs",
     "typecheck": "npm --workspace apps/web run typecheck",
-    "test": "npm --workspace packages/shared run test && npm --workspace apps/web run test",
+    "test": "npm run test:migrations && npm --workspace packages/shared run test && npm --workspace apps/web run test",
+    "test:migrations": "node --test scripts/lib/supabase-migration-state.test.mjs",
+    "verify:migrations": "node scripts/verify-supabase-migrations.mjs",
+    "verify:staging:migrations": "node scripts/verify-supabase-migrations.mjs --remote",
+    "generate:staging:migration-repair": "node scripts/generate-supabase-history-repair.mjs",
     "eval:golden": "npm --workspace apps/web run eval:golden",
     "test:golden": "npm --workspace apps/web run test:golden",
     "test:safety": "npm --workspace apps/web run test:safety",
@@ -45,5 +49,8 @@
     "worker:process-once": "cd apps/worker && python3 -m app.worker process-once",
     "infra:up": "docker compose -f infra/docker-compose.yml up -d",
     "infra:down": "docker compose -f infra/docker-compose.yml down"
+  },
+  "devDependencies": {
+    "postgres": "^3.4.9"
   }
 }

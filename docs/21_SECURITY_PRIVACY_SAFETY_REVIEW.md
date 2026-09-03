@@ -75,8 +75,11 @@ Gaps:
 
 Migrations include RLS enablement and policies for user-owned data, backend-controlled writes, admin reads, and assigned doctor reviews. The hardening migrations add a caller-scoped required-consent RPC and stricter report/job write boundaries.
 
+On 2026-09-04, staging migration history was reconciled only after read-only sentinels proved all 11 repository migrations were already represented in the application schema. The internal `supabase_migrations` ledger intentionally has no RLS because it is outside the exposed public Data API schema and contains migration metadata rather than user data. Production was not accessed or changed.
+
 - Policies are applied in the dedicated staging Supabase project.
 - The live RLS harness passed with two users, two doctors, one admin, and one superadmin using real Supabase Auth JWTs.
+- The same live RLS harness passed again after migration-history reconciliation, confirming that the ledger-only change did not alter application access boundaries.
 - Cross-user profile/report/job access, doctor assignment, superadmin-only role changes, direct audit insertion denial, consent scoping, and service-role bypass were verified.
 - The deployed Auth/API harness passed login/session, onboarding persistence, route denial, consent grant/revoke, and backend upload consent checks.
 - Normal local tests skip live harnesses unless their explicit staging flags and project reference are present.
@@ -87,6 +90,7 @@ Migration validation notes:
 
 - `202606060002_auth_persistence_rls_hardening.sql` now drops/recreates hardening policies before creating them, reducing rerun collisions.
 - The base migration remains a first-time migration and is not fully idempotent because it creates enum types and tables.
+- `supabase/migration-lock.json` pins every historical migration by version, name, and SHA-256; `npm run verify:migrations` rejects local edits and `npm run verify:staging:migrations` compares the secure staging database ledger and schema sentinels when `DATABASE_URL` is available.
 - Report/job direct user writes are denied after hardening; service-role server paths must audit sensitive operations.
 - Audit log direct user inserts are denied; admin-like users can read audit logs, and service role can write controlled safe metadata.
 - `202606060003_private_storage_scan_status.sql` adds report statuses for file-size rejection, scanner configuration blocks, dev-only scan skips, `malware_scan` job state, `deleted_at`, `scan_completed_at`, and indexes for storage/audit lookup.

@@ -2,9 +2,9 @@
 
 ## Status
 
-Current status: **core Auth/RLS live verification passed; remaining provider gates blocked**.
+Current status: **core Auth/RLS and staging migration-history verification passed; remaining release gates blocked**.
 
-The Lyf9 AI Supabase Auth/Postgres/RLS foundation is applied to the dedicated staging project. The live JWT-backed RLS harness and deployed Auth/API consent smoke test pass with synthetic fixtures and cleanup. Signup email delivery still needs custom SMTP or an approved Supabase Auth rate-limit configuration.
+The Lyf9 AI Supabase Auth/Postgres/RLS foundation is applied to the dedicated staging project. The staging migration ledger now exactly represents all 11 repository migrations, the historical SQL files are checksum-locked, and the live JWT-backed RLS harness passes after reconciliation. The deployed Auth/API consent smoke test also passes with synthetic fixtures and cleanup. Signup email delivery still needs custom SMTP or an approved Supabase Auth rate-limit configuration.
 
 ## 1. Project Setup
 
@@ -71,17 +71,23 @@ ENABLE_LOCAL_AUTH_FALLBACK=true
 Apply migrations in repository order. Staging is currently applied through:
 
 ```txt
-supabase/migrations/202609010002_consent_rpc_rls_guard.sql
+supabase/migrations/202609020001_workflow_rpc_hardening.sql
 ```
 
 Recommended commands:
 
 ```bash
 supabase link --project-ref <staging-project-ref>
+supabase db push --dry-run
 supabase db push
+npm run verify:staging:migrations
 ```
 
-If using SQL editor, paste and run each migration in order. Confirm both complete without errors.
+Do not edit an applied migration. Add a new migration and run `npm run verify:migrations` before touching staging. `supabase/migration-lock.json` pins every existing version, name, and SHA-256 checksum.
+
+Staging history was reconciled on 2026-09-04 because the schema had previously been applied through the SQL editor without a Supabase CLI ledger. Before the ledger was initialized, read-only sentinels proved all 11 migrations were already present. The guarded transaction then recorded those exact versions without rerunning application DDL. Independent verification returned 11 expected rows, no missing or unexpected versions/names, and a non-empty statement payload for each row.
+
+The internal `supabase_migrations.schema_migrations` table intentionally runs without RLS. It is outside the exposed public Data API schema and stores migration metadata, not user or report data. Application tables remain protected by their existing RLS policies.
 
 Rollback if migration fails:
 
@@ -246,12 +252,16 @@ Important review notes:
 - Audit log reads are admin-like only; user JWT inserts are denied, while service role bypasses RLS for controlled server-side audit writes.
 - The first base migration is intended as a first-time migration and is not fully idempotent because it creates enum types/tables.
 - `202609010002_consent_rpc_rls_guard.sql` makes the consent RPC `SECURITY INVOKER`, removes `anon` execution, and preserves authenticated/service-role execution.
-- Live JWT-backed RLS verification passed on 2026-09-01 and must be rerun after any RLS migration.
+- Live JWT-backed RLS verification passed again on 2026-09-04 after migration-history reconciliation and must be rerun after any RLS migration.
+- `npm run verify:migrations` checks local migration ordering and immutable checksums without credentials.
+- `npm run verify:staging:migrations` requires a staging `DATABASE_URL`, refuses a production or mismatched project reference, and checks exact remote history, statement payloads, and schema sentinels.
+- `npm run generate:staging:migration-repair` is an exceptional recovery tool, not a normal deployment path. It refuses non-staging mode, checks the checksum lock, and generates a transaction that aborts unless all schema sentinels and exact history rows match.
 
 ## 9. Known Limitations
 
 - Live staging Supabase is configured for the Vercel Preview `dev` branch only; Production was not changed.
 - Normal local runs skip the RLS/Auth harnesses unless their explicit live flags and exact staging project reference are present.
+- The current developer shell does not store `DATABASE_URL`; automated remote history verification must receive it from a secure CI/runtime secret. The exact staging ledger was independently verified in the SQL editor during reconciliation.
 - Supabase's default staging email sender reached its rate limit during repeated diagnostics; configure custom SMTP or an approved quota before beta invitation onboarding.
 - Admin operational access currently depends on backend/server service-role routes rather than broad direct client RLS reads.
 - Private S3 and GuardDuty are verified separately in `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md`.
@@ -262,7 +272,7 @@ Important review notes:
 
 | Area | Status | Evidence | Next Step |
 | --- | --- | --- | --- |
-| Migrations apply cleanly | Partially ready | Schema through `202609020001_workflow_rpc_hardening.sql` applied via staging SQL editor | Reconcile Supabase CLI migration history before automated promotion. |
+| Migrations apply cleanly | Ready for staging | Exact ledger verification is 11/11 with no missing/unexpected rows and all statement payloads present; repository lock verifies all 11 files | Add staging `DATABASE_URL` to secure CI and run `npm run verify:staging:migrations` before promotion. |
 | Schema exists | Ready | Staging SQL inventory and deployed Postgres health pass | Recheck after migrations. |
 | RLS enabled | Ready for checked core tables | RLS inventory plus live JWT harness passed | Re-run after policy changes. |
 | Cross-user RLS | Ready | User A cannot read/update User B profile/report/job metadata | Keep synthetic harness in release gate. |

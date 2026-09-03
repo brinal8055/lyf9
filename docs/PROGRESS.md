@@ -4,13 +4,49 @@
 
 Staging foundation reconciliation and release-gate hardening are in progress for a **production-shaped private beta MVP**.
 
-Supabase staging now has the current schema, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, live GuardDuty clean/threat enforcement, live-verified atomic workflow claims, scanned-image AWS Textract OCR, a live-verified deployed Inngest saga, and a live Gemini structured-output smoke. The product is not approved for real 30-50 user PHI until migration history is reconciled, signup email delivery is reliable, provider-backed golden QA passes, and observability/privacy, retention, clinical-threshold, and legal reviews are completed.
+Supabase staging now has the current schema, an exact migration ledger protected by a repository checksum lock, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, live GuardDuty clean/threat enforcement, live-verified atomic workflow claims, scanned-image AWS Textract OCR, a live-verified deployed Inngest saga, and a live Gemini structured-output smoke. The product is not approved for real 30-50 user PHI until signup email delivery is reliable, provider-backed golden QA passes, and observability/privacy, retention, clinical-threshold, and legal reviews are completed.
 
-Current private beta readiness score: **9.2/10**. The scanned-image OCR blocker itself is closed for synthetic staging with **9.7/10 confidence**.
+Current private beta readiness score: **9.3/10**. The Supabase migration-history blocker is closed for staging, while the scanned-image OCR blocker remains closed for synthetic staging with **9.7/10 confidence**.
 
 No public launch, autonomous diagnosis, prescriptions, medicine-change advice, supplement protocols, pharmacy commerce, lab booking, full doctor marketplace, mobile app, wearables, ABDM/ABHA, genetics, employer, or insurance workflows have been added.
 
 ## Completed In This Pass
+
+### 2026-09-04 Supabase Staging Migration Reconciliation
+
+- Confirmed the target in the Supabase dashboard was staging project `wjjwdakfyigwwohbntyv`; Production was not queried or changed.
+- Established the fail-safe baseline: `supabase_migrations.schema_migrations` did not exist even though the application schema had been applied manually through the SQL editor.
+- Ran read-only schema sentinels for all 11 repository migrations through `202609020001_workflow_rpc_hardening.sql`; every expected table, column, function, privilege, and RLS condition was present before history was changed.
+- Initialized Supabase's internal migration ledger without RLS and inserted only the 11 verified repository versions. This internal schema is not part of the public Data API surface and contains migration SQL, not user or report data.
+- Independently verified `remote_count=11`, `expected_count=11`, no missing rows, no unexpected rows, and non-empty statement payloads for every migration.
+- Added `supabase/migration-lock.json` with SHA-256 checksums, a local drift verifier, a staging-only remote verifier, a guarded repair-SQL generator, and unit coverage for checksum drift, history mismatch, missing statement payloads, and production-target refusal.
+- Re-ran the live staging RLS suite after reconciliation: all user, doctor, admin, consent, service-role, and audit boundaries passed using synthetic identities, with cleanup.
+
+Verification:
+
+```txt
+npm run test:migrations              # 3 passed
+npm run verify:migrations            # 11 files match locked checksums/order
+npm run verify:staging:rls           # 1 live harness passed in 27.4s
+npm test                             # 170 passed, 8 credential-gated live tests skipped
+npm run typecheck                    # passed
+npm run lint                         # passed
+npm run build:web                    # passed, 44 static pages generated
+npm run copy:scan                    # passed
+npm run api:test                     # 9 passed
+npm run api:health                   # passed
+npm run worker:health                # passed
+git diff --check                     # passed
+staging SQL exact-set verification   # 11/11, no missing/unexpected, statements present
+```
+
+PHI-free live RLS evidence is stored in `artifacts/staging-verification/rls.json`.
+
+Known risks: automated remote history verification still needs a staging `DATABASE_URL` in the secure CI/runtime environment; `npm audit` reports 17 dependency findings that require a separate scoped review. Neither issue justifies weakening the migration or RLS gates.
+
+Next recommended prompt:
+
+> Configure a staging-only custom SMTP provider for Supabase Auth, verify invite signup and email delivery through the public flow without service-role fixture fallback, preserve the beta invite gate, keep Production unchanged, and record synthetic evidence and cleanup.
 
 ### 2026-09-02 Live Inngest Staging Saga Pass
 
@@ -1137,11 +1173,11 @@ Verification:
 Known risks:
 
 - The complete 13-fixture provider-backed Gemini golden gate remains blocked by the current daily quota; a passing single-fixture smoke is not equivalent to golden QA.
-- Supabase migrations applied through the SQL editor still need CLI history reconciliation and drift protection before automated promotion.
+- Supabase migration history reconciliation and drift protection were completed in the 2026-09-04 pass above; secure CI still needs the staging `DATABASE_URL` to automate the remote check.
 - Signup email delivery still needs custom SMTP or an approved Supabase Auth quota.
 - The golden dataset needs at least 25 human-reviewed samples, and critical thresholds need clinician approval.
 - PHI-safe observability, retention governance, data-rights operations, and legal review remain incomplete.
 
 Next recommended prompt:
 
-> Reconcile Lyf9 AI staging Supabase migration history with the repository without changing Production: inventory remote migration state, repair only verified staging history, run schema/RLS drift checks and all guarded Supabase verifiers, add a CI-safe migration drift check, and document rollback evidence. Keep real PHI private beta no-go if any migration or RLS boundary is uncertain.
+> Configure a staging-only custom SMTP provider for Supabase Auth, verify invite signup and email delivery through the public flow without service-role fixture fallback, preserve the beta invite gate, keep Production unchanged, and record synthetic evidence and cleanup.

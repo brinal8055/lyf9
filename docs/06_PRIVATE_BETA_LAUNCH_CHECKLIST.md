@@ -6,16 +6,16 @@ Use this checklist for the first 30-50 early users. This is a private beta gate,
 
 Current decision: **No-go for real PHI private beta**.
 
-Private beta readiness score including current live staging evidence: **92/100**.
+Private beta readiness score including current live staging evidence: **93/100**.
 
-This repo is ready for scaffold/operator rehearsal and now has live-tested staging Supabase Auth/Postgres/RLS, private S3, GuardDuty malware enforcement, atomic workflow concurrency/recovery, scanned-image Textract OCR, the deployed Inngest saga, and a schema-valid Gemini smoke. Real 30-50 user testing remains blocked by reliable signup email delivery, provider-backed golden QA capacity, expanded human-reviewed golden coverage, observability, retention governance, migration-history reconciliation, doctor threshold review, and legal review.
+This repo is ready for scaffold/operator rehearsal and now has live-tested staging Supabase Auth/Postgres/RLS, a reconciled and checksum-locked migration ledger, private S3, GuardDuty malware enforcement, atomic workflow concurrency/recovery, scanned-image Textract OCR, the deployed Inngest saga, and a schema-valid Gemini smoke. Real 30-50 user testing remains blocked by reliable signup email delivery, provider-backed golden QA capacity, expanded human-reviewed golden coverage, observability, retention governance, doctor threshold review, and legal review.
 
 ## Current Readiness Matrix
 
 | Area | Status | Owner | Next step |
 | --- | --- | --- | --- |
 | Auth/RBAC | Partially ready | Engineering/DevOps | Login/session and user/doctor/admin/superadmin JWT boundaries pass in staging; configure custom SMTP or an approved email quota before onboarding beta users. |
-| Database/RLS | Ready for synthetic staging | Backend/DevOps | Migrations through `202609020001_workflow_rpc_hardening.sql` are applied and live cross-user/doctor/admin RLS tests pass; reconcile Supabase CLI migration history before automated promotion. |
+| Database/RLS | Ready for synthetic staging | Backend/DevOps | All 11 migrations through `202609020001_workflow_rpc_hardening.sql` are represented exactly in the staging ledger, repository checksums are locked, and the post-reconciliation live RLS suite passes. Add staging `DATABASE_URL` to secure CI for automatic remote drift checks. |
 | Storage security | Ready for synthetic staging | Backend/DevOps | Guarded app-level upload/download/privacy/encryption/DB/audit/delete verification passed; approve retention/versioning and key-management policy before real PHI. |
 | Malware scanning | Ready for synthetic staging | Backend/Security/DevOps | GuardDuty is Active for staging `reports/`; least-privilege tag read and clean/EICAR verification pass. Re-run after scanner, IAM, bucket, or prefix changes. |
 | Upload flow | Ready for synthetic staging | Engineering | Deployed consent gate, private S3 upload/download/delete, and real GuardDuty clean/threat behavior pass with synthetic fixtures. |
@@ -72,7 +72,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | --- | --- | --- |
 | WorkflowProvider abstraction | Ready | Keep workflow logic behind provider methods. |
 | DatabaseWorkflowProvider | Ready for synthetic staging | Supabase atomic claim/recovery provider passes the guarded live staging harness; keep the local/store provider limited to local tests. |
-| Durable job records | Ready for synthetic staging | Workflow migrations through `202609020001_workflow_rpc_hardening.sql` are applied in staging; reconcile CLI migration history before promotion. |
+| Durable job records | Ready for synthetic staging | Workflow migrations through `202609020001_workflow_rpc_hardening.sql` are applied and represented in the reconciled staging migration ledger. |
 | Job locking/leases | Ready for synthetic staging | `FOR UPDATE SKIP LOCKED` uniquely claimed two jobs across three concurrent workers and recovered expired job/step leases. |
 | Retry/backoff | Ready for synthetic staging | Future retries remain unavailable until due; recovered retry jobs can be reclaimed, while max-attempt jobs fail terminally. |
 | Failed/blocked visibility | Partially ready | Admin helper exposes blocked/failed jobs; dedicated UI retry/cancel controls remain a gap. |
@@ -155,8 +155,8 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Staging environment contract | Ready | `docs/29_STAGING_ENVIRONMENT_CONTRACT.md` | Keep secrets scoped to Vercel Preview branch `dev` and out of source control. |
 | Deployed Supabase connectivity | Ready | `lyf9-dev.vercel.app/api/health` returns `status: ok` and `store.ok: true` | Monitor while running synthetic Auth/RLS tests. |
 | Live verification orchestrator | Ready | `npm run verify:staging` | Run only with `APP_ENV=staging`; it refuses production and missing env. |
-| Supabase migration check | Partially ready | Staging SQL verification | Schema smoke passed; reconcile Supabase CLI migration history and run `npm run verify:staging:supabase`. |
-| RLS/JWT live check | Ready | `npm run test:rls` passed with six isolated JWT identities | Re-run after any RLS migration. |
+| Supabase migration check | Ready for staging | Exact-set SQL verification plus `npm run verify:migrations` | Staging has 11/11 exact history rows with statement payloads and the repository lock matches; wire `DATABASE_URL` into secure CI and run `npm run verify:staging:migrations` on every migration change. |
+| RLS/JWT live check | Ready | `npm run verify:staging:rls` passed again after history reconciliation | Re-run after any RLS migration. |
 | Deployed Auth/API check | Partially ready | `npm run test:auth-live` passed login, sessions, persistence, route denial, and consent gating | Configure custom SMTP or approved email limits, then require public signup to pass without fixture fallback. |
 | Workflow concurrency check | Ready | `npm run verify:staging:workflow` | Self-seeding staging harness passed concurrent claims, retries, lease recovery, RPC denial, audit safety, and cleanup. Re-run after workflow migration/provider changes. |
 | S3 private smoke check | Ready for synthetic staging | `npm run verify:staging:s3` passed app routes, S3 privacy/metadata/encryption/delete, DB metadata, audit events, and cleanup | Re-run after storage/IAM/signing changes; approve retention/versioning policy before PHI. |

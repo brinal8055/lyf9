@@ -4,9 +4,9 @@
 
 Decision: **No-go for real PHI private beta**.
 
-Current readiness score including live staging evidence: **92/100**.
+Current readiness score including live staging evidence: **93/100**.
 
-Reason: synthetic golden QA, live staging Supabase/RLS, private S3, GuardDuty clean/threat verification, atomic workflow concurrency/recovery, scanned-image Textract OCR, the deployed Inngest saga, and a live Gemini structured-output smoke pass. Provider-backed golden QA, doctor threshold review, retention governance, observability, migration-history reconciliation, signup email reliability, and legal review are still incomplete.
+Reason: synthetic golden QA, live staging Supabase/RLS, an exact checksum-locked migration ledger, private S3, GuardDuty clean/threat verification, atomic workflow concurrency/recovery, scanned-image Textract OCR, the deployed Inngest saga, and a live Gemini structured-output smoke pass. Provider-backed golden QA, doctor threshold review, retention governance, observability, signup email reliability, and legal review are still incomplete.
 
 Live staging evidence:
 
@@ -92,12 +92,11 @@ Any of these keep the release blocked:
 
 ## Exact Next Actions
 
-1. Reconcile Supabase CLI migration history with the migrations applied to staging through the SQL editor.
-2. Configure custom SMTP or an approved Supabase Auth email quota and rerun public invite signup without fixture provisioning.
-3. Replenish Gemini quota, rerun the 13-fixture live golden gate, then expand to at least 25 internally reviewed synthetic or consented internal samples.
-4. Add PHI-safe observability and approve retention/versioning governance.
-5. Get doctor review of critical thresholds.
-6. Complete legal review.
-7. Add CI for the full release-gate command set.
+1. Configure custom SMTP or an approved Supabase Auth email quota and rerun public invite signup without fixture provisioning.
+2. Replenish Gemini quota, rerun the 13-fixture live golden gate, then expand to at least 25 internally reviewed synthetic or consented internal samples.
+3. Add PHI-safe observability and approve retention/versioning governance.
+4. Get doctor review of critical thresholds.
+5. Complete legal review.
+6. Add CI for the full release-gate command set, including `npm run verify:migrations` and the credentialed staging drift check.
 
 Current release owner recommendation: **do not invite 30-50 real PHI users yet**.

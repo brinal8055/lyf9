@@ -2,6 +2,19 @@
 
 ## Run Summary
 
+### 2026-09-04 Supabase Migration Ledger And RLS Recheck
+
+Environment: Supabase `lyf9-staging` (`wjjwdakfyigwwohbntyv`) only. Production was not accessed or changed, and no real PHI was used.
+
+- Confirmed the staging schema already contained all 11 repository migrations while `supabase_migrations.schema_migrations` was absent.
+- Ran read-only schema sentinels for every migration through `202609020001_workflow_rpc_hardening.sql`; all 11 passed before any ledger write.
+- Used one guarded transaction to initialize the internal Supabase migration ledger and record the exact verified versions, names, and statement payloads without rerunning application DDL.
+- The final independent query returned `remote_count=11`, `expected_count=11`, `no_missing=true`, `no_unexpected=true`, and `statements_present=true`.
+- Added SHA-256 migration locking and local/remote drift tools. The remote command refuses non-staging mode, a project mismatch, and the known Production project reference.
+- Re-ran `npm run verify:staging:rls`; the six-identity synthetic harness passed user, doctor, admin, consent, service-role, and audit boundaries in 27.4 seconds and cleaned up its fixtures.
+
+Verdict: the staging migration-history blocker is **resolved**. Automatic remote drift verification still needs `DATABASE_URL` supplied as a secure CI/runtime secret; this is operational wiring, not unresolved staging history. The overall real-PHI release decision remains no-go because the other release gates remain open.
+
 ### 2026-09-03 Scanned-Image Textract OCR And Deployed Saga Pass
 
 Environment: Supabase `lyf9-staging` (`wjjwdakfyigwwohbntyv`), `lyf9-reports-storage-staging` in `ap-south-1`, and Vercel Preview branch `dev`. Production was not changed and no real PHI was used.
@@ -15,7 +28,7 @@ Environment: Supabase `lyf9-staging` (`wjjwdakfyigwwohbntyv`), `lyf9-reports-sto
 - `npm run verify:staging:inngest` then passed four tests in 72.50 seconds against the deployed workflow. A synthetic unsupported radiology PNG passed GuardDuty and Textract OCR, persisted `ocr_provider=textract`, completed deterministic unsupported classification, produced zero model runs/biomarkers/insights, and was cleaned up.
 - Section-only artifacts now report `section_passed` with `selected_sections` scope and no longer imply a full release verdict.
 
-Verdict: the scanned-image OCR blocker is **resolved for synthetic staging with 9.7/10 confidence**. This is not a real-PHI release approval; provider-backed golden QA, migration governance, signup delivery, clinician thresholds, PHI-safe operations, and legal review remain open.
+Verdict: the scanned-image OCR blocker is **resolved for synthetic staging with 9.7/10 confidence**. This is not a real-PHI release approval; provider-backed golden QA, signup delivery, clinician thresholds, PHI-safe operations, and legal review remain open. Migration governance was subsequently reconciled in the 2026-09-04 pass above.
 
 ### 2026-09-02 Live Gemini Smoke Pass And Golden Quota Block
 
@@ -239,8 +252,8 @@ npm run eval:golden:live
 | Area | Status | Evidence | Next step |
 | --- | --- | --- | --- |
 | Deployed Supabase connectivity | Ready | `lyf9-dev.vercel.app/api/health` reports `store.ok: true` against Supabase Postgres | Keep the server key in Vercel Preview `dev` only and monitor health. |
-| Supabase migrations | Partially ready | Schema through `202609010002_consent_rpc_rls_guard.sql` applied in staging SQL editor | Reconcile CLI migration history and run `npm run verify:staging:supabase`. |
-| RLS/JWT | Ready for core boundaries | Six-identity live JWT harness passed with synthetic cleanup | Re-run after every RLS migration. |
+| Supabase migrations | Ready for staging | Exact history is 11/11 through `202609020001_workflow_rpc_hardening.sql`, statement payloads are present, and all repository checksums match | Wire secure staging `DATABASE_URL` into CI and run `npm run verify:staging:migrations` on migration changes. |
+| RLS/JWT | Ready for core boundaries | Six-identity live JWT harness passed again after ledger reconciliation with synthetic cleanup | Re-run after every RLS migration. |
 | Deployed Auth/API | Partially ready | Login/session, persistence, route denial, consent transitions, and backend upload gate passed | Configure custom SMTP/approved email quota and rerun public signup without fixture fallback. |
 | Workflow concurrency | Ready for synthetic staging | Self-seeding claims/recovery and the deployed Inngest saga both pass with safe audits and cleanup | Re-run after workflow, scanner, parser, or deployment changes. |
 | S3 private storage | Ready for synthetic staging | Guarded app-level harness passed against the staging-only bucket | Re-run after IAM, bucket-policy, or signing changes; approve retention policy before PHI. |

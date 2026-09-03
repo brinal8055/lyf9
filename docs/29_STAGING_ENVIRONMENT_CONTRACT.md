@@ -26,7 +26,8 @@ Rules:
 
 - `SUPABASE_SERVICE_ROLE_KEY` is server/worker only.
 - `NEXT_PUBLIC_*` values must contain only public anon configuration.
-- Migrations through `202609010002_consent_rpc_rls_guard.sql` must be applied before verification.
+- All 11 migrations through `202609020001_workflow_rpc_hardening.sql` must be applied and represented exactly in `supabase_migrations.schema_migrations` before verification.
+- `supabase/migration-lock.json` is the immutable version/name/checksum inventory. Run `npm run verify:migrations` locally and `npm run verify:staging:migrations` with a secure staging `DATABASE_URL` before migration promotion.
 - `supabase/.temp/` is machine-local state and must never be committed or used as evidence of the target environment.
 - Verify the project reference immediately before every migration. Staging is `wjjwdakfyigwwohbntyv`; production is a separate project.
 
@@ -193,6 +194,8 @@ Payment remains sandbox/optional for staging verification and must not be used a
 ```bash
 npm run verify:staging
 npm run verify:staging:supabase
+npm run verify:migrations
+npm run verify:staging:migrations
 npm run verify:staging:rls
 npm run verify:staging:auth
 npm run verify:staging:workflow
