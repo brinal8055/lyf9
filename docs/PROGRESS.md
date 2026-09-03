@@ -21,6 +21,8 @@ No public launch, autonomous diagnosis, prescriptions, medicine-change advice, s
 - Independently verified `remote_count=11`, `expected_count=11`, no missing rows, no unexpected rows, and non-empty statement payloads for every migration.
 - Added `supabase/migration-lock.json` with SHA-256 checksums, a local drift verifier, a staging-only remote verifier, a guarded repair-SQL generator, and unit coverage for checksum drift, history mismatch, missing statement payloads, and production-target refusal.
 - Re-ran the live staging RLS suite after reconciliation: all user, doctor, admin, consent, service-role, and audit boundaries passed using synthetic identities, with cleanup.
+- Pushed implementation commit `aa3eabb` to `origin/dev`. Vercel Preview deployment `8Rq79wAFEixiswMcP3MG2ykRbTP9` reached Ready, and its exact health endpoint returned `status: ok`, healthy Supabase Postgres storage, configured private S3/Inngest, and enabled Gemini capabilities.
+- The same health response reports `databaseConfigured: false` and `emailConfigured: false`: the app's Supabase data path is healthy, but direct migration drift checks still need a securely scoped staging `DATABASE_URL`, and signup delivery still needs custom SMTP.
 
 Verification:
 
