@@ -1058,7 +1058,7 @@ Next recommended prompt:
 
 ## 2026-09-02 Provider-Neutral Clinical AI Gateway
 
-Current phase: **Gemini structured-output smoke verified locally; Preview provider configuration drift and live golden quota remain blocked**.
+Current phase: **Gemini structured-output smoke and deployed Preview configuration verified; live golden evaluation remains quota-blocked**.
 
 Completed:
 
@@ -1089,18 +1089,17 @@ Verification:
 - `npm run verify:staging:ai` passed in **72.84 seconds** using synthetic CBC text, including schema validation, source trace, mandatory disclaimer, and deterministic unsafe-language checks.
 - Added bounded provider-neutral retry for transient 429/5xx failures and sanitized classifications for quota, authentication, model, request, timeout, schema, and safety failures. No automatic provider fallback was added.
 - `npm run eval:golden:live` ran for **109 seconds** and stopped fail-closed on `ai_provider_quota_exhausted`; AI Studio showed `gemini-3.5-flash` at **21/20 RPD**, with RPM and TPM still below their limits. It is not recorded as a pass.
-- A final read-only check of `https://lyf9-dev.vercel.app/api/health` returned HTTP 200 and healthy Supabase Postgres/S3/Inngest checks, but reported `aiProvider: openai`. Preview therefore has provider configuration drift from the selected Gemini setup. Set `AI_PROVIDER=gemini` and all three `GEMINI_MODEL_*` variables to `gemini-3.5-flash` for Preview branch `dev`, redeploy the latest `dev` commit, and require health to report `aiProvider: gemini` before rerunning live AI verification.
-- On 2026-09-03 the Vercel Preview variables were updated for Gemini. Empty commit `2340ec0` was intentionally ignored by Vercel because it did not change the source tree; the following documentation-only commit provides a non-runtime deployment trigger for the updated Preview configuration.
+- On 2026-09-03 the Vercel Preview variables were updated for Gemini. Empty commit `2340ec0` was intentionally ignored by Vercel because it did not change the source tree, so documentation-only commit `dc54703` supplied a non-runtime deployment trigger.
+- Vercel completed Preview deployment `7x7exrAQ1cdSxRJHAQasabkV7Vdb` for `dc54703`. Both its unique deployment URL and `https://lyf9-dev.vercel.app/api/health` returned HTTP 200 with `aiProvider: gemini`, `aiConfigured: true`, all three AI capabilities enabled, and healthy Supabase Postgres, S3, and Inngest checks.
 - No real PHI was used and Production was not changed.
 
 Known risks:
 
 - The selected Gemini adapter passes a live synthetic smoke, but the free/current quota is insufficient for the complete 13-fixture provider-backed golden run.
-- The deployed Preview currently selects OpenAI despite the selected Gemini staging configuration; this is an environment-only drift and remains open until the Preview variables are corrected and health is rechecked.
 - The live golden runner has fail-closed quota evidence but no passing provider-backed result yet.
 - Provider token usage, request IDs, finish reasons, and cost estimates are not normalized into model runs yet.
 - The golden dataset still needs at least 25 human-reviewed samples, clinician-approved critical thresholds, scanned-image OCR coverage, PHI-safe observability, retention governance, and legal review.
 
 Next recommended prompt:
 
-> Correct Vercel Preview branch `dev` to `AI_PROVIDER=gemini` with all three `GEMINI_MODEL_*` variables set to `gemini-3.5-flash`, redeploy the latest `dev` commit, and verify `/api/health` reports `aiProvider: gemini`. Do not change Production. Do not rerun the complete 13-fixture golden suite under the 20-RPD free tier; obtain sufficient quota first, or run only a clearly labeled non-gating subset after the daily reset. Then add the synthetic scanned-image CBC fixture to the Textract staging harness.
+> Add a synthetic scanned-image CBC fixture to the Textract staging harness, verify OCR text/page/confidence/provenance persistence and guaranteed cleanup, and keep unsupported/low-quality outputs fail-closed. Do not use real PHI or change Production. Separately, do not rerun the complete 13-fixture golden suite under the 20-RPD free tier; obtain sufficient quota first, or run only a clearly labeled non-gating subset after the daily reset.
