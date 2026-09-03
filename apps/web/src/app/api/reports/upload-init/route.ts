@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { isInngestConfigured } from "@/inngest/client";
 import {
   consentRequiredResponse,
   getRequestUser,
@@ -8,6 +9,7 @@ import {
   unauthorizedResponse
 } from "@/lib/auth/request";
 import { hasRequiredReportUploadConsent } from "@/lib/onboarding/server";
+import { shouldUseSupabaseAuth } from "@/lib/auth/supabase-auth";
 import { auditReportUploadBlocked, auditReportUploadRejected, createUploadInit } from "@/lib/reports/repository";
 import {
   createSignedToken,
@@ -20,6 +22,13 @@ export async function POST(request: NextRequest) {
 
   if (!user) {
     return unauthorizedResponse();
+  }
+
+  if (shouldUseSupabaseAuth() && !isInngestConfigured()) {
+    return NextResponse.json(
+      { error: "Report processing is temporarily unavailable." },
+      { status: 503 }
+    );
   }
 
   const persistedConsent = await hasRequiredReportUploadConsent(user.id);

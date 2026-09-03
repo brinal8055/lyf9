@@ -2,73 +2,89 @@
 
 ## Status
 
-AI is represented by schema-first local extraction/explanation and provider contracts:
+Lyf9 AI uses a provider-neutral clinical AI gateway. Gemini is the first selected staging adapter, while OpenAI and deterministic mock adapters implement the same contract. Report orchestration does not read provider-specific model variables or call a provider directly.
 
-- `apps/web/src/lib/reports/biomarkers.ts`
-- `apps/web/src/lib/reports/safety.ts`
-- `apps/web/src/lib/reports/providers/ai.ts`
-- `apps/worker/app/providers/ai.py`
+Production path:
 
-## AiProvider Contract
+```txt
+Inngest report saga
+  -> ClinicalAiGateway
+     -> Lyf9 schemas, prompts, validation, source trace, safety, telemetry
+     -> explicit provider registry
+        -> GeminiStructuredOutputsProvider
+        -> OpenAiStructuredOutputsProvider
+        -> MockAiProvider (local/test only)
+```
 
-- `extract_biomarkers(extracted_document, patient_context)`
-- `generate_patient_explanation(biomarkers, patient_context)`
-- `generate_doctor_summary(biomarkers, patient_context, insight)`
-- `run_safety_check(output)`
+Core files:
 
-## Production Provider
+- `apps/web/src/lib/ai/clinical-ai-gateway.ts`
+- `apps/web/src/lib/ai/ai-provider.ts`
+- `apps/web/src/lib/ai/clinical-ai-json-schemas.ts`
+- `apps/web/src/lib/ai/clinical-ai-prompts.ts`
+- `apps/web/src/lib/ai/gemini-structured-provider.ts`
+- `apps/web/src/lib/ai/openai-structured-provider.ts`
 
-`OpenAiStructuredOutputsProvider` should use OpenAI Structured Outputs and Pydantic validation in the worker. Invalid schema output must not publish.
+## Boundary Rules
 
-## Local Provider
+- `AI_PROVIDER` must be explicit in staging/production.
+- Unknown providers fail closed; there is no automatic cross-provider fallback.
+- Gemini/OpenAI credentials and transport details remain inside their adapters.
+- The mock adapter is limited to local/development/test.
+- Provider output is untrusted until the gateway validates it.
+- Model-authored marker name, value display, status, disclaimer, and review routing cannot override persisted deterministic facts.
+- Every patient marker explanation must reference a known persisted biomarker exactly once.
+- Unsafe output remains review-only and cannot publish as AI-only.
+- Unsupported/unknown reports stop before the gateway.
 
-`MockAiProvider` or deterministic fixture extraction remains available for tests and local development.
+## Tasks
 
-## Safety Rules
+- `biomarker_extraction`
+- `patient_explanation`
+- `doctor_summary`
 
-- Never pass unnecessary PHI to AI.
-- Prefer extracted text/tables over raw PDF.
-- Remove phone/address/email/lab IDs where not needed.
-- Store `model_runs` for every AI call.
-- Do not publish if output schema validation or safety validation fails.
+Configuration health is task-specific. The report pipeline is ready only when extraction and patient explanation are both configured. Doctor-summary readiness is reported separately.
 
 ## Model Runs
 
-Required fields:
+Every attempted production saga call records provider, model, task, prompt/schema version, input/output hashes, status, sanitized error code, and latency. Provider error bodies and patient context are not stored in error metadata. Token counts remain nullable until each adapter exposes normalized usage metadata.
 
-- `user_id`
-- `report_id`
-- `task_type`
-- `provider`
-- `model_name`
-- `prompt_version`
-- `input_hash`
-- `output_hash`
-- `output_json`
-- `token_count`
-- `cost_estimate`
-- `latency_ms`
-- `status`
-- `error_message`
-- `created_at`
+## Environment
 
-## 2026-06-12 Implementation Update
+Local/test:
 
-Implemented in code:
+```txt
+AI_PROVIDER=mock
+```
 
-- `apps/web/src/lib/ai/ai-provider.ts` defines the schema-first `AiProvider`.
-- `apps/web/src/lib/ai/openai-structured-provider.ts` is an OpenAI Structured Outputs-ready contract and fails closed when config is missing.
-- `apps/web/src/lib/ai/mock-ai-provider.ts` provides deterministic local/test outputs only.
-- `apps/web/src/lib/ai/ai-schemas.ts` validates biomarker extraction, patient explanation, doctor summary, and safety result shapes.
-- `apps/web/src/lib/ai/model-runs.ts` hashes AI inputs/outputs and creates PHI-minimized model run records.
+Staging Gemini:
 
-Environment:
+```txt
+AI_PROVIDER=gemini
+GEMINI_API_KEY=<server-only secret>
+GEMINI_MODEL_EXTRACTION=gemini-3.5-flash
+GEMINI_MODEL_EXPLANATION=gemini-3.5-flash
+GEMINI_MODEL_DOCTOR_SUMMARY=gemini-3.5-flash
+AI_REQUEST_TIMEOUT_SECONDS=120
+```
 
-- Local/test: `AI_PROVIDER=mock`.
-- Staging/production: `AI_PROVIDER=openai`, `OPENAI_API_KEY`, and model env vars must be configured.
-- Mock AI is blocked outside local/development/test unless explicitly overridden for targeted tests.
+Do not prefix provider credentials with `NEXT_PUBLIC_`.
 
-Current limitation:
+## Verification
 
-- The OpenAI provider does not yet execute live API calls in this repo pass. In staging/production, missing OpenAI config blocks the workflow with `ai_configuration_required`.
-- Golden dataset QA and prompt review remain required before real PHI beta.
+Local contract checks:
+
+```bash
+npm run typecheck
+npm test
+npm run test:ai-live
+```
+
+`test:ai-live` skips unless explicitly enabled. After staging secrets are configured, use synthetic report text only:
+
+```bash
+npm run verify:staging:ai
+npm run eval:golden:live
+```
+
+Live Gemini and full supported-PDF saga evidence are still required before real PHI beta.

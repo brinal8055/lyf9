@@ -42,6 +42,23 @@ create type public.processing_job_state as enum (
   'deleted'
 );
 
+create table public.user_profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  full_name text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.user_roles (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  role public.user_role not null default 'user',
+  granted_by uuid references auth.users(id),
+  revoked_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
 create or replace function public.current_user_role()
 returns public.user_role
 language sql
@@ -64,23 +81,6 @@ stable
 as $$
   select public.current_user_role() in ('admin'::public.user_role, 'superadmin'::public.user_role);
 $$;
-
-create table public.user_profiles (
-  user_id uuid primary key references auth.users(id) on delete cascade,
-  email text not null,
-  full_name text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table public.user_roles (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
-  role public.user_role not null default 'user',
-  granted_by uuid references auth.users(id),
-  revoked_at timestamptz,
-  created_at timestamptz not null default now()
-);
 
 create table public.user_health_profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,

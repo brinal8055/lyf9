@@ -12,6 +12,7 @@ export type {
   ParseDocumentParams
 } from "./document-parser-provider";
 export type { OcrProvider } from "./ocr-provider";
+export { isRasterImageMimeType } from "./document-parser-provider";
 export { MarkerProvider } from "./marker-provider";
 export { MockFixtureDocumentParser } from "./mock-fixture-document-parser";
 export { MockOcrProvider } from "./mock-ocr-provider";
@@ -28,7 +29,15 @@ export function getDocumentParserProvider(): DocumentParserProvider {
     return new MockFixtureDocumentParser();
   }
 
-  return new MarkerProvider();
+  if (provider === "marker") {
+    return new MarkerProvider();
+  }
+
+  if (provider === "textract") {
+    return new TextractOcrProvider();
+  }
+
+  throw new Error(`Unsupported document parser provider: ${provider}`);
 }
 
 export function getOcrProvider(): OcrProvider {
@@ -41,5 +50,9 @@ export function getOcrProvider(): OcrProvider {
     return new MockOcrProvider();
   }
 
-  return new TextractOcrProvider();
+  if (provider === "textract") {
+    return new TextractOcrProvider();
+  }
+
+  throw new Error(`Unsupported OCR provider: ${provider}`);
 }

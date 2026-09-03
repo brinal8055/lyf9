@@ -27,9 +27,10 @@ import {
 import {
   BIOMARKER_EXTRACTION_SCHEMA_VERSION,
   PATIENT_EXPLANATION_SCHEMA_VERSION,
+  aiFailureDetails,
   biomarkerExtractionPromptVersion,
   createModelRunRecord,
-  getAiProvider,
+  getClinicalAiGateway,
   patientExplanationPromptVersion,
   requiredDisclaimer,
   validateBiomarkerExtractionSchema,
@@ -42,19 +43,30 @@ import {
   validateNormalizedBiomarkers,
   type NormalizedBiomarker
 } from "../biomarkers";
+import { getPaymentProvider } from "../payments";
 import { runMedicalSafetyRules } from "../safety";
 import { createDatabaseWorkflowProvider, getBackoffNextRunAt, PIPELINE_STEPS } from "../workflow";
 import { shouldUseSupabaseAuth, writeSupabaseAuditLog } from "../auth/supabase-auth";
 import {
   addSupabaseSignedUrlAudit,
+  applySupabaseDoctorReviewAction,
+  assignSupabaseDoctorReview,
+  completeSupabasePayment,
   completeSupabaseUpload,
   createSupabaseFeedbackEvent,
+  createSupabaseRetestReminder,
   createSupabaseSignedDownloadUrl,
   createSupabaseUploadInit,
   deleteSupabaseReportFile,
+  findSupabasePayment,
+  getSupabaseDoctorReviewDetail,
+  getSupabaseStoreHealth,
   getSupabaseReportDetails,
   listSupabaseAdminReports,
+  listSupabaseDoctorReviews,
+  listSupabaseHealthTimeline,
   listSupabaseUserReports,
+  startSupabasePayment,
   readAssignedSupabaseDoctorPrivateReport,
   readSupabasePrivateReport,
   trackSupabaseAnalyticsEvent
@@ -81,6 +93,7 @@ import type {
   ModelRunRecord,
   NotificationEventType,
   PaymentProductType,
+  PaymentRecord,
   ProcessingJobRecord,
   ProcessingJobState,
   ProcessingJobStepRecord,
@@ -145,6 +158,10 @@ export async function getStore() {
 }
 
 export async function getStoreHealth() {
+  if (shouldUseSupabaseAuth()) {
+    return getSupabaseStoreHealth();
+  }
+
   try {
     await ensureStore();
     const store = await getStore();
@@ -363,7 +380,7 @@ export async function createUploadInit(input: {
     scanStatus: "scan_pending",
     deletedAt: null,
     status: "upload_pending",
-    storageBucket: storageProvider.name,
+    storageBucket: uploadTarget.storageBucket,
     storageKey: uploadTarget.storageKey,
     unsupportedReason: null,
     updatedAt: now,
@@ -738,6 +755,10 @@ export async function getReportDetails(userId: string, reportFileId: string) {
 }
 
 export async function listHealthTimeline(userId: string) {
+  if (shouldUseSupabaseAuth()) {
+    return listSupabaseHealthTimeline(userId);
+  }
+
   const store = await getStore();
   const reportFiles = store.reportFiles
     .filter((report) => report.userId === userId)
@@ -776,6 +797,10 @@ export async function createRetestReminder(input: {
   title: string;
   userId: string;
 }) {
+  if (shouldUseSupabaseAuth()) {
+    return createSupabaseRetestReminder(input);
+  }
+
   const store = await getStore();
   const reportFile = input.reportFileId
     ? store.reportFiles.find(
@@ -932,36 +957,61 @@ export async function startPayment(input: {
   reportFileId: string | null;
   userId: string;
 }) {
-  const store = await getStore();
   const product = PRIVATE_BETA_PRODUCTS[input.productType];
+
+  if (!product) {
+    throw new Error("unsupported_product");
+  }
+
+  const provider = getPaymentProvider();
+  const paymentId = randomUUID();
+  const order = await provider.createOrder({
+    amountMinorUnits: product.amountMinorUnits,
+    currency: product.currency,
+    productType: input.productType,
+    receiptId: paymentId,
+    userId: input.userId
+  });
+
+  if (shouldUseSupabaseAuth()) {
+    return startSupabasePayment({
+      amountMinorUnits: product.amountMinorUnits,
+      currency: product.currency,
+      legalReviewRequired: !provider.publicLaunchEnabled,
+      productType: input.productType,
+      provider: provider.name,
+      providerOrderId: order.providerOrderId,
+      publicLaunchEnabled: provider.publicLaunchEnabled,
+      reportFileId: input.reportFileId,
+      userId: input.userId
+    });
+  }
+
+  const store = await getStore();
   const reportFile = input.reportFileId
     ? store.reportFiles.find(
         (candidate) => candidate.id === input.reportFileId && candidate.userId === input.userId
       ) ?? null
     : null;
 
-  if (!product) {
-    throw new Error("unsupported_product");
-  }
-
   if (input.reportFileId && !reportFile) {
     throw new Error("report_not_found");
   }
 
   const now = new Date().toISOString();
-  const payment = {
+  const payment: PaymentRecord = {
     amountMinorUnits: product.amountMinorUnits,
     createdAt: now,
     currency: product.currency,
-    id: randomUUID(),
-    legalReviewRequired: true,
-    provider: "razorpay_sandbox_placeholder" as const,
-    providerOrderId: `order_${randomUUID()}`,
+    id: paymentId,
+    legalReviewRequired: !provider.publicLaunchEnabled,
+    provider: provider.name,
+    providerOrderId: order.providerOrderId,
     providerPaymentId: null,
-    publicLaunchEnabled: false as const,
+    publicLaunchEnabled: provider.publicLaunchEnabled,
     productType: input.productType,
     reportId: reportFile?.id ?? null,
-    status: "started" as const,
+    status: "started",
     updatedAt: now,
     userId: input.userId
   };
@@ -1001,8 +1051,42 @@ export async function startPayment(input: {
 export async function completePayment(input: {
   paymentId: string;
   providerPaymentId?: string | null;
+  providerSignature?: string | null;
   userId: string;
 }) {
+  const provider = getPaymentProvider();
+
+  if (shouldUseSupabaseAuth()) {
+    const existingRow = await findSupabasePayment(input.paymentId, input.userId);
+
+    if (!existingRow) {
+      throw new Error("payment_not_found");
+    }
+
+    const existing = toPaymentRecordFlags(existingRow, provider);
+
+    // Idempotent: completing an already-completed payment must not mint a new
+    // provider payment id or re-emit analytics and audit events.
+    if (existing.status === "completed") {
+      return existing;
+    }
+
+    const captured = await provider.capturePayment({
+      paymentId: input.paymentId,
+      providerOrderId: existing.providerOrderId,
+      providerPaymentId: input.providerPaymentId ?? null,
+      providerSignature: input.providerSignature ?? null
+    });
+
+    return completeSupabasePayment({
+      legalReviewRequired: !provider.publicLaunchEnabled,
+      paymentId: input.paymentId,
+      providerPaymentId: captured.providerPaymentId,
+      publicLaunchEnabled: provider.publicLaunchEnabled,
+      userId: input.userId
+    });
+  }
+
   const store = await getStore();
   const payment = store.payments.find(
     (candidate) => candidate.id === input.paymentId && candidate.userId === input.userId
@@ -1012,8 +1096,19 @@ export async function completePayment(input: {
     throw new Error("payment_not_found");
   }
 
+  if (payment.status === "completed") {
+    return payment;
+  }
+
+  const captured = await provider.capturePayment({
+    paymentId: input.paymentId,
+    providerOrderId: payment.providerOrderId,
+    providerPaymentId: input.providerPaymentId ?? null,
+    providerSignature: input.providerSignature ?? null
+  });
+
   payment.status = "completed";
-  payment.providerPaymentId = input.providerPaymentId ?? `pay_${randomUUID()}`;
+  payment.providerPaymentId = captured.providerPaymentId;
   payment.updatedAt = new Date().toISOString();
   trackAnalyticsEventSync(store, {
     eventName: "payment_completed",
@@ -1043,6 +1138,32 @@ export async function completePayment(input: {
   });
   await saveStore(store);
   return payment;
+}
+
+function toPaymentRecordFlags(
+  row: Record<string, unknown>,
+  provider: { publicLaunchEnabled: boolean }
+): PaymentRecord {
+  const readString = (key: string) => (typeof row[key] === "string" ? (row[key] as string) : "");
+  const readNullableString = (key: string) =>
+    typeof row[key] === "string" ? (row[key] as string) : null;
+
+  return {
+    amountMinorUnits: Number(row.amount ?? 0),
+    createdAt: readString("created_at"),
+    currency: (readString("currency") || "INR") as PaymentRecord["currency"],
+    id: readString("id"),
+    legalReviewRequired: !provider.publicLaunchEnabled,
+    productType: readString("product_type") as PaymentProductType,
+    provider: readString("provider") as PaymentRecord["provider"],
+    providerOrderId: readNullableString("provider_order_id"),
+    providerPaymentId: readNullableString("provider_payment_id"),
+    publicLaunchEnabled: provider.publicLaunchEnabled,
+    reportId: readNullableString("report_id"),
+    status: readString("status") as PaymentRecord["status"],
+    updatedAt: readString("updated_at"),
+    userId: readString("user_id")
+  };
 }
 
 export async function createDataExport(input: {
@@ -1210,13 +1331,24 @@ export async function correctBiomarker(input: {
 
 export async function assignDoctorReview(input: {
   actorUserId: string;
-  assignedDoctorEmail: string;
+  assignedDoctorEmail?: string;
+  assignedDoctorId?: string;
   healthInsightId: string;
   ipAddress: string | null;
   priority?: "standard" | "urgent";
   requestId: string | null;
   userAgent: string | null;
 }) {
+  if (shouldUseSupabaseAuth()) {
+    return assignSupabaseDoctorReview(input);
+  }
+
+  if (!input.assignedDoctorEmail) {
+    // The local mock store keys doctors by email; UUID-based assignment is a
+    // Supabase-only path.
+    throw new Error("assigned_doctor_not_found");
+  }
+
   const store = await getStore();
   const insight = mustFindHealthInsight(store, input.healthInsightId);
   const labReport = mustFindLabReport(store, insight.labReportId);
@@ -1300,6 +1432,10 @@ export async function assignDoctorReview(input: {
 }
 
 export async function listDoctorReviews(doctorEmail: string) {
+  if (shouldUseSupabaseAuth()) {
+    return listSupabaseDoctorReviews(doctorEmail);
+  }
+
   const store = await getStore();
   const normalizedDoctorEmail = doctorEmail.trim().toLowerCase();
   return store.doctorReviews
@@ -1309,6 +1445,10 @@ export async function listDoctorReviews(doctorEmail: string) {
 }
 
 export async function getDoctorReviewDetail(doctorEmail: string, reviewId: string) {
+  if (shouldUseSupabaseAuth()) {
+    return getSupabaseDoctorReviewDetail(doctorEmail, reviewId);
+  }
+
   const store = await getStore();
   const normalizedDoctorEmail = doctorEmail.trim().toLowerCase();
   const review = store.doctorReviews.find(
@@ -1330,6 +1470,10 @@ export async function applyDoctorReviewAction(input: {
   reviewId: string;
   userAgent: string | null;
 }) {
+  if (shouldUseSupabaseAuth()) {
+    return applySupabaseDoctorReviewAction(input);
+  }
+
   const store = await getStore();
   const normalizedDoctorEmail = input.doctorEmail.trim().toLowerCase();
   const review = store.doctorReviews.find(
@@ -1812,6 +1956,7 @@ async function runClaimedWorkflowJob(store: ReportStore, jobId: string, workerId
 
   try {
     const malwareScan = await getMalwareScannerProvider().scanFile({
+      filename: reportFile.originalFilename,
       reportFileId: reportFile.id,
       mimeType: reportFile.mimeType,
       storageKey: reportFile.storageKey
@@ -2246,10 +2391,13 @@ async function runExtractBiomarkersStep(store: ReportStore, jobId: string, worke
 
   let output: BiomarkerExtractionOutput;
   let providerName = "unconfigured";
+  let modelName = "unconfigured";
+  let latencyMs: number | null = null;
   try {
-    const provider = getAiProvider();
-    providerName = provider.name;
-    output = await provider.extractBiomarkers({
+    const gateway = getClinicalAiGateway();
+    providerName = gateway.providerName;
+    modelName = gateway.getModelName("biomarker_extraction");
+    const invocation = await gateway.extractBiomarkers({
       extractedDocumentId: extractedDocument.id,
       extractedTablesJson: extractedDocument.extractedTablesJson,
       extractedText: extractedDocument.extractedText,
@@ -2257,21 +2405,27 @@ async function runExtractBiomarkersStep(store: ReportStore, jobId: string, worke
       reportFileId: reportFile.id,
       userId: labReport.userId
     });
+    output = invocation.output;
+    latencyMs = invocation.metadata.latencyMs;
+    modelName = invocation.metadata.modelName;
   } catch (caught) {
-    const message = caught instanceof Error ? caught.message : "AI provider is not configured.";
-    const errorCode = message.includes("configuration") || message.includes("Mock AI provider is disabled")
-      ? "ai_configuration_required"
-      : "ai_provider_failed";
+    const failure = aiFailureDetails(caught, {
+      modelName,
+      provider: providerName,
+      task: "biomarker_extraction"
+    });
+    const errorCode = failure.code;
     recordAiModelRun(store, {
       errorCode,
-      errorMessage: message,
+      errorMessage: failure.message,
       extractedDocumentId: extractedDocument.id,
       input: aiInputSummary(job, extractedDocument),
       job,
-      modelName: process.env.OPENAI_MODEL_EXTRACTION || providerName,
+      latencyMs: failure.latencyMs,
+      modelName: failure.modelName,
       output: null,
       promptVersion: biomarkerExtractionPromptVersion(),
-      provider: providerName,
+      provider: failure.provider,
       safetyFilterStatus: "not_applicable",
       schemaVersion: BIOMARKER_EXTRACTION_SCHEMA_VERSION,
       status: "failed",
@@ -2293,7 +2447,8 @@ async function runExtractBiomarkersStep(store: ReportStore, jobId: string, worke
       extractedDocumentId: extractedDocument.id,
       input: aiInputSummary(job, extractedDocument),
       job,
-      modelName: process.env.OPENAI_MODEL_EXTRACTION || providerName,
+      latencyMs,
+      modelName,
       output,
       promptVersion: biomarkerExtractionPromptVersion(),
       provider: providerName,
@@ -2314,7 +2469,8 @@ async function runExtractBiomarkersStep(store: ReportStore, jobId: string, worke
     extractedDocumentId: extractedDocument.id,
     input: aiInputSummary(job, extractedDocument),
     job,
-    modelName: process.env.OPENAI_MODEL_EXTRACTION || providerName,
+    latencyMs,
+    modelName,
     output,
     promptVersion: biomarkerExtractionPromptVersion(),
     provider: providerName,
@@ -2529,34 +2685,52 @@ async function runGeneratePatientExplanationStep(store: ReportStore, jobId: stri
 
   let explanation: PatientExplanationOutput;
   let providerName = "unconfigured";
+  let modelName = "unconfigured";
+  let latencyMs: number | null = null;
   try {
-    const provider = getAiProvider();
-    providerName = provider.name;
-    explanation = await provider.generatePatientExplanation({
+    const gateway = getClinicalAiGateway();
+    providerName = gateway.providerName;
+    modelName = gateway.getModelName("patient_explanation");
+    const invocation = await gateway.generatePatientExplanation({
       biomarkers,
       labReportId: labReport.id,
       userId: labReport.userId
     });
+    explanation = invocation.output;
+    latencyMs = invocation.metadata.latencyMs;
+    modelName = invocation.metadata.modelName;
   } catch (caught) {
-    const message = caught instanceof Error ? caught.message : "AI explanation provider is not configured.";
+    const failure = aiFailureDetails(caught, {
+      modelName,
+      provider: providerName,
+      task: "patient_explanation"
+    });
     recordAiModelRun(store, {
-      errorCode: "ai_configuration_required",
-      errorMessage: message,
+      errorCode: failure.code,
+      errorMessage: failure.message,
       input: { biomarkerIds: biomarkers.map((marker) => marker.id), labReportId: labReport.id },
       job,
-      modelName: process.env.OPENAI_MODEL_EXPLANATION || providerName,
+      latencyMs: failure.latencyMs,
+      modelName: failure.modelName,
       output: null,
       promptVersion: patientExplanationPromptVersion(),
-      provider: providerName,
+      provider: failure.provider,
       safetyFilterStatus: "blocked",
       schemaVersion: PATIENT_EXPLANATION_SCHEMA_VERSION,
       status: "failed",
       taskType: "patient_explanation",
       workerId: workerIdValue
     });
-    addAiAudit(store, "ai_configuration_required", workerIdValue, "lab_report", labReport.id, {});
-    await failAndBlockWorkflowJob(store, job.id, "generate_patient_explanation", "ai_configuration_required", "AI patient explanation is not configured.");
-    return { job, processed: true, reason: "ai_configuration_required" };
+    addAiAudit(
+      store,
+      failure.code === "ai_configuration_required" ? "ai_configuration_required" : "model_run_failed",
+      workerIdValue,
+      "lab_report",
+      labReport.id,
+      { errorCode: failure.code }
+    );
+    await failAndBlockWorkflowJob(store, job.id, "generate_patient_explanation", failure.code, "AI patient explanation is unavailable.");
+    return { job, processed: true, reason: failure.code };
   }
 
   if (!explanation.disclaimer) {
@@ -2571,7 +2745,8 @@ async function runGeneratePatientExplanationStep(store: ReportStore, jobId: stri
     errorMessage: schemaValidation.ok ? null : schemaValidation.errors.join("; "),
     input: { biomarkerIds: biomarkers.map((marker) => marker.id), labReportId: labReport.id },
     job,
-    modelName: process.env.OPENAI_MODEL_EXPLANATION || providerName,
+    latencyMs,
+    modelName,
     output: explanation,
     promptVersion: patientExplanationPromptVersion(),
     provider: providerName,
@@ -2725,6 +2900,7 @@ export async function processUploadedReport(store: ReportStore, jobId: string, b
     userAgent: "storage-platform"
   });
   const malwareScan = await getMalwareScannerProvider().scanFile({
+    filename: reportFile.originalFilename,
     reportFileId: reportFile.id,
     mimeType: reportFile.mimeType,
     storageKey: reportFile.storageKey

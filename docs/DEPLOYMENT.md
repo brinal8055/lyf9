@@ -44,6 +44,8 @@ AWS_REGION
 AWS_ACCESS_KEY_ID
 AWS_SECRET_ACCESS_KEY
 S3_REPORT_BUCKET
+STAGING_S3_BUCKET
+PRODUCTION_S3_BUCKET
 LYF9_AUTH_SECRET
 LYF9_REPORT_URL_SECRET
 LYF9_BETA_ACCESS_MODE
@@ -131,17 +133,17 @@ Private beta requirement:
 
 Before real users:
 
-- Create PostgreSQL schema from `docs/03_DATABASE_SCHEMA.md`.
-- Apply Supabase migration `supabase/migrations/202606060001_private_beta_core.sql`.
-- Apply Supabase hardening migration `supabase/migrations/202606060002_auth_persistence_rls_hardening.sql`.
+- Create PostgreSQL schema from the ordered files in `supabase/migrations/`; staging is currently applied through `202609020001_workflow_rpc_hardening.sql`.
+- Run `npm run verify:migrations` before every migration change. Never edit a migration already represented in `supabase/migration-lock.json`.
+- Run `npm run verify:staging:migrations` with the secure staging `DATABASE_URL` before promotion; this command refuses a production or mismatched Supabase project.
 - Enable RLS policies and test them with user, doctor, admin, and superadmin accounts.
 - Store users, consents, report metadata, jobs, biomarkers, insights, doctor reviews, payments, feedback, analytics events, notifications, audit logs, and beta invites in PostgreSQL.
 - Keep UUID primary keys and timestamps.
 - Run migrations before deploying app code that expects new columns.
 
-Current blocker:
+Current status:
 
-- The Supabase Auth/Postgres/RLS foundation exists in code, but migrations and JWT-backed RLS tests have not been run in a live staging Supabase project.
+- The Supabase Auth/Postgres/RLS foundation, backend consent gate, exact 11-row staging migration ledger, checksum lock, and post-reconciliation live RLS suite pass with synthetic staging users. Reliable signup email delivery remains.
 
 ## Storage Bucket
 
@@ -149,15 +151,18 @@ Before real users:
 
 - Create a private bucket.
 - Disable public object access.
-- Configure `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `S3_REPORT_BUCKET`.
+- Configure `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_REPORT_BUCKET`, and `STAGING_S3_BUCKET` in staging.
+- Set `PRODUCTION_S3_BUCKET` so destructive staging verification can prove the targets differ.
 - Use short-lived signed URLs only.
 - Restrict upload MIME types to PDF, JPG, JPEG, PNG.
-- Add malware scanning before processing.
+- Enable GuardDuty Malware Protection for S3 on `reports/`, enable object tagging, add staging-prefix `s3:GetObjectTagging` to the app IAM policy, and run `npm run verify:staging:malware` as documented in `docs/34_GUARDDUTY_S3_MALWARE_SETUP.md`.
+- Configure scoped Textract document detection permissions and run `npm run verify:staging:textract` as documented in `docs/35_TEXTRACT_STAGING_SETUP.md`.
+- Configure the staging-only Inngest keys, sync `/api/inngest`, and pass `npm run verify:staging:inngest` as documented in `docs/36_INNGEST_STAGING_SETUP.md`.
 - Add retention/deletion policy reviewed for DPDP compliance.
 
-Current blocker:
+Current status:
 
-- Local storage is used for scaffold verification.
+- The staging-only S3 provider and GuardDuty clean/threat verifier pass with synthetic data. Retention/versioning and key-management approval remain before PHI.
 
 ## Queue And Redis
 

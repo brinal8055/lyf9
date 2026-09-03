@@ -4,17 +4,23 @@ import path from "path";
 
 import { createSupabaseServiceClient } from "../auth/providers/supabase-server";
 import { writeSupabaseAuditLog } from "../auth/supabase-auth";
-import { buildMarkerCards, reportFilesByLabReportId } from "./presentation";
+import { buildMarkerCards, buildTrendSeries, reportFilesByLabReportId } from "./presentation";
 import { getStorageProvider } from "./providers/storage";
 import { PROCESSING_VERSION, makeIdempotencyKey } from "./validation";
 import type {
   AnalyticsEventName,
+  DoctorReviewAction,
+  DoctorReviewRecord,
   FeedbackEventRecord,
   BiomarkerResultRecord,
   LabReportRecord,
   ProcessingJobRecord,
   ProcessingStepName,
   ProcessingJobStepRecord,
+  PaymentProductType,
+  PaymentProviderName,
+  PaymentRecord,
+  ReminderRecord,
   ReportFileRecord,
   UserRole
 } from "./types";
@@ -36,6 +42,29 @@ const PROCESSING_STEP_NAMES = new Set<ProcessingStepName>([
 ]);
 
 type DbRow = Record<string, unknown>;
+
+export async function getSupabaseStoreHealth() {
+  const serviceClient = createSupabaseServiceClient();
+  const { count, error } = await serviceClient
+    .from("report_files")
+    .select("id", { count: "exact", head: true });
+
+  if (error) {
+    return {
+      errorCode: error.code || "supabase_query_failed",
+      ok: false,
+      storageMode: process.env.STORAGE_PROVIDER ?? "unconfigured",
+      storeMode: "supabase-postgres"
+    };
+  }
+
+  return {
+    ok: true,
+    reportFileCount: count ?? 0,
+    storageMode: process.env.STORAGE_PROVIDER ?? "unconfigured",
+    storeMode: "supabase-postgres"
+  };
+}
 
 export async function createSupabaseUploadInit(input: {
   checksumSha256: string;
@@ -114,7 +143,7 @@ export async function createSupabaseUploadInit(input: {
     scan_status: "scan_pending",
     size_bytes: input.fileSizeBytes,
     status: "upload_pending",
-    storage_bucket: storageProvider.name,
+    storage_bucket: uploadTarget.storageBucket,
     storage_key: uploadTarget.storageKey,
     storage_provider: storageProvider.name,
     updated_at: now,
@@ -395,6 +424,566 @@ export async function getSupabaseReportDetails(userId: string, reportFileId: str
     riskFlags: flagResult.data ?? [],
     unsupportedSections: labReport?.unsupportedSections ?? []
   };
+}
+
+export async function listSupabaseHealthTimeline(userId: string) {
+  const serviceClient = createSupabaseServiceClient();
+  const [filesResult, reportsResult, jobsResult, insightsResult, markerResult, reminderResult] =
+    await Promise.all([
+      serviceClient
+        .from("report_files")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false }),
+      serviceClient.from("lab_reports").select("*").eq("user_id", userId),
+      serviceClient.from("processing_jobs").select("*").eq("user_id", userId),
+      serviceClient.from("health_insights").select("*").eq("user_id", userId),
+      serviceClient.from("biomarker_results").select("*").eq("user_id", userId),
+      serviceClient
+        .from("reminders")
+        .select("*")
+        .eq("user_id", userId)
+        .order("reminder_date", { ascending: true })
+    ]);
+
+  throwIfSupabaseError(filesResult.error);
+  throwIfSupabaseError(reportsResult.error);
+  throwIfSupabaseError(jobsResult.error);
+  throwIfSupabaseError(insightsResult.error);
+  throwIfSupabaseError(markerResult.error);
+  throwIfSupabaseError(reminderResult.error);
+
+  const reportFiles = (filesResult.data ?? []).map(toReportFile);
+  const labReports = (reportsResult.data ?? []).map(toLabReport);
+  const jobs = (jobsResult.data ?? []).map(toProcessingJob);
+  const insights = insightsResult.data ?? [];
+  const markers = (markerResult.data ?? []).map(toBiomarkerResult);
+  const filesByLabReportId = reportFilesByLabReportId(labReports, reportFiles);
+
+  return {
+    reminders: (reminderResult.data ?? []).map(toReminder),
+    timeline: reportFiles.map((reportFile) => {
+      const labReport = labReports.find((report) => report.reportFileId === reportFile.id) ?? null;
+      return {
+        insight: labReport
+          ? insights.find((row) => stringField(row, "lab_report_id") === labReport.id) ?? null
+          : null,
+        job: jobs.find((job) => job.reportFileId === reportFile.id) ?? null,
+        labReport,
+        markerCount: labReport
+          ? markers.filter((marker) => marker.labReportId === labReport.id).length
+          : 0,
+        reportFile
+      };
+    }),
+    trendSeries: buildTrendSeries({
+      markers,
+      reportFilesByLabReportId: filesByLabReportId
+    })
+  };
+}
+
+export async function createSupabaseRetestReminder(input: {
+  canonicalBiomarkerKey: string | null;
+  note: string | null;
+  reminderDate: string;
+  reportFileId: string | null;
+  title: string;
+  userId: string;
+}) {
+  const serviceClient = createSupabaseServiceClient();
+  let labReportId: string | null = null;
+
+  if (input.reportFileId) {
+    const { data, error } = await serviceClient
+      .from("lab_reports")
+      .select("id")
+      .eq("report_file_id", input.reportFileId)
+      .eq("user_id", input.userId)
+      .maybeSingle();
+    throwIfSupabaseError(error);
+    labReportId = (data as DbRow | null) ? stringField(data as DbRow, "id") : null;
+  }
+
+  const { data, error } = await serviceClient
+    .from("reminders")
+    .insert({
+      canonical_biomarker_key: input.canonicalBiomarkerKey,
+      lab_report_id: labReportId,
+      note: input.note,
+      reminder_date: input.reminderDate,
+      report_file_id: input.reportFileId,
+      status: "scheduled",
+      title: input.title,
+      user_id: input.userId
+    })
+    .select("*")
+    .single();
+
+  throwIfSupabaseError(error);
+
+  const reminder = toReminder(data as DbRow);
+  await trackSupabaseAnalyticsEvent({
+    eventName: "reminder_set",
+    metadata: { canonicalBiomarkerKey: input.canonicalBiomarkerKey },
+    reportFileId: input.reportFileId,
+    userId: input.userId
+  });
+
+  return reminder;
+}
+
+export async function startSupabasePayment(input: {
+  amountMinorUnits: number;
+  currency: "INR";
+  legalReviewRequired: boolean;
+  productType: PaymentProductType;
+  provider: PaymentProviderName;
+  providerOrderId: string;
+  publicLaunchEnabled: boolean;
+  reportFileId: string | null;
+  userId: string;
+}): Promise<PaymentRecord> {
+  const serviceClient = createSupabaseServiceClient();
+
+  if (input.reportFileId) {
+    const ownership = await serviceClient
+      .from("report_files")
+      .select("id")
+      .eq("id", input.reportFileId)
+      .eq("user_id", input.userId)
+      .maybeSingle();
+    throwIfSupabaseError(ownership.error);
+
+    if (!ownership.data) {
+      throw new Error("report_not_found");
+    }
+  }
+
+  const { data, error } = await serviceClient
+    .from("payments")
+    .insert({
+      amount: input.amountMinorUnits,
+      currency: input.currency,
+      product_type: input.productType,
+      provider: input.provider,
+      provider_order_id: input.providerOrderId,
+      report_id: input.reportFileId,
+      status: "started",
+      user_id: input.userId
+    })
+    .select("*")
+    .single();
+
+  throwIfSupabaseError(error);
+
+  await trackSupabaseAnalyticsEvent({
+    eventName: "payment_started",
+    metadata: { amountMinorUnits: input.amountMinorUnits, productType: input.productType },
+    reportFileId: input.reportFileId,
+    userId: input.userId
+  });
+
+  return toPayment(data as DbRow, {
+    legalReviewRequired: input.legalReviewRequired,
+    publicLaunchEnabled: input.publicLaunchEnabled
+  });
+}
+
+export async function findSupabasePayment(
+  paymentId: string,
+  userId: string
+): Promise<DbRow | null> {
+  const serviceClient = createSupabaseServiceClient();
+  const { data, error } = await serviceClient
+    .from("payments")
+    .select("*")
+    .eq("id", paymentId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  throwIfSupabaseError(error);
+  return (data as DbRow | null) ?? null;
+}
+
+export async function completeSupabasePayment(input: {
+  legalReviewRequired: boolean;
+  paymentId: string;
+  providerPaymentId: string;
+  publicLaunchEnabled: boolean;
+  userId: string;
+}): Promise<PaymentRecord> {
+  const serviceClient = createSupabaseServiceClient();
+  const { data, error } = await serviceClient
+    .from("payments")
+    .update({
+      provider_payment_id: input.providerPaymentId,
+      status: "completed",
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", input.paymentId)
+    .eq("user_id", input.userId)
+    .select("*")
+    .single();
+
+  throwIfSupabaseError(error);
+
+  const payment = toPayment(data as DbRow, {
+    legalReviewRequired: input.legalReviewRequired,
+    publicLaunchEnabled: input.publicLaunchEnabled
+  });
+
+  await trackSupabaseAnalyticsEvent({
+    eventName: "payment_completed",
+    metadata: { amountMinorUnits: payment.amountMinorUnits, productType: payment.productType },
+    reportFileId: payment.reportId,
+    userId: input.userId
+  });
+  await writeSupabaseAuditLog({
+    action: "payment_completed",
+    actorRole: "user",
+    actorUserId: input.userId,
+    metadata: { productType: payment.productType, provider: payment.provider },
+    resourceId: payment.id,
+    resourceType: "payment"
+  });
+
+  return payment;
+}
+
+async function findSupabaseUserIdByEmail(email: string): Promise<string | null> {
+  const serviceClient = createSupabaseServiceClient();
+  const normalized = email.trim().toLowerCase();
+  const { data, error } = await serviceClient
+    .from("user_profiles")
+    .select("user_id")
+    .eq("email", normalized)
+    .maybeSingle();
+
+  throwIfSupabaseError(error);
+  return data ? stringField(data as DbRow, "user_id") : null;
+}
+
+async function buildSupabaseDoctorReviewDetail(reviewRow: DbRow) {
+  const serviceClient = createSupabaseServiceClient();
+  const labReportId = stringField(reviewRow, "lab_report_id");
+  const reportFileId = stringField(reviewRow, "report_file_id");
+  const healthInsightId = stringField(reviewRow, "health_insight_id");
+  const patientUserId = stringField(reviewRow, "user_id");
+
+  const assignedDoctorId = nullableString(reviewRow, "assigned_doctor_id");
+
+  const [
+    labResult,
+    fileResult,
+    insightResult,
+    markerResult,
+    flagResult,
+    patientResult,
+    doctorResult
+  ] = await Promise.all([
+    serviceClient.from("lab_reports").select("*").eq("id", labReportId).maybeSingle(),
+    serviceClient.from("report_files").select("*").eq("id", reportFileId).maybeSingle(),
+    serviceClient.from("health_insights").select("*").eq("id", healthInsightId).maybeSingle(),
+    serviceClient.from("biomarker_results").select("*").eq("lab_report_id", labReportId),
+    serviceClient.from("health_risk_flags").select("*").eq("lab_report_id", labReportId),
+    serviceClient
+      .from("user_profiles")
+      .select("email, full_name")
+      .eq("user_id", patientUserId)
+      .maybeSingle(),
+    // assigned_doctor_id is a UUID; the record exposes an email field, so
+    // resolve it here rather than leaking the raw UUID into the UI.
+    assignedDoctorId
+      ? serviceClient
+          .from("user_profiles")
+          .select("email")
+          .eq("user_id", assignedDoctorId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null })
+  ]);
+
+  throwIfSupabaseError(labResult.error);
+  throwIfSupabaseError(fileResult.error);
+  throwIfSupabaseError(insightResult.error);
+  throwIfSupabaseError(markerResult.error);
+  throwIfSupabaseError(flagResult.error);
+  throwIfSupabaseError(patientResult.error);
+  throwIfSupabaseError(doctorResult.error);
+
+  const patientRow = patientResult.data as DbRow | null;
+  const doctorRow = doctorResult.data as DbRow | null;
+  const assignedDoctorEmail = doctorRow ? stringField(doctorRow, "email") : null;
+
+  return {
+    biomarkers: (markerResult.data ?? []).map(toBiomarkerResult),
+    healthInsight: insightResult.data ?? null,
+    labReport: labResult.data ? toLabReport(labResult.data) : null,
+    patient: {
+      displayName: patientRow
+        ? stringField(patientRow, "full_name") || stringField(patientRow, "email").split("@")[0]
+        : patientUserId,
+      userId: patientUserId
+    },
+    questionnaireSummary: {
+      goals: "See the patient onboarding questionnaire.",
+      symptoms: "See the patient onboarding questionnaire."
+    },
+    reportFile: fileResult.data ? toReportFile(fileResult.data) : null,
+    review: toDoctorReview(reviewRow, assignedDoctorEmail),
+    riskFlags: flagResult.data ?? []
+  };
+}
+
+export async function listSupabaseDoctorReviews(doctorEmail: string) {
+  const doctorId = await findSupabaseUserIdByEmail(doctorEmail);
+
+  if (!doctorId) {
+    return [];
+  }
+
+  const serviceClient = createSupabaseServiceClient();
+  const { data, error } = await serviceClient
+    .from("doctor_reviews")
+    .select("*")
+    .eq("assigned_doctor_id", doctorId)
+    .order("created_at", { ascending: false });
+
+  throwIfSupabaseError(error);
+
+  return Promise.all(((data ?? []) as DbRow[]).map(buildSupabaseDoctorReviewDetail));
+}
+
+export async function getSupabaseDoctorReviewDetail(doctorEmail: string, reviewId: string) {
+  const doctorId = await findSupabaseUserIdByEmail(doctorEmail);
+
+  if (!doctorId) {
+    return null;
+  }
+
+  const serviceClient = createSupabaseServiceClient();
+  const { data, error } = await serviceClient
+    .from("doctor_reviews")
+    .select("*")
+    .eq("id", reviewId)
+    .eq("assigned_doctor_id", doctorId)
+    .maybeSingle();
+
+  throwIfSupabaseError(error);
+  return data ? buildSupabaseDoctorReviewDetail(data as DbRow) : null;
+}
+
+export async function assignSupabaseDoctorReview(input: {
+  actorUserId: string;
+  assignedDoctorEmail?: string;
+  assignedDoctorId?: string;
+  healthInsightId: string;
+  ipAddress: string | null;
+  priority?: "standard" | "urgent";
+  requestId: string | null;
+  userAgent: string | null;
+}) {
+  const serviceClient = createSupabaseServiceClient();
+  // Prefer the UUID when the caller already resolved a doctor (the capacity-aware
+  // assignment path). The email lookup remains for legacy callers only.
+  const doctorId =
+    input.assignedDoctorId ??
+    (input.assignedDoctorEmail
+      ? await findSupabaseUserIdByEmail(input.assignedDoctorEmail)
+      : null);
+
+  if (!doctorId) {
+    throw new Error("assigned_doctor_not_found");
+  }
+
+  const insightResult = await serviceClient
+    .from("health_insights")
+    .select("*")
+    .eq("id", input.healthInsightId)
+    .maybeSingle();
+  throwIfSupabaseError(insightResult.error);
+
+  if (!insightResult.data) {
+    throw new Error("health_insight_not_found");
+  }
+
+  const insight = insightResult.data as DbRow;
+  const labReportId = stringField(insight, "lab_report_id");
+  const labResult = await serviceClient
+    .from("lab_reports")
+    .select("report_file_id")
+    .eq("id", labReportId)
+    .maybeSingle();
+  throwIfSupabaseError(labResult.error);
+
+  const reportFileId = labResult.data ? stringField(labResult.data as DbRow, "report_file_id") : "";
+  const now = new Date().toISOString();
+  const priority = input.priority ?? "standard";
+
+  const existingResult = await serviceClient
+    .from("doctor_reviews")
+    .select("*")
+    .eq("health_insight_id", input.healthInsightId)
+    .neq("status", "rejected")
+    .maybeSingle();
+  throwIfSupabaseError(existingResult.error);
+
+  const reviewValues = {
+    ai_draft_snapshot: {
+      disclaimer: stringField(insight, "disclaimer"),
+      summary: stringField(insight, "summary")
+    },
+    assigned_at: now,
+    assigned_by: input.actorUserId,
+    assigned_doctor_id: doctorId,
+    health_insight_id: input.healthInsightId,
+    lab_report_id: labReportId,
+    priority,
+    report_file_id: reportFileId,
+    status: "assigned",
+    updated_at: now,
+    user_id: stringField(insight, "user_id")
+  };
+
+  const upsertResult = existingResult.data
+    ? await serviceClient
+        .from("doctor_reviews")
+        .update({
+          assigned_doctor_id: doctorId,
+          priority,
+          status:
+            stringField(existingResult.data as DbRow, "status") === "more_info_requested"
+              ? "assigned"
+              : stringField(existingResult.data as DbRow, "status"),
+          updated_at: now
+        })
+        .eq("id", stringField(existingResult.data as DbRow, "id"))
+        .select("*")
+        .single()
+    : await serviceClient.from("doctor_reviews").insert(reviewValues).select("*").single();
+
+  throwIfSupabaseError(upsertResult.error);
+  const review = upsertResult.data as DbRow;
+
+  const insightUpdate = await serviceClient
+    .from("health_insights")
+    .update({
+      doctor_review_id: stringField(review, "id"),
+      status: "doctor_review_required",
+      updated_at: now
+    })
+    .eq("id", input.healthInsightId);
+  throwIfSupabaseError(insightUpdate.error);
+
+  await writeSupabaseAuditLog({
+    action: "doctor_review_assigned",
+    actorRole: "admin",
+    actorUserId: input.actorUserId,
+    metadata: { healthInsightId: input.healthInsightId, priority },
+    resourceId: stringField(review, "id"),
+    resourceType: "doctor_review"
+  });
+  await trackSupabaseAnalyticsEvent({
+    eventName: "doctor_review_requested",
+    metadata: { priority },
+    reportFileId,
+    userId: stringField(insight, "user_id")
+  });
+
+  return toDoctorReview(review);
+}
+
+export async function applySupabaseDoctorReviewAction(input: {
+  action: DoctorReviewAction;
+  doctorEmail: string;
+  editedSummary: string | null;
+  ipAddress: string | null;
+  notes: string | null;
+  reason: string | null;
+  requestId: string | null;
+  reviewId: string;
+  userAgent: string | null;
+}) {
+  const serviceClient = createSupabaseServiceClient();
+  const doctorId = await findSupabaseUserIdByEmail(input.doctorEmail);
+
+  if (!doctorId) {
+    throw new Error("doctor_review_not_found");
+  }
+
+  const reviewResult = await serviceClient
+    .from("doctor_reviews")
+    .select("*")
+    .eq("id", input.reviewId)
+    .eq("assigned_doctor_id", doctorId)
+    .maybeSingle();
+  throwIfSupabaseError(reviewResult.error);
+
+  if (!reviewResult.data) {
+    throw new Error("doctor_review_not_found");
+  }
+
+  const review = reviewResult.data as DbRow;
+  const now = new Date().toISOString();
+  const reviewUpdate: DbRow = { doctor_notes: input.notes, updated_at: now };
+  const insightUpdate: DbRow = { updated_at: now };
+
+  if (input.action === "mark_urgent") {
+    reviewUpdate.priority = "urgent";
+    if (stringField(review, "status") === "assigned") {
+      reviewUpdate.status = "in_review";
+    }
+  } else if (input.action === "approve") {
+    reviewUpdate.completed_at = now;
+    reviewUpdate.status = "approved";
+    insightUpdate.doctor_reviewed_at = now;
+    insightUpdate.doctor_reviewed_by = doctorId;
+    insightUpdate.status = "doctor_reviewed";
+  } else if (input.action === "edit_and_approve") {
+    reviewUpdate.completed_at = now;
+    reviewUpdate.doctor_edited_output = { summary: input.editedSummary };
+    reviewUpdate.status = "edited_approved";
+    insightUpdate.doctor_reviewed_at = now;
+    insightUpdate.doctor_reviewed_by = doctorId;
+    insightUpdate.status = "doctor_reviewed";
+    if (input.editedSummary) {
+      insightUpdate.summary = input.editedSummary;
+    }
+  } else if (input.action === "reject") {
+    reviewUpdate.completed_at = now;
+    reviewUpdate.rejection_reason = input.reason;
+    reviewUpdate.status = "rejected";
+    insightUpdate.status = "rejected";
+  } else if (input.action === "request_more_info") {
+    reviewUpdate.request_more_info_message = input.reason;
+    reviewUpdate.status = "more_info_requested";
+    insightUpdate.status = "doctor_review_required";
+  }
+
+  const updatedReview = await serviceClient
+    .from("doctor_reviews")
+    .update(reviewUpdate)
+    .eq("id", input.reviewId)
+    .select("*")
+    .single();
+  throwIfSupabaseError(updatedReview.error);
+
+  const updatedInsight = await serviceClient
+    .from("health_insights")
+    .update(insightUpdate)
+    .eq("id", stringField(review, "health_insight_id"));
+  throwIfSupabaseError(updatedInsight.error);
+
+  await writeSupabaseAuditLog({
+    action: "doctor_review_action",
+    actorRole: "doctor",
+    actorUserId: doctorId,
+    metadata: { action: input.action },
+    resourceId: input.reviewId,
+    resourceType: "doctor_review"
+  });
+
+  return buildSupabaseDoctorReviewDetail(updatedReview.data as DbRow);
 }
 
 export async function addSupabaseSignedUrlAudit(input: {
@@ -935,6 +1524,85 @@ function toReportFile(row: DbRow): ReportFileRecord {
     unsupportedReason: nullableString(row, "unsupported_reason"),
     updatedAt: stringField(row, "updated_at"),
     uploadedAt: nullableString(row, "uploaded_at") ?? stringField(row, "created_at"),
+    userId: stringField(row, "user_id")
+  };
+}
+
+function toPayment(
+  row: DbRow,
+  flags: { legalReviewRequired: boolean; publicLaunchEnabled: boolean }
+): PaymentRecord {
+  return {
+    amountMinorUnits: numberField(row, "amount"),
+    createdAt: stringField(row, "created_at"),
+    currency: (stringField(row, "currency") || "INR") as PaymentRecord["currency"],
+    id: stringField(row, "id"),
+    legalReviewRequired: flags.legalReviewRequired,
+    productType: stringField(row, "product_type") as PaymentProductType,
+    provider: stringField(row, "provider") as PaymentProviderName,
+    providerOrderId: nullableString(row, "provider_order_id"),
+    providerPaymentId: nullableString(row, "provider_payment_id"),
+    publicLaunchEnabled: flags.publicLaunchEnabled,
+    reportId: nullableString(row, "report_id"),
+    status: stringField(row, "status") as PaymentRecord["status"],
+    updatedAt: stringField(row, "updated_at"),
+    userId: stringField(row, "user_id")
+  };
+}
+
+function toDoctorReview(row: DbRow, resolvedDoctorEmail?: string | null): DoctorReviewRecord {
+  const snapshot = (row.ai_draft_snapshot ?? {}) as Record<string, unknown>;
+  const editedOutput = (row.doctor_edited_output ?? null) as Record<string, unknown> | null;
+
+  return {
+    aiDraftSnapshot: {
+      disclaimer: typeof snapshot.disclaimer === "string" ? snapshot.disclaimer : "",
+      possibleRelevance: Array.isArray(snapshot.possibleRelevance)
+        ? (snapshot.possibleRelevance as string[])
+        : [],
+      questionsToAskDoctor: Array.isArray(snapshot.questionsToAskDoctor)
+        ? (snapshot.questionsToAskDoctor as string[])
+        : [],
+      retestSuggestion:
+        typeof snapshot.retestSuggestion === "string" ? snapshot.retestSuggestion : null,
+      summary: typeof snapshot.summary === "string" ? snapshot.summary : ""
+    },
+    assignedAt: stringField(row, "assigned_at"),
+    assignedBy: stringField(row, "assigned_by"),
+    // Falls back to the UUID only when the doctor has no user_profiles row,
+    // which should not happen for an approved doctor.
+    assignedDoctorEmail: resolvedDoctorEmail ?? stringField(row, "assigned_doctor_id"),
+    assignedDoctorId: stringField(row, "assigned_doctor_id"),
+    completedAt: nullableString(row, "completed_at"),
+    createdAt: stringField(row, "created_at"),
+    doctorEditedSummary:
+      editedOutput && typeof editedOutput.summary === "string" ? editedOutput.summary : null,
+    doctorNotes: nullableString(row, "doctor_notes"),
+    healthInsightId: stringField(row, "health_insight_id"),
+    id: stringField(row, "id"),
+    labReportId: stringField(row, "lab_report_id"),
+    priority: stringField(row, "priority") as DoctorReviewRecord["priority"],
+    rejectionReason: nullableString(row, "rejection_reason"),
+    reportFileId: stringField(row, "report_file_id"),
+    requestMoreInfoMessage: nullableString(row, "request_more_info_message"),
+    status: stringField(row, "status") as DoctorReviewRecord["status"],
+    updatedAt: stringField(row, "updated_at"),
+    userId: stringField(row, "user_id")
+  };
+}
+
+function toReminder(row: DbRow): ReminderRecord {
+  return {
+    canonicalBiomarkerKey: nullableString(row, "canonical_biomarker_key"),
+    createdAt: stringField(row, "created_at"),
+    id: stringField(row, "id"),
+    labReportId: nullableString(row, "lab_report_id"),
+    note: nullableString(row, "note"),
+    reminderDate: stringField(row, "reminder_date"),
+    reportFileId: nullableString(row, "report_file_id"),
+    status: stringField(row, "status") as ReminderRecord["status"],
+    title: stringField(row, "title"),
+    updatedAt: stringField(row, "updated_at"),
     userId: stringField(row, "user_id")
   };
 }

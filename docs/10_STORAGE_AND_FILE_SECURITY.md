@@ -9,11 +9,12 @@ Lyf9 AI now has a production-shaped private report file layer in code:
 - `apps/web/src/lib/storage/mock-storage-provider.ts`
 - `apps/web/src/lib/malware/malware-scanner-provider.ts`
 - `apps/web/src/lib/malware/mock-malware-scanner.ts`
+- `apps/web/src/lib/malware/guardduty-s3-malware-scanner.ts`
 - `apps/web/src/lib/malware/s3-event-scanner-stub.ts`
 
 The web route handlers use the provider abstraction for signed upload URLs, signed download URLs, metadata checks, and deletion. Frontend code never receives AWS credentials or service-role secrets.
 
-Real PHI private beta is still blocked until a private S3 bucket and a real malware scanner are configured and verified in staging.
+Private S3 upload/download/privacy/encryption/audit/delete behavior and GuardDuty clean/threat enforcement are live-verified with synthetic staging data. Real PHI private beta remains blocked by the remaining workflow, extraction, AI, observability, retention, clinical, and legal gates.
 
 ## StorageProvider Architecture
 
@@ -38,6 +39,8 @@ AWS_REGION=ap-south-1
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
 S3_REPORT_BUCKET=
+STAGING_S3_BUCKET=
+PRODUCTION_S3_BUCKET=
 S3_UPLOAD_URL_EXPIRY_SECONDS=900
 S3_DOWNLOAD_URL_EXPIRY_SECONDS=300
 MAX_REPORT_FILE_SIZE_BYTES=20971520
@@ -47,10 +50,12 @@ Rules:
 
 - Bucket must be private.
 - Do not enable public object ACLs or public bucket policy access.
-- Object keys use `reports/{userId}/{reportFileId}/{randomUuid}-{safeFilename}`.
+- Object keys use `reports/{userId}/{reportFileId}/{randomUuid}.{validatedExtension}`.
 - Object keys must not include user email, name, or other direct identifiers.
-- Store only `storage_key`, provider, and metadata in Postgres.
+- Store the real bucket name, opaque `storage_key`, provider, and metadata in Postgres.
 - Never store or return public object URLs.
+- Signed PUTs require the returned content type, checksum/report metadata, and `AES256` server-side-encryption headers.
+- Live verification requires `S3_REPORT_BUCKET=STAGING_S3_BUCKET`, refuses production-named buckets, and refuses a bucket matching `PRODUCTION_S3_BUCKET`.
 
 ## Signed Upload Flow
 
@@ -97,7 +102,7 @@ Raw report access is explicit and audited:
 `MalwareScannerProvider` exposes:
 
 ```txt
-scanFile({ reportFileId, storageKey, mimeType })
+scanFile({ reportFileId, storageKey, mimeType, filename? })
 ```
 
 Statuses:
@@ -108,7 +113,11 @@ Statuses:
 - `scan_skipped_dev_only`
 - `scan_configuration_required`
 
-Local/test may use `MALWARE_SCANNER_PROVIDER=mock`. Staging/production cannot silently skip scanning. If a real scanner is not configured, scan result remains `scan_configuration_required`, and processing does not advance to extraction.
+Local/test may use `MALWARE_SCANNER_PROVIDER=mock`. Staging and production use `MALWARE_SCANNER_PROVIDER=guardduty-s3` after GuardDuty Malware Protection for S3 is active for the private bucket. Production ignores the mock override and fails closed.
+
+The GuardDuty provider reads the managed `GuardDutyMalwareScanStatus` object tag. Only `NO_THREATS_FOUND` passes. `THREATS_FOUND` fails, `UNSUPPORTED`/`ACCESS_DENIED` require manual/configuration handling, and missing/failed scans remain retryable. The app IAM principal needs `s3:GetObjectTagging` only for `reports/*`; GuardDuty uses its own dedicated service role.
+
+Activation and verification are documented in `docs/34_GUARDDUTY_S3_MALWARE_SETUP.md`.
 
 ## Processing Gate
 
@@ -119,7 +128,7 @@ Processing must not move to extraction until malware scan passes.
 - `scan_configuration_required`: blocked.
 - `scan_passed`: may advance to classification/extraction.
 
-The worker stub now advertises `malware_scan` as the first step. A durable queue and real scanner are still required before real PHI beta.
+The worker stub now advertises `malware_scan` as the first step. GuardDuty is the live staging scanner; durable worker concurrency still requires staging verification before real PHI beta.
 
 ## Delete Flow
 
@@ -158,7 +167,7 @@ Audit metadata must stay PHI-minimal: IDs, MIME type, size, storage provider, st
 
 ## Current Limitations
 
-- Real S3 bucket policy, lifecycle, KMS decision, and staging smoke test are not yet verified.
-- Real ClamAV or S3 event scanner is not wired.
+- The synthetic app-level verifier passed through `npm run verify:staging:s3` against the staging-only bucket on 2026-09-02.
+- Signed upload/download, public denial, `AES256` encryption, metadata, audit actions, delete, and cleanup passed; lifecycle/retention and key-management policy still require approval before PHI.
+- GuardDuty Malware Protection is Active on the staging `reports/` prefix with managed tagging. The clean PDF and EICAR synthetic threat both passed expected tag/status checks through `npm run verify:staging:malware` on 2026-09-02, with cleanup.
 - Durable queue is still a blocker.
-- Live staging end-to-end tests for signed upload/download/delete are still required.

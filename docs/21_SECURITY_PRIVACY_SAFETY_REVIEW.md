@@ -5,19 +5,15 @@
 Medical safety: **partially safe for scaffold rehearsal, not safe for real PHI beta**.
 
 Safety score: **7.0/10** for local scaffold behavior.  
-Security/privacy score: **7.1/10** for real private beta readiness.
+Security/privacy score: **8.0/10** for real private beta readiness.
 
 ## Security Findings
 
 | Priority | Finding | Evidence | Risk | Fix |
 | --- | --- | --- | --- | --- |
-| P1 | Supabase Auth path not yet validated in staging | `apps/web/src/lib/auth/supabase-auth.ts`, auth routes | Code path exists, but real project/JWT behavior is unverified. | Configure staging Supabase and test real auth flows. |
-| P1 | RLS not yet tested with real JWTs | `supabase/migrations/202606060001_private_beta_core.sql`, `supabase/migrations/202606060002_auth_persistence_rls_hardening.sql` | Policies may behave differently under live claims. | Add live RLS test matrix. |
+| P1 | Signup email delivery is rate-limited in staging | Live `npm run test:auth-live` evidence | Login/session and authorization pass, but repeated invite signup cannot rely on Supabase's default sender quota. | Configure custom SMTP or an approved Auth email quota and rerun public signup without fixture fallback. |
 | P2 | Local scaffold fallback remains but is now fail-closed outside local/development | `apps/web/src/lib/auth/providers/supabase.ts`, `apps/web/src/lib/auth/request.ts` | Safe for local development only; staging/production now return setup/configuration errors instead of silently using local cookies when Supabase env is missing. | Keep `ENABLE_LOCAL_AUTH_FALLBACK` out of staging/production and verify deploy env. |
-| P0 | Private S3 not verified in staging | `apps/web/src/lib/storage/s3-storage-provider.ts` | Presigning code exists, but real bucket/IAM/public-access-block behavior is unverified. | Configure private S3 bucket and run signed upload/download/delete smoke tests. |
-| P0 | Mock/stub malware scanning | `apps/web/src/lib/malware/` | Unsafe files are not actually scanned. Production mock use fails closed, but real scanner is absent. | ClamAV/S3 event scanning. |
-| P1 | Workflow locking not verified under live concurrency | `apps/web/src/lib/workflow/workflow-provider.ts` | Best-effort local/store locks are tested, but concurrent Postgres worker behavior is unverified. | Apply migration and move claim to transaction/RPC before PHI concurrency. |
-| P1 | Live staging verification now exists but has not passed | `scripts/verify-staging.mjs`, `docs/29_STAGING_ENVIRONMENT_CONTRACT.md`, `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` | Commands refuse production and missing staging env, but current workspace lacks live provider config. | Configure staging env and run every `npm run verify:staging:*` command with synthetic data. |
+| P1 | Provider-backed golden verification is incomplete | `artifacts/staging-verification/ai.json`, `artifacts/staging-verification/golden-live.json` | Auth/RLS, consent, private S3, GuardDuty, workflow concurrency, scanned-image Textract OCR, and a live Gemini smoke pass; the complete golden run remains quota-blocked. | Obtain sufficient provider quota and rerun the complete synthetic golden gate without weakening thresholds. |
 | P1 | Analytics endpoint accepts unauthenticated events | `apps/web/src/app/api/analytics/route.ts` | Event spam and possible metadata misuse. | Require auth for app events or constrain anonymous public events. |
 | P1 | Health checks are config-only | `apps/api/app/main.py`, `apps/worker/app/worker.py` | False confidence in deployment. | Real connectivity probes. |
 
@@ -35,20 +31,20 @@ Partially implemented:
 - Upload-init attempts blocked by missing required consent now write `report_upload_blocked` with minimal safe metadata.
 - Raw report access now requires an explicit signed download URL request; deleted files and unauthorized users cannot mint fresh URLs.
 - Upload-complete creates the processing job with malware scan as the first gate; scan pending/failed/configuration-required states do not advance to extraction.
-- Processing jobs now have lease, retry, blocked, and audit state in code. OCR and schema-first AI steps run locally with mock providers while live provider configuration remains fail-closed.
-- Atomic Supabase RPCs now use Postgres row locking for job claim and expired lock release; live staging concurrency verification remains required before PHI.
+- Processing jobs have lease, retry, blocked, and audit state. Selected Textract and Gemini adapters run in synthetic staging; local mock providers remain limited to local/test use and deployed misconfiguration fails closed.
+- Atomic Supabase RPCs use Postgres row locking for job claim and expired lock release; concurrent claims, retry timing, job/step recovery, RPC denial, and PHI-minimal audits pass in staging.
 - Document extraction now uses provider contracts, persists extracted text/tables, and audits only provider/status/count metadata. Full extracted text is not written to audit logs.
 - Unsupported/unknown report classification blocks automated interpretation and does not proceed to biomarker AI extraction.
-- Schema-first AI workflow now logs model runs with hashes and safe metadata, validates output schemas before persistence, blocks missing OpenAI config in deployed env, and prevents unsupported reports from entering AI interpretation.
+- Schema-first AI now runs through a provider-neutral gateway, logs attempts with hashes/sanitized metadata, validates output/source traces before persistence, blocks incomplete selected-provider config in deployed environments, and prevents unsupported reports from entering AI interpretation.
 
 Gaps:
 
-- Supabase consent and audit behavior still needs staging verification.
-- S3 bucket policy, object metadata verification, and delete behavior still need staging verification.
-- Real malware scanner is not configured.
-- Workflow RPC lease/retry behavior needs staging Postgres concurrency verification.
-- Marker and Textract provider execution need staging verification before PHI.
-- Extracted document Supabase rows and RLS behavior need live staging verification.
+- Supabase consent/audit core paths are verified, but append-only audit governance and operator review procedures still need definition.
+- Private S3 upload/download/privacy/encryption/metadata/delete behavior passes synthetic staging verification; retention/versioning approval remains.
+- GuardDuty is Active for the staging `reports/` prefix; staging-only tag-read IAM and live clean/EICAR outcomes pass with synthetic cleanup.
+- Workflow RPC lease/retry behavior and the deployed Inngest saga are verified against staging with synthetic cleanup; re-run after workflow or runner changes.
+- Textract execution and `extracted_documents` persistence pass on readable and blank synthetic staging PNG scans with page/line provenance, confidence gates, zero blocked-input AI output, and independent cleanup. Broader extracted-document RLS boundary verification remains.
+- Marker remains optional while Textract is the explicitly selected beta parser.
 - Data export/delete is local scaffold only.
 - No grievance/contact support workflow.
 - No retention policy implementation.
@@ -69,18 +65,24 @@ Implemented:
 Gaps:
 
 - Critical thresholds are placeholders and not doctor-reviewed.
-- OpenAI Structured Outputs provider is contract-only and fails closed when unconfigured.
-- No live prompt execution yet.
+- Gemini, OpenAI, and mock adapters share one explicit provider contract; unknown providers and incomplete deployed configuration fail closed.
+- A synthetic live Gemini extraction/explanation passed schema, source-trace, disclaimer, and deterministic unsafe-language checks. The broader live golden run remains fail-closed because provider quota was exhausted mid-run.
 - Synthetic golden dataset validation exists locally; expanded human-reviewed sample coverage is still required.
 - Live staging verification artifacts are generated under `artifacts/staging-verification/`; these artifacts must not contain secrets or full extracted report text.
 - No public proof that every generated output was reviewed for unsafe copy across real reports.
 
 ## RLS Review
 
-Migrations include RLS enablement and policies for user-owned data, backend-controlled writes, admin reads, and assigned doctor reviews. The hardening migration adds required-consent RPC and stricter report/job write boundaries. However:
+Migrations include RLS enablement and policies for user-owned data, backend-controlled writes, admin reads, and assigned doctor reviews. The hardening migrations add a caller-scoped required-consent RPC and stricter report/job write boundaries.
 
-- Policies are not applied in a live Supabase project.
-- A live RLS harness now exists at `apps/web/src/lib/auth/supabase-live-rls.test.ts`, but it is skipped locally until `RUN_LIVE_SUPABASE_RLS=true` and staging Supabase env are configured.
+On 2026-09-04, staging migration history was reconciled only after read-only sentinels proved all 11 repository migrations were already represented in the application schema. The internal `supabase_migrations` ledger intentionally has no RLS because it is outside the exposed public Data API schema and contains migration metadata rather than user data. Production was not accessed or changed.
+
+- Policies are applied in the dedicated staging Supabase project.
+- The live RLS harness passed with two users, two doctors, one admin, and one superadmin using real Supabase Auth JWTs.
+- The same live RLS harness passed again after migration-history reconciliation, confirming that the ledger-only change did not alter application access boundaries.
+- Cross-user profile/report/job access, doctor assignment, superadmin-only role changes, direct audit insertion denial, consent scoping, and service-role bypass were verified.
+- The deployed Auth/API harness passed login/session, onboarding persistence, route denial, consent grant/revoke, and backend upload consent checks.
+- Normal local tests skip live harnesses unless their explicit staging flags and project reference are present.
 - Some non-core scaffold areas still need stricter insert/update/delete separation in later passes.
 - Doctor review linked context should be served through backend-controlled views/functions, not broad client table access.
 
@@ -88,6 +90,7 @@ Migration validation notes:
 
 - `202606060002_auth_persistence_rls_hardening.sql` now drops/recreates hardening policies before creating them, reducing rerun collisions.
 - The base migration remains a first-time migration and is not fully idempotent because it creates enum types and tables.
+- `supabase/migration-lock.json` pins every historical migration by version, name, and SHA-256; `npm run verify:migrations` rejects local edits and `npm run verify:staging:migrations` compares the secure staging database ledger and schema sentinels when `DATABASE_URL` is available.
 - Report/job direct user writes are denied after hardening; service-role server paths must audit sensitive operations.
 - Audit log direct user inserts are denied; admin-like users can read audit logs, and service role can write controlled safe metadata.
 - `202606060003_private_storage_scan_status.sql` adds report statuses for file-size rejection, scanner configuration blocks, dev-only scan skips, `malware_scan` job state, `deleted_at`, `scan_completed_at`, and indexes for storage/audit lookup.

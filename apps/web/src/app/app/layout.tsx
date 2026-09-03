@@ -7,6 +7,11 @@ import {
   getAuthSecret,
   readSessionCookie
 } from "@/lib/auth/session";
+import {
+  getSupabaseUserFromAccessToken,
+  shouldUseSupabaseAuth,
+  SUPABASE_ACCESS_TOKEN_COOKIE_NAME
+} from "@/lib/auth/supabase-auth";
 
 export default async function AppLayout({
   children
@@ -14,10 +19,14 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const cookieStore = await cookies();
-  const user = readSessionCookie(
-    cookieStore.get(AUTH_COOKIE_NAME)?.value,
-    getAuthSecret()
-  );
+  const user = shouldUseSupabaseAuth()
+    ? await getSupabaseUserFromAccessToken(
+        cookieStore.get(SUPABASE_ACCESS_TOKEN_COOKIE_NAME)?.value ?? null
+      )
+    : readSessionCookie(
+        cookieStore.get(AUTH_COOKIE_NAME)?.value,
+        getAuthSecret()
+      );
 
   if (!user) {
     redirect("/login");

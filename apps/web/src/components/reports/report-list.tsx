@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import type {
   HealthInsightRecord,
   LabReportRecord,
@@ -58,14 +61,30 @@ export function ReportList({ refreshKey = 0 }: { refreshKey?: number }) {
         </CardContent>
       </CardHeader>
       <div className="grid gap-3">
-        {reports.length === 0 ? (
-          <p className="text-sm text-muted">No uploaded reports yet.</p>
+        {!reports ? (
+          <div className="space-y-3">
+            <Skeleton className="h-[120px] w-full rounded-ui" />
+            <Skeleton className="h-[120px] w-full rounded-ui" />
+          </div>
+        ) : reports.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-ui border border-dashed border-white/10 bg-white/[0.02] py-12 text-center">
+            <div className="flex size-12 items-center justify-center rounded-full bg-white/5">
+              <span className="text-xl">📄</span>
+            </div>
+            <p className="mt-4 font-medium text-ivory">No reports yet</p>
+            <p className="mt-1 max-w-sm text-sm text-muted">
+              Upload your first lab report to get AI-assisted explanations and track your health trends.
+            </p>
+            <Link href="/app/reports/new" className="mt-5 inline-flex items-center rounded-full bg-orange px-4 py-2 text-sm font-medium text-ink transition-all hover:scale-105 active:scale-95">
+              Upload report
+            </Link>
+          </div>
         ) : (
           <>
-            {downloadError ? <p className="text-sm text-danger">{downloadError}</p> : null}
+            {downloadError ? <Alert variant="error">{downloadError}</Alert> : null}
             {reports.map((item) => (
               <div
-                className="rounded-ui border border-white/10 bg-white/[0.04] p-4"
+                className="rounded-ui border border-white/10 bg-white/[0.04] p-4 transition-all hover:border-white/20 hover:bg-white/[0.06]"
                 key={item.reportFile.id}
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -75,39 +94,42 @@ export function ReportList({ refreshKey = 0 }: { refreshKey?: number }) {
                       {item.reportFile.mimeType} · {Math.round(item.reportFile.fileSizeBytes / 1024)} KB
                     </p>
                   </div>
-                  <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted">
+                  <Badge className="bg-white/10 text-muted">
                     {safeReportStatus(item)}
-                  </span>
+                  </Badge>
                 </div>
                 {item.labReport?.reportType ? (
                   <p className="mt-3 text-sm text-muted">
-                    Classified as {item.labReport.reportType.replaceAll("_", " ")}
+                    Classified as <span className="text-ivory font-medium">{item.labReport.reportType.replaceAll("_", " ")}</span>
                   </p>
                 ) : null}
                 {item.reportFile.unsupportedReason ? (
-                  <p className="mt-3 text-sm text-yellow">{item.reportFile.unsupportedReason}</p>
+                  <Alert variant="warning" className="mt-3">
+                    {item.reportFile.unsupportedReason}
+                  </Alert>
                 ) : null}
                 {item.healthInsight ? (
                   <div className="mt-3 rounded-ui border border-white/10 bg-black/20 p-3 text-sm text-muted">
-                    <p className="font-medium text-ivory">
+                    <p className="font-medium text-ivory flex items-center gap-2">
+                      <span className={`size-2 rounded-full ${item.healthInsight.status.includes('attention') ? 'bg-danger' : 'bg-green'}`} />
                       Insight status: {item.healthInsight.status.replaceAll("_", " ")}
                     </p>
-                    <p className="mt-2">{item.healthInsight.summary}</p>
-                    <p className="mt-2 text-xs">{item.healthInsight.disclaimer}</p>
+                    <p className="mt-2 leading-6">{item.healthInsight.summary}</p>
+                    <p className="mt-2 text-xs italic opacity-70">{item.healthInsight.disclaimer}</p>
                   </div>
                 ) : null}
-                <div className="mt-3 flex flex-wrap gap-3 text-sm">
-                  <Link className="text-orange hover:underline" href={`/app/reports/${item.reportFile.id}`}>
+                <div className="mt-4 flex flex-wrap gap-4 text-sm font-medium">
+                  <Link className="text-orange transition-colors hover:text-amber-400" href={`/app/reports/${item.reportFile.id}`}>
                     View explanation
                   </Link>
                   <button
-                    className="text-left text-orange hover:underline"
+                    className="text-orange transition-colors hover:text-amber-400"
                     onClick={() => void downloadPrivateFile(item.reportFile.id)}
                     type="button"
                   >
-                    Download private file
+                    Download PDF
                   </button>
-                  <span className="text-muted">Job: {item.job?.status ?? "missing"}</span>
+                  <span className="ml-auto text-xs font-normal text-dim">Job: {item.job?.status ?? "missing"}</span>
                 </div>
               </div>
             ))}

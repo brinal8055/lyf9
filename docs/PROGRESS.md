@@ -2,15 +2,302 @@
 
 ## Current Phase
 
-End-to-end audit completed for a **production-shaped private beta MVP**.
+Staging foundation reconciliation and release-gate hardening are in progress for a **production-shaped private beta MVP**.
 
-The repo remains suitable for local scaffold testing and operator rehearsal. It is not approved for real 30-50 user PHI until Supabase Auth/Postgres, S3 presigned storage, real malware scanning, durable workflow, Marker/OCR, OpenAI Structured Outputs, Sentry/analytics privacy review, and legal review are completed in staging.
+Supabase staging now has the current schema, an exact migration ledger protected by a repository checksum lock, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, live GuardDuty clean/threat enforcement, live-verified atomic workflow claims, scanned-image AWS Textract OCR, a live-verified deployed Inngest saga, and a live Gemini structured-output smoke. The product is not approved for real 30-50 user PHI until signup email delivery is reliable, provider-backed golden QA passes, and observability/privacy, retention, clinical-threshold, and legal reviews are completed.
 
-Current private beta readiness score: **7.3/10**.
+Current private beta readiness score: **9.3/10**. The Supabase migration-history blocker is closed for staging, while the scanned-image OCR blocker remains closed for synthetic staging with **9.7/10 confidence**.
 
 No public launch, autonomous diagnosis, prescriptions, medicine-change advice, supplement protocols, pharmacy commerce, lab booking, full doctor marketplace, mobile app, wearables, ABDM/ABHA, genetics, employer, or insurance workflows have been added.
 
 ## Completed In This Pass
+
+### 2026-09-04 Supabase Staging Migration Reconciliation
+
+- Confirmed the target in the Supabase dashboard was staging project `wjjwdakfyigwwohbntyv`; Production was not queried or changed.
+- Established the fail-safe baseline: `supabase_migrations.schema_migrations` did not exist even though the application schema had been applied manually through the SQL editor.
+- Ran read-only schema sentinels for all 11 repository migrations through `202609020001_workflow_rpc_hardening.sql`; every expected table, column, function, privilege, and RLS condition was present before history was changed.
+- Initialized Supabase's internal migration ledger without RLS and inserted only the 11 verified repository versions. This internal schema is not part of the public Data API surface and contains migration SQL, not user or report data.
+- Independently verified `remote_count=11`, `expected_count=11`, no missing rows, no unexpected rows, and non-empty statement payloads for every migration.
+- Added `supabase/migration-lock.json` with SHA-256 checksums, a local drift verifier, a staging-only remote verifier, a guarded repair-SQL generator, and unit coverage for checksum drift, history mismatch, missing statement payloads, and production-target refusal.
+- Re-ran the live staging RLS suite after reconciliation: all user, doctor, admin, consent, service-role, and audit boundaries passed using synthetic identities, with cleanup.
+- Pushed implementation commit `aa3eabb` to `origin/dev`. Vercel Preview deployment `8Rq79wAFEixiswMcP3MG2ykRbTP9` reached Ready, and its exact health endpoint returned `status: ok`, healthy Supabase Postgres storage, configured private S3/Inngest, and enabled Gemini capabilities.
+- The same health response reports `databaseConfigured: false` and `emailConfigured: false`: the app's Supabase data path is healthy, but direct migration drift checks still need a securely scoped staging `DATABASE_URL`, and signup delivery still needs custom SMTP.
+
+Verification:
+
+```txt
+npm run test:migrations              # 3 passed
+npm run verify:migrations            # 11 files match locked checksums/order
+npm run verify:staging:rls           # 1 live harness passed in 27.4s
+npm test                             # 170 passed, 8 credential-gated live tests skipped
+npm run typecheck                    # passed
+npm run lint                         # passed
+npm run build:web                    # passed, 44 static pages generated
+npm run copy:scan                    # passed
+npm run api:test                     # 9 passed
+npm run api:health                   # passed
+npm run worker:health                # passed
+git diff --check                     # passed
+staging SQL exact-set verification   # 11/11, no missing/unexpected, statements present
+```
+
+PHI-free live RLS evidence is stored in `artifacts/staging-verification/rls.json`.
+
+Known risks: automated remote history verification still needs a staging `DATABASE_URL` in the secure CI/runtime environment; `npm audit` reports 17 dependency findings that require a separate scoped review. Neither issue justifies weakening the migration or RLS gates.
+
+Next recommended prompt:
+
+> Configure a staging-only custom SMTP provider for Supabase Auth, verify invite signup and email delivery through the public flow without service-role fixture fallback, preserve the beta invite gate, keep Production unchanged, and record synthetic evidence and cleanup.
+
+### 2026-09-02 Live Inngest Staging Saga Pass
+
+- Created an isolated Inngest custom `Staging` environment. Inngest Production was not changed.
+- Stored the generated event and signing keys as encrypted Vercel secrets scoped only to Preview branch `dev`; no key was committed, printed in an artifact, exposed to the frontend, or added to Vercel Production.
+- Redeployed `dev` and verified `https://lyf9-dev.vercel.app/api/health` reports `status: ok` with `inngestConfigured: true`.
+- Confirmed unsigned public access to `/api/inngest` returns `401 Unauthorized`; signed Inngest synchronization succeeds.
+- The first sync failed safely because `process-report` declared concurrency `10` while the account permits `5`. Commit `052815e` lowers the deployment contract to `5` and adds a regression test.
+- Registered app ID `lyf9`, function ID `process-report`, event `report/confirmed`, and the exact staging endpoint in Inngest Staging.
+- `npm run verify:staging:inngest` passed four tests in 52.92 seconds. The live synthetic report completed GuardDuty, Textract, and deterministic unsupported classification through the deployed saga.
+- Verified the unsupported radiology fixture created no model runs, biomarker results, health insights, or AI interpretation. The harness cleaned up its S3 object and synthetic Supabase Auth user.
+- Passing PHI-free evidence is stored in `artifacts/staging-verification/inngest.json`.
+
+Verification:
+
+```txt
+npm test  # 154 passed, 7 credential-gated live tests skipped
+npm run typecheck
+npm run lint
+npm run copy:scan
+npm run build:web
+npm run verify:staging:inngest  # 4 passed, including the live deployed saga and cleanup
+```
+
+Current remaining blockers: reliable signup email delivery, scanned-image OCR coverage, live structured AI outputs and golden evaluation, PHI-safe observability, retention governance, clinician-reviewed thresholds, and legal review. Production remains unchanged.
+
+Next recommended prompt:
+
+> Implement and verify the selected structured AI provider in staging using synthetic supported reports only. Validate extraction and explanation schemas, unsafe-language blocking, confidence and critical routing, model-run audit metadata, and golden thresholds. Keep unsupported reports fail-closed, keep real PHI and Production untouched, and stop if provider safety or schema validation fails.
+
+### 2026-09-02 Inngest Staging Gate And Verifier Foundation
+
+- Reconciled the manual cleanup commit `fe2fc51`; local `dev` and `origin/dev` matched and the worktree was clean before this pass.
+- At the start of the pass, confirmed `/api/inngest` returned HTTP 500 and health reported `inngestConfigured: false`, establishing the fail-closed baseline before the live configuration pass above.
+- Added `isInngestConfigured()` with a strict deployed rule: staging/production require both event and signing keys, and `INNGEST_DEV=1` is accepted only for local development.
+- Upload initialization and completion now return HTTP 503 before accepting a new report or changing completion state when Supabase mode is active but the deployed saga is unavailable.
+- Deployed health now reports `degraded` when staging/production lacks Inngest, rather than presenting the report-processing service as fully healthy.
+- Added a guarded synthetic Inngest saga harness and `npm run verify:staging:inngest`. It uses the deployed authenticated upload flow, waits for GuardDuty, verifies Textract and deterministic unsupported classification, proves no AI/model/biomarker/insight rows were created, and guarantees fixture cleanup.
+- Added `docs/36_INNGEST_STAGING_SETUP.md` with Preview `dev` scoping, endpoint registration, verification, and failure handling.
+
+Verification passed so far:
+
+```txt
+npm --workspace apps/web run test -- --run src/inngest/client.test.ts src/inngest/staging-inngest-live.test.ts  # 6 passed, 1 live skipped
+npm test  # 153 passed, 7 credential-gated live tests skipped
+npm run typecheck
+npm run lint
+npm run copy:scan
+npm run build:web
+npm run api:test  # 8 passed
+npm run api:health
+npm run worker:health
+git diff --check
+APP_ENV=staging npm run verify:staging:inngest  # originally failed closed while staging keys were absent
+```
+
+Resolved in the live pass above: the staging-only keys, deployment, endpoint sync, concurrency compatibility fix, and guarded synthetic saga verification now pass. Production remains unchanged.
+
+### 2026-09-02 Live Textract Document Extraction Pass
+
+- Implemented AWS Textract asynchronous document text detection using `StartDocumentTextDetection` and bounded `GetDocumentTextDetection` polling against the existing private staging S3 bucket.
+- Added explicit `DOCUMENT_PARSER_PROVIDER=textract` support so staging can use Textract as its primary beta parser while Marker remains an optional future parser.
+- Added pagination, deterministic line ordering, page count, confidence, provider/version provenance, timeout handling, storage-key validation, and PHI-safe failure codes.
+- Persisted `user_id`, parser provider, OCR provider, and error provenance to `extracted_documents`; no extracted report text is written to verification artifacts or audit metadata.
+- Fixed the saga OCR step so a failed OCR result cannot be recorded as succeeded.
+- Added deterministic provider tests and a guarded live harness that creates a synthetic CBC PDF, uploads it to staging S3, runs Textract, verifies expected text/page/confidence and the persisted extraction row, then deletes the object and synthetic Auth user in `finally`.
+- The first live call failed closed with `textract_access_denied`. The staging IAM policy was then updated only with `textract:StartDocumentTextDetection` and `textract:GetDocumentTextDetection`, restricted to `ap-south-1`; no broad Textract or production access was added.
+- `npm run verify:staging:textract` then passed all three checks in about 20 seconds. Production was not changed and no real PHI was used.
+- Added `docs/35_TEXTRACT_STAGING_SETUP.md` with the least-privilege IAM policy, environment contract, verification procedure, cleanup behavior, and failure runbook.
+
+Verification passed so far:
+
+```txt
+npm --workspace apps/web run test -- --run src/lib/document-extraction/textract-ocr-provider.test.ts src/lib/document-extraction/staging-textract-live.test.ts src/lib/reports/reports.test.ts  # 77 passed, 1 live skipped
+npm run verify:staging:textract  # 3 passed, including live synthetic PDF extraction and cleanup
+npm test  # 147 passed, 6 credential-gated live tests skipped
+npm run typecheck
+npm run lint
+npm run copy:scan
+npm run build:web
+npm run api:test  # 8 passed
+npm run api:health
+npm run worker:health
+git diff --check
+```
+
+The Python worker remains a health/status compatibility stub; the production-shaped execution path is the live-verified Inngest saga in `apps/web`. Marker is optional for the beta while Textract is selected. Scanned-image OCR coverage, live structured AI, and the other release gates remain blocked.
+
+Known dependency risk: `npm audit` currently reports 17 findings (1 low, 4 moderate, 11 high, 1 critical). This scoped pass did not apply a broad or breaking audit fix; run a dedicated dependency review before real PHI.
+
+Next recommended prompt:
+
+> Implement and verify the selected structured AI provider in staging using synthetic supported reports only. Require schema-valid biomarker extraction and explanation, source traceability, confidence and critical routing, unsafe-language blocking, model-run logs, golden evaluation, and guaranteed cleanup. Leave Production and real PHI untouched.
+
+### 2026-09-02 Live Durable Workflow Concurrency And Recovery Pass
+
+- Applied `202609020001_workflow_rpc_hardening.sql` to staging project `wjjwdakfyigwwohbntyv`; Production was not changed.
+- Restricted `claim_next_processing_job` and `release_expired_processing_locks` to `service_role`; authenticated app users are denied direct execution.
+- Made expired-job recovery update the matching running step, clear stale locks, schedule retry when attempts remain, and fail closed at max attempts.
+- Replaced the persistent seeded-job dependency with a self-seeding synthetic harness and exact staging project/runtime guards.
+- Verified two eligible jobs were claimed exactly once across three concurrent workers using `FOR UPDATE SKIP LOCKED`; the third claim returned no job.
+- Verified future retries were not claimable early, expired leases recovered, max-attempt jobs failed, step locks cleared, due retries were reclaimed, and audit events were PHI-minimal.
+- Corrected worker audit attribution: background workers now use null user/role actors and record the worker identifier only in safe metadata.
+- Handled PostgREST's all-null composite RPC result as an empty queue without accepting partially malformed rows.
+- The harness removed its synthetic Auth user and dependent report/job fixture in `finally`.
+
+Verification passed:
+
+```txt
+npm --workspace apps/web run test -- --run src/lib/workflow/supabase-live-workflow.test.ts src/lib/auth/supabase-foundation.test.ts  # 15 passed, 1 live skipped
+npm run verify:staging:workflow  # 3 passed, including live concurrency/recovery and cleanup
+npm test  # 140 passed, 5 credential-gated live tests skipped
+npm run typecheck
+npm run lint
+npm run copy:scan
+npm run build:web
+npm run api:test  # 8 passed
+npm run api:health
+npm run worker:health
+git diff --check
+```
+
+Current remaining blocker: wire and live-verify document parsing/OCR execution against synthetic reports. The database concurrency primitive is verified, but the Python worker remains a command/status stub and real PHI remains no-go until the full release gate passes.
+
+Next recommended prompt:
+
+> Wire Lyf9 AI staging document extraction using the existing provider contracts: run a synthetic digital PDF through the configured parser, run a synthetic scanned report through Textract fallback, persist and inspect `extracted_documents`, verify unsupported reports stop before AI, and keep Production and real PHI unchanged.
+
+### 2026-09-02 GuardDuty S3 Malware Gate Implementation
+
+- Selected Amazon GuardDuty Malware Protection for S3 for the existing private S3/Vercel architecture; no custom public scanner endpoint or raw-file proxy was introduced.
+- Added `guardduty-s3` provider support that reads the managed `GuardDutyMalwareScanStatus` object tag.
+- Mapped `NO_THREATS_FOUND` to pass, `THREATS_FOUND` to fail, `UNSUPPORTED`/`ACCESS_DENIED` to fail-closed configuration handling, and missing/`FAILED` results to retryable errors.
+- Restricted scanning to opaque `reports/` keys and kept scanner metadata PHI-minimal.
+- Updated Inngest behavior so asynchronous pending/unavailable GuardDuty results remain `scan_pending` and retry instead of prematurely marking a report failed.
+- Added unit tests for all GuardDuty outcomes, invalid keys, and explicit provider selection.
+- Added a staging-only clean/EICAR live harness with exact staging bucket/region guards and guaranteed object cleanup.
+- Wired `npm run test:malware-live` and `npm run verify:staging:malware` to the new harness.
+- Updated web/API/worker env examples and added `docs/34_GUARDDUTY_S3_MALWARE_SETUP.md` with the exact IAM, AWS, Vercel, verification, and failure-response procedure.
+- Added `s3:GetObjectTagging` only for the staging `reports/*` prefix and kept GuardDuty administration permissions out of the app IAM principal.
+- Activated GuardDuty Malware Protection for the staging `reports/` prefix in `ap-south-1`, with managed object tagging and a dedicated service role.
+- Updated Vercel Preview branch `dev` only; Production was not changed.
+- Passed `npm run verify:staging:malware`: clean PDF mapped to `NO_THREATS_FOUND`, EICAR mapped to `THREATS_FOUND`, and both synthetic objects were cleaned up.
+- Pushed commit `fbf1c0f` to `origin/dev`; its Vercel Preview deployment reached `Ready`.
+- Confirmed `https://lyf9-dev.vercel.app/api/health` returns `status: ok`, `storageProvider: s3`, `storageConfigured: true`, `storeMode: supabase-postgres`, and `store.ok: true` after deployment.
+
+Verification passed so far:
+
+```txt
+npm --workspace apps/web run test -- src/lib/malware/guardduty-s3-malware-scanner.test.ts src/lib/malware/staging-guardduty-s3-live.test.ts  # 11 passed, 1 live skipped
+npm test  # 137 passed, 5 credential-gated live tests skipped
+npm run typecheck
+npm run lint
+npm run build:web
+npm run copy:scan
+npm run api:test  # 8 passed
+npm run worker:health
+npm run verify:staging:malware  # 4 passed, including live clean/EICAR; synthetic objects deleted
+```
+
+Current remaining blocker at that checkpoint was durable workflow concurrency; the live workflow evidence is now recorded above. Real PHI remains no-go until the full release gate passes.
+
+Next recommended prompt:
+
+> Run concurrent processing-job claim, lease, retry, and recovery checks against Lyf9 AI staging Postgres using synthetic records only. Confirm the GuardDuty-gated `dev` deployment never proceeds to extraction unless malware scan status is `scan_passed`; keep production unchanged. (Completed on 2026-09-02.)
+
+### 2026-09-02 Live Private S3 Verification
+
+- Configured the dedicated `lyf9-reports-storage-staging` bucket in `ap-south-1` with a staging-only least-privilege IAM principal and Vercel Preview `dev` configuration; Production was not changed.
+- Diagnosed the first live PUT failure as unsigned metadata headers, not an IAM or bucket-policy denial.
+- Updated the presigner so content type, checksum metadata, report metadata, and `AES256` encryption are all bound to the signed request.
+- Added regression coverage that asserts every required upload header appears in `X-Amz-SignedHeaders`.
+- Deployed commit `7307f63` to Vercel Preview `dev`; the matching deployment reached Ready.
+- `npm run verify:staging:s3` passed all three live tests against staging using a synthetic PDF only.
+- Verified consent, app-signed PUT, private URL denial, encryption/metadata, app-signed GET, Postgres metadata, audit events, app deletion, and cleanup.
+- Independent cleanup check found zero `reports/` objects and zero `lyf9-staging-s3-*` Auth users remaining.
+
+Current remaining P0 blocker at that checkpoint was replacing the mock/fail-closed scanner; the GuardDuty implementation and live staging evidence are now recorded above.
+
+### 2026-09-01 Private S3 Verification Hardening
+
+- Treated the supplied AWS/Supabase values as variable-name references only; no provided value was written to source, local env files, Vercel, Supabase, or AWS.
+- Added an app-level synthetic S3 harness at `apps/web/src/lib/storage/staging-s3-api-live.test.ts` and `npm run test:s3-live`.
+- The harness covers service-provisioned synthetic login, required consent, app-signed upload, S3 metadata/encryption, public URL denial, app-signed download, app delete, Postgres metadata, audit events, and guaranteed Auth/Postgres/S3 cleanup.
+- Added exact staging guards: `S3_REPORT_BUCKET` must equal `STAGING_S3_BUCKET`, `PRODUCTION_S3_BUCKET` is required and must differ, and the target must be staging-specific. Production-mode verification is already refused globally.
+- Removed uploaded filenames from S3/mock object keys; keys now contain only internal UUID paths and a MIME-derived extension.
+- Persisted the actual S3 bucket name instead of the generic `s3-private` provider label.
+- Returned every required signed PUT header, including checksum/report metadata and explicit `AES256` encryption.
+- Hardened provider selection so Textract cannot be silently treated as the document parser; valid configuration is `DOCUMENT_PARSER_PROVIDER=marker` and `OCR_PROVIDER=textract`.
+- Production now ignores the mock-malware override and fails closed. A localhost ClamAV endpoint is documented as local-only and cannot satisfy deployed verification.
+- Wired `npm run verify:staging:s3` to the app-level harness. The live check remains unrun because the supplied values are intentionally invalid and identify a production bucket/project.
+- Committed and pushed `5f3347e` to `origin/dev`; Vercel Preview deployment `DG4YmJsy7cgo1gQvX2xFTahh8A4m` reached Ready and serves `lyf9-dev.vercel.app`.
+- Deployed `/api/health` remains healthy on Supabase Postgres and reports `storageProvider: s3` with `storageConfigured: false`, which correctly keeps real S3 upload verification blocked until staging-only AWS configuration exists.
+
+Verification passed:
+
+```txt
+npm --workspace apps/web run test -- src/lib/storage/storage.test.ts src/lib/reports/reports.test.ts src/lib/storage/staging-s3-api-live.test.ts  # 74 passed, 1 live test skipped
+npm run lint
+npm run typecheck
+npm test                 # 126 passed, 4 live tests skipped
+npm run build:web
+npm run api:test         # 8 passed
+npm run api:health
+npm run worker:health
+npm run copy:scan
+git diff --check
+```
+
+The production build completed successfully and its static client bundles contained no matches for server-only AWS, Supabase service-role, or Gemini secret variable names. No live AWS call was made.
+
+### 2026-09-01 Live Staging Auth, RLS, And Consent Verification
+
+- Applied `202609010002_consent_rpc_rls_guard.sql` to staging only. The required-consent function is now caller-scoped (`SECURITY INVOKER`), unavailable to `anon`, and executable by `authenticated` and `service_role`.
+- Expanded the live RLS harness to six real Supabase Auth JWT identities: two users, two doctors, one admin, and one superadmin.
+- Passed cross-user profile/report/job isolation, assigned-doctor access, role-grant boundaries, service-role writes, consent RPC behavior, audit restrictions, feedback, and analytics checks.
+- Added and passed a deployed `lyf9-dev.vercel.app` Auth/API smoke test covering login/session cookies, `/api/auth/me`, user denial from admin/doctor routes, profile and questionnaire persistence, consent grant/revoke persistence, backend upload consent denial, and post-consent MIME validation.
+- Verified Supabase Auth/Postgres persistence for profiles, health profiles, questionnaire responses, consents, audit events, and analytics events using synthetic data only.
+- Verified cleanup independently in staging SQL: synthetic Auth users and profiles both returned zero after the run.
+- Added staging project-reference guards to every Supabase/Auth verifier so a production URL or mismatched project is refused.
+- Added a frontend bundle scan; no server secret or beta invite variable names appeared in `.next/static`.
+- Staging's default Supabase email sender reached its rate limit during repeated diagnostics. The harness safely falls back to service-role fixture provisioning only for that exact error; custom SMTP or an approved email-limit configuration is still required before dependable beta invitations.
+
+Changed files in this pass:
+
+- `supabase/migrations/202609010002_consent_rpc_rls_guard.sql`
+- `apps/web/src/lib/auth/supabase-live-rls.test.ts`
+- `apps/web/src/lib/auth/staging-auth-api-live.test.ts`
+- `apps/web/src/lib/auth/supabase-foundation.test.ts`
+- `scripts/verify-staging.mjs`
+- `apps/web/.env.example`
+- `apps/web/package.json`
+- `package.json`
+- readiness and staging verification docs
+
+### 2026-09-01 Staging Supabase Connectivity
+
+- Applied the additive Supabase schema through `202609010001_biomarker_catalog_rls.sql` to `lyf9-staging` only.
+- Verified 28 public tables, 45 biomarker catalog rows, 19 aliases, RLS on all 15 checked sensitive tables, and 39 policies.
+- Scoped Supabase URL, publishable key, server secret, and beta access configuration to Vercel Preview branch `dev`; Production was not changed.
+- Corrected an incomplete Vercel server credential, converted it to a protected Secret, and redeployed commit `1b1d7c2` to Preview `dev` only.
+- Verified `https://lyf9-dev.vercel.app/api/health` returns `status: ok`, `store.ok: true`, `storeMode: supabase-postgres`, and `reportFileCount: 0`.
+- Added safe deployed health diagnostics that report key type and stable failure codes without exposing credential values or database details.
+- Kept uploads and processing fail-closed because S3, malware scanning, workflow, OCR/parser, and AI provider credentials are intentionally incomplete.
+
+Follow-up commits:
+
+- `9873d71` - reconcile staging Supabase and Vercel configuration.
+- `1b1d7c2` - improve staging Supabase health diagnostics.
 
 - Hardened the Supabase foundation verification layer:
   - Added `docs/25_SUPABASE_STAGING_VERIFICATION.md` with staging setup, migration, seed, RLS test, manual SQL, rollback, limitation, and status steps.
@@ -132,7 +419,7 @@ cd apps/api && python3 -m pytest tests/test_auth.py
 rg "SUPABASE_SERVICE_ROLE_KEY|service-role|SERVICE_ROLE" apps/web/.next/static -g '*.js'
 ```
 
-`npm run test:rls` currently skips the live RLS test because `RUN_LIVE_SUPABASE_RLS=true` and staging Supabase env are not configured in this workspace. Current web/shared tests: **45 passing, 1 live RLS test skipped**. Current API tests: **8 passing**.
+Normal local runs intentionally skip the three opt-in live tests. Current local result: **121 passing, 3 live tests skipped**. Current API result: **8 passing**. Separately, `npm run test:rls` and `npm run test:auth-live` both passed against staging with synthetic fixtures.
 
 The browser-only bundle scan found no `SUPABASE_SERVICE_ROLE_KEY`, `service-role`, or `SERVICE_ROLE` matches in `.next/static`.
 
@@ -177,7 +464,8 @@ Ready for scaffold/operator rehearsal:
 
 Partially ready for production-shaped private beta:
 
-- Supabase Auth/Postgres/RLS foundation is implemented in code and migrations, but is not applied/tested against a live staging Supabase project.
+- Supabase Auth/Postgres/RLS foundation is implemented, applied, and live-tested in staging with user/doctor/admin/superadmin JWTs.
+- Deployed login/session, onboarding persistence, route denial, consent persistence, and backend upload consent gating pass. Dependable signup email delivery remains pending custom SMTP or an approved Supabase email-rate-limit configuration.
 - Local cookie auth and local JSON persistence remain as explicit local scaffold fallback when Supabase env is absent.
 - S3 provider contract exists, but AWS SDK presigned URL implementation is not wired.
 - Malware scanner gate exists, but production scanner is not wired.
@@ -188,8 +476,7 @@ Partially ready for production-shaped private beta:
 
 Blocked for real PHI/private beta users:
 
-- Live staging Supabase project with migrations applied.
-- Staging RLS test matrix with real user/doctor/admin/superadmin JWTs.
+- Reliable staging signup email delivery/custom SMTP for invitation onboarding.
 - S3 private bucket policy, presigned URLs, lifecycle, deletion, and KMS decisions.
 - Real malware scan before extraction.
 - Durable worker queue.
@@ -201,27 +488,24 @@ Blocked for real PHI/private beta users:
 
 ## Known Risks
 
-- Supabase Auth and database-backed roles are implemented and hardened, but the staging project has not been configured or exercised with real JWTs.
-- The live RLS harness is available but not run against staging from this workspace.
+- Supabase Auth, database-backed roles, cross-user RLS, doctor assignment, superadmin role control, and deployed consent gating now pass with synthetic staging users.
+- Supabase's default staging email sender is rate-limited; this does not weaken login/RLS evidence, but beta signup delivery is not reliable until custom SMTP or an approved quota configuration is in place.
 - Next.js route handlers currently act as the backend-for-frontend for Supabase service-role operations; ensure the service-role key is server-only in deployment and never exposed as `NEXT_PUBLIC_*`.
 - Local cookie auth and local JSON store remain for explicit local/development scaffold mode only and must not be used for real PHI.
-- S3 provider is a contract/stub until presigning is implemented in the backend.
+- Private S3 presigning, privacy, encryption/metadata, download, audit, deletion, and cleanup pass live in synthetic staging; retention/versioning policy still needs approval before PHI.
 - Mock malware scanning is not real security.
 - Critical thresholds are placeholder/config-driven and need medical review.
 - Model run logging exists locally but must cover every production AI call.
 
 ## Next Prompt To Run
 
-> Apply and validate the Supabase foundation in staging for Lyf9 AI: create the Supabase project, apply migrations `202606060001` and `202606060002`, create real user/doctor/admin/superadmin accounts, run JWT-backed RLS tests, and confirm profile, consent, report metadata, processing job, audit, feedback, and analytics records persist with correct access boundaries. Do not add OCR, AI, S3, payments, or unrelated features.
+> Implement and verify a real Lyf9 AI malware scanner in staging: replace the mock/stub with a network-reachable ClamAV service or S3 event scanner, preserve scan-pending quarantine, prove clean/infected/timeout/unavailable behavior, and keep extraction blocked unless `scan_passed`. Use synthetic files only and do not change production.
 
-Run the staging RLS harness with:
+Completed staging evidence commands:
 
 ```bash
-RUN_LIVE_SUPABASE_RLS=true \
-NEXT_PUBLIC_SUPABASE_URL=<staging-url> \
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<staging-anon-key> \
-SUPABASE_SERVICE_ROLE_KEY=<staging-service-role-key> \
 npm run test:rls
+npm run test:auth-live
 ```
 
 ## 2026-06-06 Private Storage And Malware Gate Pass
@@ -774,3 +1058,128 @@ git status -sb
 ```
 
 Current release verdict remains **No-go for real PHI private beta** until the live staging checks, doctor-reviewed thresholds, and legal review pass.
+
+## 2026-09-01 Staging Environment Reconciliation
+
+Completed:
+
+- Fetched and normalized local tracking branches for `main`, `dev`, and `feat/frontend-overhaul`; continued work on `dev` only.
+- Removed committed Supabase CLI `.temp` link metadata and ignored it so a branch checkout cannot silently retarget migrations.
+- Added tracked, sanitized `.env.example` files for web, API, and worker; no real credentials are committed.
+- Added `202609010001_biomarker_catalog_rls.sql` to enable authenticated read-only RLS on `biomarker_catalog` and `biomarker_aliases`.
+- Added a Supabase-backed store health check and provider-aware AI/Inngest health fields.
+- Applied all additive migrations through `202609010001_biomarker_catalog_rls.sql` to Supabase staging only.
+- Verified staging has 28 public tables, 45 seeded biomarkers, 19 aliases, RLS on all 15 checked sensitive tables, and 39 policies.
+- Added non-secret configuration plus encrypted Supabase keys and a beta invite code to Vercel Preview branch `dev` only.
+- Left Vercel Production and Supabase production unchanged.
+
+Verification:
+
+- `npm run lint`: passed.
+- `npm test`: passed, 119 tests; 2 live-environment tests skipped.
+- `npm run copy:scan`: passed.
+- `npm run build:web`: passed.
+- `npm run typecheck`: passed after rebuilding branch-correct Next.js generated types.
+
+Known risks:
+
+- Migrations were applied through the staging SQL editor; Supabase CLI migration history still needs reconciliation.
+- Dev deployment verification awaits a new deployment from this `dev` commit.
+- Live cross-user RLS tests have not run yet.
+- Staging S3 credentials, Inngest keys, real malware scanner, and live provider smoke tests remain missing.
+- npm audit still reports production dependency advisories, including high-severity Next.js/transitive findings.
+- Production still reports RLS advisor findings for biomarker catalog tables until this migration is separately reviewed and promoted.
+
+Next recommended prompt:
+
+> Deploy the verified `dev` reconciliation commit, confirm `lyf9-dev.vercel.app/api/health` uses staging Supabase, run synthetic auth/consent/RLS smoke tests, and keep upload processing fail-closed until S3, Inngest, and a real malware scanner are configured. Do not change production.
+
+## 2026-09-02 Provider-Neutral Clinical AI Gateway
+
+Current phase: **Gemini structured-output smoke and deployed Preview configuration verified; live golden evaluation remains quota-blocked**.
+
+Completed:
+
+- Added `ClinicalAiGateway` as the production-facing AI boundary for extraction, patient explanation, and doctor summary tasks.
+- Kept Gemini, OpenAI, and mock implementations behind one explicit `AiProvider` contract with capability-level configuration status.
+- Removed automatic key-based provider selection; missing/unknown deployed providers now fail closed and there is no automatic provider fallback.
+- Renamed prompts and JSON schemas to provider-neutral Lyf9 clinical contracts.
+- Moved Gemini credentials from the request URL to the `x-goog-api-key` header and sanitized upstream errors.
+- Made health readiness depend on configured extraction and explanation capabilities instead of API-key presence alone.
+- Wired Inngest and local durable workflows through the gateway; provider-specific model env lookup no longer exists in orchestration.
+- Added authoritative disclaimer handling, exact persisted biomarker source tracing, deterministic marker facts, and conservative human-review routing for soft-review/unmapped results.
+- Logged latency and sanitized failure metadata for extraction and explanation attempts; token/cost fields remain nullable pending normalized adapter usage metadata.
+- Added provider-neutral synthetic live commands: `npm run verify:staging:ai` and `npm run eval:golden:live`.
+- Committed the implementation as `bc0d235` and pushed it to `origin/dev`; Vercel deployed that exact commit as a Ready Preview deployment.
+- Verified `https://lyf9-dev.vercel.app/api/health` returns HTTP 200 with `status: ok`, `aiProvider: gemini`, `aiConfigured: true`, and extraction, explanation, and doctor-summary capabilities enabled.
+- Confirmed the deployed health response still reports Supabase Auth/server access, Supabase Postgres persistence, Inngest, and private S3 as configured and healthy.
+
+Verification:
+
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm test`: passed, **164 tests passed and 8 explicitly gated live tests skipped**.
+- `npm run build:web`: passed; existing Next.js ESLint-plugin warning remains.
+- `npm run copy:scan`: passed.
+- `npm run api:test`: passed, **9 tests**.
+- `npm run api:health` and `npm run worker:health`: passed; health output now reports selected AI provider rather than OpenAI-specific state.
+- Selected `gemini-3.5-flash` after `gemini-3.6-flash` showed repeated high-demand 503/timeout behavior.
+- `npm run verify:staging:ai` passed in **72.84 seconds** using synthetic CBC text, including schema validation, source trace, mandatory disclaimer, and deterministic unsafe-language checks.
+- Added bounded provider-neutral retry for transient 429/5xx failures and sanitized classifications for quota, authentication, model, request, timeout, schema, and safety failures. No automatic provider fallback was added.
+- `npm run eval:golden:live` ran for **109 seconds** and stopped fail-closed on `ai_provider_quota_exhausted`; AI Studio showed `gemini-3.5-flash` at **21/20 RPD**, with RPM and TPM still below their limits. It is not recorded as a pass.
+- On 2026-09-03 the Vercel Preview variables were updated for Gemini. Empty commit `2340ec0` was intentionally ignored by Vercel because it did not change the source tree, so documentation-only commit `dc54703` supplied a non-runtime deployment trigger.
+- Vercel completed Preview deployment `7x7exrAQ1cdSxRJHAQasabkV7Vdb` for `dc54703`. Both its unique deployment URL and `https://lyf9-dev.vercel.app/api/health` returned HTTP 200 with `aiProvider: gemini`, `aiConfigured: true`, all three AI capabilities enabled, and healthy Supabase Postgres, S3, and Inngest checks.
+- After the daily quota reset on 2026-09-03, `npm run verify:staging:ai` passed again. The guarded synthetic CBC test completed in 20.36 seconds, with the live Gemini extraction/explanation assertion taking 19.47 seconds; schema validation, exact source tracing, disclaimer enforcement, and deterministic safety checks all passed.
+- No real PHI was used and Production was not changed.
+
+Known risks:
+
+- The selected Gemini adapter passes a live synthetic smoke, but the free/current quota is insufficient for the complete 13-fixture provider-backed golden run.
+- The live golden runner has fail-closed quota evidence but no passing provider-backed result yet.
+- Provider token usage, request IDs, finish reasons, and cost estimates are not normalized into model runs yet.
+- The golden dataset still needs at least 25 human-reviewed samples, clinician-approved critical thresholds, scanned-image OCR coverage, PHI-safe observability, retention governance, and legal review.
+
+Next recommended prompt:
+
+> Add a synthetic scanned-image CBC fixture to the Textract staging harness, verify OCR text/page/confidence/provenance persistence and guaranteed cleanup, and keep unsupported/low-quality outputs fail-closed. Do not use real PHI or change Production. Separately, do not rerun the complete 13-fixture golden suite under the 20-RPD free tier; obtain sufficient quota first, or run only a clearly labeled non-gating subset after the daily reset.
+
+## 2026-09-03 Scanned-Image OCR Safety Gate
+
+Current phase: **scanned-image Textract OCR is verified for synthetic staging; real PHI private beta remains no-go**.
+
+Blocker confidence: **9.7/10** for the scanned-image OCR gate. This score applies only to the OCR blocker, not to overall private-beta readiness.
+
+Completed:
+
+- Added deterministic synthetic PNG fixtures for a readable CBC scan, a blank/low-information scan, and an unsupported radiology scan. Fixture hashes prevent unnoticed test-input drift.
+- Routed PNG/JPEG uploads directly through the configured OCR provider instead of performing duplicate parser and OCR calls.
+- Added page and line provenance, normalized bounding boxes, source offsets, page-level confidence, and low-confidence line ratios to Textract extraction metadata without duplicating extracted report text in metadata.
+- Added configurable minimum text and confidence thresholds. Blank and low-confidence scans now fail closed as `textract_no_text` or `textract_low_text_confidence` and cannot reach classification or AI.
+- Restricted automatic retry to transient Textract request, throttling, and timeout failures; deterministic quality failures require review rather than repeated provider calls.
+- Updated the deployed Inngest saga fixture from a digital PDF to a scanned unsupported PNG and asserted GuardDuty, OCR, classification, Postgres state, `ocr_provider=textract`, zero AI outputs, and cleanup.
+- Corrected section-only staging artifacts so they report `section_passed` with `selected_sections` scope instead of implying a full release verdict.
+- Committed and pushed implementation commit `76b13b0`; the matching Vercel Preview deployment reached Ready. Production was not changed.
+
+Verification:
+
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm test`: passed, **170 tests passed and 8 explicitly gated live tests skipped**.
+- `npm run build:web`: passed; the existing Next.js ESLint-plugin warning remains.
+- `npm run copy:scan`: passed.
+- `npm run verify:staging:textract`: passed **3 tests in 16.54 seconds** using readable and blank synthetic PNG scans, including provenance persistence, fail-closed blank handling, zero AI output, and independently verified S3/Postgres cleanup.
+- `npm run verify:staging:inngest`: passed **4 tests in 72.50 seconds** against the deployed Preview workflow. The synthetic radiology scan passed GuardDuty and Textract OCR, was classified unsupported, created no model runs/biomarkers/insights, and was cleaned up.
+- `https://lyf9-dev.vercel.app/api/health`: returned HTTP 200 with healthy Supabase Postgres, private S3, Inngest, and configured Gemini capabilities after deployment.
+- Staging artifacts are PHI-free and record section-scoped pass status under `artifacts/staging-verification/`.
+
+Known risks:
+
+- The complete 13-fixture provider-backed Gemini golden gate remains blocked by the current daily quota; a passing single-fixture smoke is not equivalent to golden QA.
+- Supabase migration history reconciliation and drift protection were completed in the 2026-09-04 pass above; secure CI still needs the staging `DATABASE_URL` to automate the remote check.
+- Signup email delivery still needs custom SMTP or an approved Supabase Auth quota.
+- The golden dataset needs at least 25 human-reviewed samples, and critical thresholds need clinician approval.
+- PHI-safe observability, retention governance, data-rights operations, and legal review remain incomplete.
+
+Next recommended prompt:
+
+> Configure a staging-only custom SMTP provider for Supabase Auth, verify invite signup and email delivery through the public flow without service-role fixture fallback, preserve the beta invite gate, keep Production unchanged, and record synthetic evidence and cleanup.

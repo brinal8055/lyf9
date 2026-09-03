@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 
 import {
   expiresAt,
-  safeFilename,
+  reportExtensionForMimeType,
   secondsFromEnv,
   validateReportFileSize,
   validateReportMimeType,
@@ -12,13 +12,14 @@ import {
 export const mockStorageProvider: StorageProvider = {
   name: "mock-private",
   async createUploadUrl(params) {
-    const storageKey = `reports/${params.userId}/${params.reportFileId}/${randomUUID()}-${safeFilename(params.filename)}`;
+    const storageKey = `reports/${params.userId}/${params.reportFileId}/${randomUUID()}${reportExtensionForMimeType(params.mimeType)}`;
 
     return {
       expiresAt: expiresAt(secondsFromEnv("S3_UPLOAD_URL_EXPIRY_SECONDS", 900)),
       requiredHeaders: {
         "content-type": params.mimeType
       },
+      storageBucket: "mock-private",
       storageKey,
       uploadUrl: `mock://upload/${storageKey}`
     };

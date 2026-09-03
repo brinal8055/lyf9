@@ -1,15 +1,8 @@
-import {
-  DeleteObjectCommand,
-  GetObjectCommand,
-  HeadObjectCommand,
-  PutObjectCommand,
-  S3Client
-} from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+
+import { verifyRemoteMigrationState } from "./lib/supabase-migration-state.mjs";
 
 const artifactDir = path.join(process.cwd(), "artifacts", "staging-verification");
 const now = () => new Date().toISOString();
@@ -41,49 +34,113 @@ const expectedTables = [
 ];
 
 const sections = {
+  auth: {
+    required: [
+      "APP_BASE_URL",
+      "STAGING_APP_ORIGIN",
+      "LYF9_BETA_INVITE_CODE",
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "STAGING_SUPABASE_PROJECT_REF"
+    ],
+    run: verifyAuthApi
+  },
   supabase: {
-    required: ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "DATABASE_URL"],
+    required: ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "DATABASE_URL", "STAGING_SUPABASE_PROJECT_REF"],
     run: verifySupabase
   },
   rls: {
-    required: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY"],
+    required: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "STAGING_SUPABASE_PROJECT_REF"],
     run: verifyRls
   },
   workflow: {
     required: [
       "NEXT_PUBLIC_SUPABASE_URL",
       "SUPABASE_SERVICE_ROLE_KEY",
-      "DATABASE_URL",
-      "LIVE_SUPABASE_WORKFLOW_JOB_ID"
+      "STAGING_SUPABASE_PROJECT_REF"
     ],
     run: verifyWorkflow
   },
   s3: {
-    required: ["AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "S3_REPORT_BUCKET"],
+    required: [
+      "APP_BASE_URL",
+      "STAGING_APP_ORIGIN",
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "STAGING_SUPABASE_PROJECT_REF",
+      "AWS_REGION",
+      "AWS_ACCESS_KEY_ID",
+      "AWS_SECRET_ACCESS_KEY",
+      "S3_REPORT_BUCKET",
+      "STAGING_S3_BUCKET",
+      "PRODUCTION_S3_BUCKET"
+    ],
     run: verifyS3
   },
   malware: {
-    required: ["MALWARE_SCANNER_PROVIDER"],
+    required: [
+      "APP_ENV",
+      "AWS_ACCESS_KEY_ID",
+      "AWS_REGION",
+      "AWS_SECRET_ACCESS_KEY",
+      "MALWARE_SCANNER_PROVIDER",
+      "PRODUCTION_S3_BUCKET",
+      "S3_REPORT_BUCKET",
+      "STAGING_S3_BUCKET"
+    ],
     run: verifyMalware
+  },
+  inngest: {
+    required: [
+      "APP_ENV",
+      "AWS_ACCESS_KEY_ID",
+      "AWS_REGION",
+      "AWS_SECRET_ACCESS_KEY",
+      "AWS_TEXTRACT_REGION",
+      "DOCUMENT_PARSER_PROVIDER",
+      "MALWARE_SCANNER_PROVIDER",
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "OCR_PROVIDER",
+      "PRODUCTION_S3_BUCKET",
+      "S3_REPORT_BUCKET",
+      "STAGING_APP_ORIGIN",
+      "STAGING_S3_BUCKET",
+      "STAGING_SUPABASE_PROJECT_REF",
+      "SUPABASE_SERVICE_ROLE_KEY"
+    ],
+    run: verifyInngest
   },
   marker: {
     required: ["DOCUMENT_PARSER_PROVIDER"],
     run: verifyMarker
   },
   textract: {
-    required: ["OCR_PROVIDER", "AWS_TEXTRACT_REGION"],
+    required: [
+      "AWS_ACCESS_KEY_ID",
+      "AWS_REGION",
+      "AWS_SECRET_ACCESS_KEY",
+      "AWS_TEXTRACT_REGION",
+      "DOCUMENT_PARSER_PROVIDER",
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "OCR_PROVIDER",
+      "PRODUCTION_S3_BUCKET",
+      "S3_REPORT_BUCKET",
+      "STAGING_S3_BUCKET",
+      "STAGING_SUPABASE_PROJECT_REF",
+      "SUPABASE_SERVICE_ROLE_KEY"
+    ],
     run: verifyTextract
   },
-  openai: {
-    required: ["AI_PROVIDER", "OPENAI_API_KEY", "OPENAI_MODEL_EXTRACTION", "OPENAI_MODEL_EXPLANATION"],
-    run: verifyOpenAi
+  ai: {
+    required: ["AI_PROVIDER"],
+    run: verifyAi
   },
   e2e: {
     required: ["APP_BASE_URL", "NEXT_PUBLIC_APP_BASE_URL"],
     run: verifyE2E
   },
   "golden-live": {
-    required: ["RUN_LIVE_OPENAI_EVAL", "AI_PROVIDER", "OPENAI_API_KEY", "OPENAI_MODEL_EXTRACTION"],
+    required: ["AI_PROVIDER"],
     run: verifyGoldenLive
   }
 };
@@ -98,10 +155,15 @@ for (const section of selected) {
   await writeSection(section, result);
 }
 
+const isFullReleaseRun = selected.length === Object.keys(sections).length;
+const allSelectedPassed = results.every((result) => result.status === "passed");
 const latest = {
   generatedAt: now(),
   environment: process.env.APP_ENV ?? null,
-  releaseVerdict: results.every((result) => result.status === "passed") ? "ready_for_review" : "no_go",
+  releaseVerdict: allSelectedPassed
+    ? isFullReleaseRun ? "ready_for_review" : "section_passed"
+    : "no_go",
+  scope: isFullReleaseRun ? "full_release" : "selected_sections",
   syntheticOnly: true,
   results
 };
@@ -167,6 +229,7 @@ async function runSection(section) {
 }
 
 async function verifySupabase() {
+  assertStagingSupabaseTarget();
   const { createClient } = await import("@supabase/supabase-js");
   const client = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false }
@@ -180,87 +243,60 @@ async function verifySupabase() {
   }
 
   checks.push(check("expected_tables_queryable", missingTables.length === 0, missingTables.length ? `Missing or inaccessible tables: ${missingTables.join(", ")}` : undefined));
+  const migrationState = await verifyRemoteMigrationState({
+    databaseUrl: process.env.DATABASE_URL,
+    productionProjectRef: process.env.PRODUCTION_SUPABASE_PROJECT_REF,
+    projectRef: process.env.STAGING_SUPABASE_PROJECT_REF
+  });
+  checks.push(check(
+    "migration_history_matches_locked_repo",
+    true,
+    `${migrationState.migrationCount} migration rows and ${migrationState.sentinelCount} schema sentinels match.`
+  ));
   checks.push(check("rls_inventory_verified_elsewhere", true, "RLS/JWT boundaries are verified by the dedicated RLS live harness."));
 
   return { checks, status: missingTables.length === 0 ? "passed" : "failed" };
 }
 
 function verifyRls() {
+  assertStagingSupabaseTarget();
   return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:rls"], {
     RUN_LIVE_SUPABASE_RLS: "true"
   }, "live_rls_harness_passed");
 }
 
+function verifyAuthApi() {
+  assertStagingSupabaseTarget();
+  return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:auth-live"], {
+    RUN_LIVE_STAGING_AUTH_API: "true"
+  }, "live_auth_api_harness_passed");
+}
+
 function verifyWorkflow() {
+  assertStagingSupabaseTarget();
   return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:workflow-live"], {
     RUN_LIVE_SUPABASE_WORKFLOW: "true"
   }, "live_workflow_harness_passed");
 }
 
-async function verifyS3() {
-  const client = new S3Client({
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-    },
-    region: process.env.AWS_REGION
-  });
-  const bucket = process.env.S3_REPORT_BUCKET;
-  const key = `staging-verification/${Date.now()}-${randomUUID()}.pdf`;
-  const body = Buffer.from("%PDF-1.4\n% Lyf9 AI synthetic staging smoke file\n%%EOF\n");
-  const uploadUrl = await getSignedUrl(
-    client,
-    new PutObjectCommand({
-      Body: body,
-      Bucket: bucket,
-      ContentType: "application/pdf",
-      Key: key,
-      Metadata: {
-        synthetic: "true"
-      }
-    }),
-    { expiresIn: Number(process.env.S3_UPLOAD_URL_EXPIRY_SECONDS ?? 900) }
-  );
-
-  const upload = await fetch(uploadUrl, {
-    body,
-    headers: { "content-type": "application/pdf" },
-    method: "PUT"
-  });
-  const checks = [check("signed_upload_succeeded", upload.ok, `HTTP ${upload.status}`)];
-
-  const head = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
-  checks.push(check("metadata_read_succeeded", Boolean(head.ContentLength), `Stored bytes: ${head.ContentLength ?? 0}`));
-
-  const downloadUrl = await getSignedUrl(
-    client,
-    new GetObjectCommand({ Bucket: bucket, Key: key }),
-    { expiresIn: Number(process.env.S3_DOWNLOAD_URL_EXPIRY_SECONDS ?? 300) }
-  );
-  const download = await fetch(downloadUrl);
-  checks.push(check("signed_download_succeeded", download.ok, `HTTP ${download.status}`));
-
-  const publicUrl = `https://${bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
-  const publicFetch = await fetch(publicUrl);
-  checks.push(check("public_object_url_denied", !publicFetch.ok, `HTTP ${publicFetch.status}`));
-
-  await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
-  checks.push(check("delete_succeeded", true));
-  checks.push(check("app_route_audit_verified", false, "S3 direct smoke does not verify report_files rows or audit logs; run full staging E2E for that evidence."));
-
-  return {
-    checks,
-    status: checks.every((item) => item.passed) ? "passed" : "blocked"
-  };
+function verifyS3() {
+  assertStagingSupabaseTarget();
+  return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:s3-live"], {
+    RUN_LIVE_STAGING_S3_API: "true"
+  }, "live_s3_api_harness_passed");
 }
 
 function verifyMalware() {
-  const provider = process.env.MALWARE_SCANNER_PROVIDER;
-  const checks = [
-    check("mock_scanner_not_used", provider !== "mock", "Mock scanner is not allowed for staging verification."),
-    check("real_scanner_runner_available", false, "No live malware scanner runner is wired in this repository yet; staging must fail closed.")
-  ];
-  return { checks, status: "blocked" };
+  return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:malware-live"], {
+    RUN_LIVE_STAGING_MALWARE: "true"
+  }, "live_guardduty_s3_harness_passed");
+}
+
+function verifyInngest() {
+  assertStagingSupabaseTarget();
+  return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:inngest-live"], {
+    RUN_LIVE_STAGING_INNGEST: "true"
+  }, "live_inngest_saga_harness_passed");
 }
 
 function verifyMarker() {
@@ -273,38 +309,30 @@ function verifyMarker() {
 }
 
 function verifyTextract() {
-  const checks = [
-    check("textract_selected", process.env.OCR_PROVIDER === "textract"),
-    check("textract_region_configured", Boolean(process.env.AWS_TEXTRACT_REGION)),
-    check("textract_runner_available", false, "Textract provider currently exposes the contract and fail-closed behavior; live OCR execution is not wired.")
-  ];
-  return { checks, status: "blocked" };
+  assertStagingSupabaseTarget();
+  return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:textract-live"], {
+    RUN_LIVE_STAGING_TEXTRACT: "true"
+  }, "live_textract_harness_passed");
 }
 
-function verifyOpenAi() {
-  const checks = [
-    check("openai_selected", process.env.AI_PROVIDER === "openai"),
-    check("openai_models_configured", Boolean(process.env.OPENAI_MODEL_EXTRACTION && process.env.OPENAI_MODEL_EXPLANATION)),
-    check("openai_runner_available", false, "OpenAI Structured Outputs provider currently exposes the contract and fail-closed behavior; live requests are not wired.")
-  ];
-  return { checks, status: "blocked" };
+function verifyAi() {
+  return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:ai-live"], {
+    RUN_LIVE_STAGING_AI: "true"
+  }, "live_ai_adapter_harness_passed");
 }
 
 function verifyE2E() {
   const checks = [
     check("synthetic_only", true),
-    check("all_live_provider_sections_passed", false, "Full staging E2E is blocked until Supabase/RLS, workflow, S3, scanner, Marker, Textract, and OpenAI live checks pass.")
+    check("all_live_provider_sections_passed", false, "Full staging E2E is blocked until Supabase/RLS, workflow, S3, scanner, Marker, Textract, and the selected AI provider checks pass.")
   ];
   return { checks, status: "blocked" };
 }
 
 function verifyGoldenLive() {
-  const checks = [
-    check("live_openai_eval_requested", process.env.RUN_LIVE_OPENAI_EVAL === "true"),
-    check("synthetic_golden_only", true),
-    check("live_openai_runner_available", false, "Live golden subset cannot run until OpenAI Structured Outputs execution is wired.")
-  ];
-  return { checks, status: "blocked" };
+  return runNpmHarness("npm", ["--workspace", "apps/web", "run", "eval:golden"], {
+    RUN_LIVE_AI_EVAL: "true"
+  }, "live_ai_golden_harness_passed");
 }
 
 function runNpmHarness(command, args, extraEnv, checkName) {
@@ -330,6 +358,20 @@ function runNpmHarness(command, args, extraEnv, checkName) {
 
 function missingEnv(names) {
   return names.filter((name) => !process.env[name]);
+}
+
+function assertStagingSupabaseTarget() {
+  const projectRef = process.env.STAGING_SUPABASE_PROJECT_REF;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  if (!projectRef || !url) {
+    throw new Error("Staging Supabase target is not configured.");
+  }
+
+  const expectedOrigin = `https://${projectRef}.supabase.co`;
+  if (new URL(url).origin !== expectedOrigin) {
+    throw new Error(`Refusing live verification: Supabase URL does not match STAGING_SUPABASE_PROJECT_REF ${projectRef}.`);
+  }
 }
 
 function check(name, passed, detail) {
@@ -371,6 +413,8 @@ Synthetic data only: ${report.syntheticOnly ? "yes" : "no"}
 
 Release verdict: **${report.releaseVerdict}**
 
+Verification scope: **${report.scope}**
+
 | Section | Status | Checks passed |
 | --- | --- | ---: |
 ${rows}
@@ -382,7 +426,7 @@ ${blockers || "- None"}
 }
 
 function sanitizeOutput(value) {
-  let sanitized = value;
+  let sanitized = value.split(process.cwd()).join("[workspace]");
   for (const key of Object.keys(process.env)) {
     if (key.includes("KEY") || key.includes("SECRET") || key.includes("TOKEN") || key.includes("PASSWORD")) {
       const secret = process.env[key];

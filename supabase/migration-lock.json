@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "migrations": [
+    {
+      "version": "202606060001",
+      "name": "private_beta_core",
+      "sha256": "74fa2bfa6c516c08b792f415eedca40ca24b2ab5514bbc05e40c4fd9058217ed"
+    },
+    {
+      "version": "202606060002",
+      "name": "auth_persistence_rls_hardening",
+      "sha256": "fff3ac180eb89b2c56a162f098107b5d71e1f84251666c51a1f85668b8b4febb"
+    },
+    {
+      "version": "202606060003",
+      "name": "private_storage_scan_status",
+      "sha256": "eb5835161a0b1393a7163ef9de959232d6dcdb686f6cffdef58688a804fcde0c"
+    },
+    {
+      "version": "202606060004",
+      "name": "durable_processing_workflow",
+      "sha256": "d800f279403fbc2bfecb6169b2bf2d356e0cbfdc9dac2d19d2a087fa3f35a69e"
+    },
+    {
+      "version": "202606060005",
+      "name": "atomic_processing_job_claim",
+      "sha256": "f4c1bb901dca3db4dcac54a5783b88412e292157e03a5c9f127bcf256ad5238a"
+    },
+    {
+      "version": "202606060006",
+      "name": "document_extraction_foundation",
+      "sha256": "9e4b5e4677a0497cadec5d0730d36b23d15c0b1cb2f810fb62d0791c1944a7c2"
+    },
+    {
+      "version": "202606120001",
+      "name": "schema_first_ai_layer",
+      "sha256": "cf0a4003d0f3c0a2d6711bbe5121acf7b2cd6d42bea50d4a86ff02f031f468bc"
+    },
+    {
+      "version": "202608160001",
+      "name": "doctor_onboarding_and_assignment",
+      "sha256": "c24a3d2d151b0314e5d337e3ae0b44ffa62e6d16daf105446adc76e31cb723c5"
+    },
+    {
+      "version": "202609010001",
+      "name": "biomarker_catalog_rls",
+      "sha256": "cedf4fafb2e1d1ee83230ba70d419a184fc97ac93b9c8624ead77667deb479bd"
+    },
+    {
+      "version": "202609010002",
+      "name": "consent_rpc_rls_guard",
+      "sha256": "bf7935b880570232beee27785befbb852748e608bb015f537689c50a6c5e03f6"
+    },
+    {
+      "version": "202609020001",
+      "name": "workflow_rpc_hardening",
+      "sha256": "d3d3691d1e89c501978eed461b6bbb814c714a1c558014fede60682589704b5a"
+    }
+  ]
+}

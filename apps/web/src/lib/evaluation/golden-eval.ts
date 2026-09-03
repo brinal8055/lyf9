@@ -1,7 +1,14 @@
 import { readdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 
-import { MockAiProvider, validateBiomarkerExtractionSchema, validatePatientExplanationSchema } from "../ai";
+import {
+  ClinicalAiGateway,
+  MockAiProvider,
+  getAiRuntimeStatus,
+  getClinicalAiGateway,
+  validateBiomarkerExtractionSchema,
+  validatePatientExplanationSchema
+} from "../ai";
 import { normalizeBiomarkerItems, validateNormalizedBiomarkers, type NormalizedBiomarker } from "../biomarkers";
 import { classifyExtractedReport } from "../document-extraction";
 import { runUnsafeLanguageFilter } from "../reports/safety";
@@ -50,10 +57,11 @@ type UnsafeFixture = {
 
 export type GoldenEvaluationResult = {
   generatedAt: string;
-  liveOpenAiEval: {
+  liveAiEval: {
     configured: boolean;
+    provider: string;
     requested: boolean;
-    status: "not_requested" | "skipped_not_configured" | "not_ready_contract_only";
+    status: "completed" | "not_requested" | "skipped_not_configured";
   };
   metrics: {
     classification: Record<string, number>;
@@ -93,7 +101,10 @@ export async function runGoldenEvaluation(options: { writeReports?: boolean } = 
   const reports = await loadJsonDir<GoldenReportFixture>(path.join(goldenRoot, "reports"));
   const expected = await loadExpected(path.join(goldenRoot, "expected"));
   const unsafeFixtures = await loadJsonDir<UnsafeFixture>(path.join(goldenRoot, "unsafe_outputs"));
-  const provider = new MockAiProvider();
+  const liveAiRequested = process.env.RUN_LIVE_AI_EVAL === "true";
+  const ai = liveAiRequested
+    ? getClinicalAiGateway()
+    : new ClinicalAiGateway(new MockAiProvider());
 
   const fixtureResults: Array<Record<string, unknown>> = [];
   const supportedExpected = reports.filter((fixture) => ["supported", "limited_beta"].includes(expected.get(fixture.fixture_id)?.classification.expected_status ?? ""));
@@ -154,14 +165,14 @@ export async function runGoldenEvaluation(options: { writeReports?: boolean } = 
       continue;
     }
 
-    const extraction = await provider.extractBiomarkers({
+    const extraction = (await ai.extractBiomarkers({
       extractedDocumentId: `${fixture.fixture_id}_document`,
       extractedTablesJson: fixture.extracted_tables_json,
       extractedText: fixture.extracted_text,
       labReportId: `${fixture.fixture_id}_lab_report`,
       reportFileId: `${fixture.fixture_id}_file`,
       userId: "synthetic-user"
-    });
+    })).output;
     const extractionSchema = validateBiomarkerExtractionSchema(extraction);
     const normalized = normalizeBiomarkerItems({
       aiModelRunId: `${fixture.fixture_id}_model_run_extract`,
@@ -178,11 +189,11 @@ export async function runGoldenEvaluation(options: { writeReports?: boolean } = 
     const validation = validateNormalizedBiomarkers(normalized);
     const labReport = makeSyntheticLabReport(fixture, classification.reportType ?? "unknown");
     const safety = runMedicalSafetyRules({ biomarkers: normalized, labReport });
-    const explanation = await provider.generatePatientExplanation({
+    const explanation = (await ai.generatePatientExplanation({
       biomarkers: normalized,
       labReportId: labReport.id,
       userId: labReport.userId
-    });
+    })).output;
     const explanationSchema = validatePatientExplanationSchema(explanation);
     const explanationSafety = runUnsafeLanguageFilter(JSON.stringify(explanation));
 
@@ -235,15 +246,14 @@ export async function runGoldenEvaluation(options: { writeReports?: boolean } = 
   const fullSupportedMockPipelinePassRate = ratio(supportedPipelinePass, Math.max(1, supportedExpected.length - 1));
   const result: GoldenEvaluationResult = {
     blockers: [
-      "Live Supabase/RLS staging verification is missing.",
-      "Real S3 bucket/IAM smoke test is missing.",
-      "Real malware scanner is not configured.",
-      "Marker/Textract/OpenAI live providers are not staging-verified.",
+      "The selected AI provider has not passed live staging golden evaluation.",
+      "Scanned-image OCR coverage is incomplete.",
+      "The golden dataset requires broader human-reviewed coverage.",
       "Doctor-reviewed critical thresholds and legal review are incomplete."
     ],
     fixtureResults,
     generatedAt: new Date().toISOString(),
-    liveOpenAiEval: liveOpenAiStatus(),
+    liveAiEval: liveAiStatus(liveAiRequested),
     metrics: {
       biomarkers: {
         biomarker_recall: biomarkerRecall,
@@ -374,7 +384,7 @@ Private beta recommendation: **${result.privateBetaRecommendation}**.
 
 Overall private beta score: **${result.metrics.readiness.overall_private_beta_score}/100**.
 
-Live OpenAI evaluation: **${result.liveOpenAiEval.status}**.
+Live AI evaluation: **${result.liveAiEval.status}** (${result.liveAiEval.provider}).
 
 ## Dataset Summary
 
@@ -407,10 +417,11 @@ ${result.blockers.map((blocker) => `- ${blocker}`).join("\n")}
 
 ## Next Actions
 
-1. Run live Supabase/RLS, S3, malware scanner, Marker, Textract, and OpenAI staging checks.
-2. Review critical thresholds with a qualified doctor.
-3. Expand golden fixtures to at least 25 internally reviewed synthetic or consented internal samples before real PHI beta.
-4. Keep private beta marked no-go until P0 live checks pass.
+1. Run the selected-provider AI adapter and live golden checks with synthetic data.
+2. Add scanned-image OCR coverage.
+3. Review critical thresholds with a qualified doctor.
+4. Expand golden fixtures to at least 25 internally reviewed synthetic or consented internal samples before real PHI beta.
+5. Keep private beta marked no-go until P0 live checks pass.
 `;
 }
 
@@ -453,12 +464,12 @@ function makeSyntheticLabReport(fixture: GoldenReportFixture, reportType: string
   };
 }
 
-function liveOpenAiStatus(): GoldenEvaluationResult["liveOpenAiEval"] {
-  const requested = process.env.RUN_LIVE_OPENAI_EVAL === "true";
-  const configured = Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_MODEL_EXTRACTION && process.env.OPENAI_MODEL_EXPLANATION);
-  if (!requested) return { configured, requested, status: "not_requested" };
-  if (!configured) return { configured, requested, status: "skipped_not_configured" };
-  return { configured, requested, status: "not_ready_contract_only" };
+function liveAiStatus(requested: boolean): GoldenEvaluationResult["liveAiEval"] {
+  const runtime = getAiRuntimeStatus();
+  const configured = runtime.readyForReportPipeline;
+  if (!requested) return { configured, provider: runtime.providerId, requested, status: "not_requested" };
+  if (!configured) return { configured, provider: runtime.providerId, requested, status: "skipped_not_configured" };
+  return { configured, provider: runtime.providerId, requested, status: "completed" };
 }
 
 function repoRoot() {

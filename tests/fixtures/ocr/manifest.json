@@ -1,0 +1,21 @@
+{
+  "fixtures": [
+    {
+      "filename": "synthetic-cbc-scan.png",
+      "purpose": "Readable synthetic CBC raster image for live OCR verification.",
+      "sha256": "6ddafb199b5567c5b5812997e9cdc6efa62fe854b3b3c0fdd97051de217cf115"
+    },
+    {
+      "filename": "synthetic-blank-scan.png",
+      "purpose": "Unreadable synthetic raster image for fail-closed OCR verification.",
+      "sha256": "301051ebb765f55b11b770934c6cb48595561612bc47e8728f3a4983711c69a3"
+    },
+    {
+      "filename": "synthetic-radiology-scan.png",
+      "purpose": "Unsupported synthetic raster image for deployed workflow OCR and AI-block verification.",
+      "sha256": "54ce17992e8430ad548a60dd57c9a75c2b5d02a6e55e6b130b2adcfde6106775"
+    }
+  ],
+  "syntheticOnly": true,
+  "version": 1
+}

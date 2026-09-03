@@ -95,5 +95,10 @@ begin
 end;
 $$;
 
+revoke execute on function public.claim_next_processing_job(text, integer, timestamptz)
+  from public, anon, authenticated;
+revoke execute on function public.release_expired_processing_locks(timestamptz)
+  from public, anon, authenticated;
+
 grant execute on function public.claim_next_processing_job(text, integer, timestamptz) to service_role;
 grant execute on function public.release_expired_processing_locks(timestamptz) to service_role;
