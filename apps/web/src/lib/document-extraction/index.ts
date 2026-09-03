@@ -12,6 +12,7 @@ export type {
   ParseDocumentParams
 } from "./document-parser-provider";
 export type { OcrProvider } from "./ocr-provider";
+export { isRasterImageMimeType } from "./document-parser-provider";
 export { MarkerProvider } from "./marker-provider";
 export { MockFixtureDocumentParser } from "./mock-fixture-document-parser";
 export { MockOcrProvider } from "./mock-ocr-provider";

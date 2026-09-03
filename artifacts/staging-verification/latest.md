@@ -1,16 +1,18 @@
 # Live Staging Verification Artifact
 
-Generated: 2026-09-03T11:48:35.011Z
+Generated: 2026-09-03T14:12:05.295Z
 
 Environment: staging
 
 Synthetic data only: yes
 
-Release verdict: **ready_for_review**
+Release verdict: **section_passed**
+
+Verification scope: **selected_sections**
 
 | Section | Status | Checks passed |
 | --- | --- | ---: |
-| ai | passed | 1/1 |
+| textract | passed | 1/1 |
 
 ## Blockers
 

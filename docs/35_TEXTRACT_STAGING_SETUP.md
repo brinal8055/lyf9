@@ -12,9 +12,14 @@ OCR_PROVIDER=textract
 AWS_TEXTRACT_REGION=ap-south-1
 OCR_TIMEOUT_SECONDS=180
 OCR_POLL_INTERVAL_MS=2000
+OCR_MIN_TEXT_CHARS=40
+OCR_MIN_MEAN_CONFIDENCE=0.85
+OCR_MIN_LINE_CONFIDENCE=0.80
+OCR_MAX_LOW_CONFIDENCE_LINE_RATIO=0.20
 ```
 
 Marker remains optional. Textract is an explicit document parser selection, not a silent fallback or alias.
+JPG, JPEG, and PNG uploads are explicitly scan-required and route directly to the configured OCR provider. OCR output below the configured text, mean-confidence, line-confidence, or low-confidence-line-ratio threshold is persisted for operator inspection and blocked from classification and AI.
 
 ## IAM
 
@@ -49,7 +54,7 @@ npm run verify:staging:textract
 
 The harness refuses Production mode, mismatched staging/Production buckets, non-staging bucket names, mismatched Supabase project references, other AWS regions, and non-Textract provider selections.
 
-It creates one synthetic Auth user, one generated CBC PDF under a staging-only `reports/textract-verification/` key, report metadata, and an `extracted_documents` row. It checks extracted text, confidence, page count, parser provenance, and user ownership. Cleanup deletes the S3 object and Auth user; cascading foreign keys delete the relational fixture.
+It creates one synthetic Auth user and uploads a readable CBC PNG plus a blank PNG under a staging-only `reports/textract-verification/` prefix. It verifies readable text, CBC classification, page/line confidence, text offsets, geometry, `ocr_provider`, ownership, blank-image failure, absence of AI output rows, and independent S3/database cleanup. Fixtures are synthetic and integrity-pinned by SHA-256 under `tests/fixtures/ocr/`.
 
 ## Failure Handling
 
@@ -60,6 +65,8 @@ It creates one synthetic Auth user, one generated CBC PDF under a staging-only `
 | `textract_partial_success` | AWS could not completely process every page | Fail closed and route for retry/manual review; do not interpret partial text. |
 | `textract_timeout` | The asynchronous job exceeded the configured deadline | Retry through the durable workflow; do not publish partial output. |
 | `textract_no_text` | No readable lines were returned | Mark extraction failed/manual review required. |
+| `textract_low_text_confidence` | Text was returned below the configured OCR quality gate | Persist provenance, block classification/AI, and route to manual review. |
+| `textract_throttled` | AWS temporarily rejected the request due to service limits | Retry through the bounded durable workflow. |
 | `ocr_configuration_required` | Required region, bucket, or AWS credential is absent | Fail closed and fix staging configuration. |
 
 Never write extracted report text into audit logs or verification artifacts.

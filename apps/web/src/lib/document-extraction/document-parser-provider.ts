@@ -40,3 +40,8 @@ export function minExtractedTextChars() {
   const configured = Number(process.env.MIN_EXTRACTED_TEXT_CHARS);
   return Number.isFinite(configured) && configured > 0 ? configured : 500;
 }
+
+export function isRasterImageMimeType(mimeType: string) {
+  const normalized = mimeType.trim().toLowerCase();
+  return normalized === "image/jpeg" || normalized === "image/jpg" || normalized === "image/png";
+}

@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "crypto";
+import { readFile } from "fs/promises";
 
 import { DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -74,7 +75,7 @@ describe("staging Inngest target guard", () => {
 });
 
 describeLive("live staging Inngest saga", () => {
-  it("runs a synthetic unsupported PDF through GuardDuty, Textract, and classification without AI", async () => {
+  it("runs a synthetic unsupported scan through GuardDuty, OCR, and classification without AI", async () => {
     const env = getLiveEnv();
     const service = createClient(env.supabaseUrl, env.serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false }
@@ -89,11 +90,13 @@ describeLive("live staging Inngest saga", () => {
     const suffix = `${Date.now()}-${randomUUID().slice(0, 8)}`;
     const email = `lyf9-staging-inngest-${suffix}@lyf9.ai`;
     const password = `Inngest-${suffix}!`;
-    const pdf = syntheticUnsupportedPdf();
+    const image = await readFixture("synthetic-radiology-scan.png");
     let storageKey: string | null = null;
     let userId: string | null = null;
 
     try {
+      expect(createHash("sha256").update(image).digest("hex"))
+        .toBe("54ce17992e8430ad548a60dd57c9a75c2b5d02a6e55e6b130b2adcfde6106775");
       const endpoint = await fetch(`${env.stagingOrigin}/api/inngest`, { redirect: "manual" });
       expect(endpoint.status).toBe(401);
       expect(await endpoint.json()).toMatchObject({ message: "Unauthorized" });
@@ -133,10 +136,10 @@ describeLive("live staging Inngest saga", () => {
       const init = await postJson(
         `${env.stagingOrigin}/api/reports/upload-init`,
         {
-          checksumSha256: createHash("sha256").update(pdf).digest("hex"),
-          fileSizeBytes: pdf.length,
-          mimeType: "application/pdf",
-          originalFilename: "Synthetic Radiology Verification.pdf"
+          checksumSha256: createHash("sha256").update(image).digest("hex"),
+          fileSizeBytes: image.length,
+          mimeType: "image/png",
+          originalFilename: "Synthetic Radiology Scan Verification.png"
         },
         authenticatedHeaders
       );
@@ -150,7 +153,7 @@ describeLive("live staging Inngest saga", () => {
       storageKey = stringField(reportFile, "storageKey");
 
       const upload = await fetch(stringField(init.body, "uploadUrl"), {
-        body: pdf,
+        body: image,
         headers: stringRecord(init.body.requiredHeaders),
         method: "PUT"
       });
@@ -161,7 +164,7 @@ describeLive("live staging Inngest saga", () => {
         pollIntervalMs: 3_000,
         timeoutMs: 240_000
       }).scanFile({
-        mimeType: "application/pdf",
+        mimeType: "image/png",
         reportFileId,
         storageKey
       });
@@ -181,7 +184,7 @@ describeLive("live staging Inngest saga", () => {
         service.from("lab_reports").select("report_type, status, unsupported_reason").eq("id", labReportId).single(),
         service.from("processing_jobs").select("current_state, status").eq("id", jobId).single(),
         service.from("processing_job_steps").select("status, step_name").eq("processing_job_id", jobId),
-        service.from("extracted_documents").select("parser_provider, status, user_id").eq("report_file_id", reportFileId).single()
+        service.from("extracted_documents").select("ocr_provider, parser_provider, status, user_id").eq("report_file_id", reportFileId).single()
       ]);
       [fileResult, labResult, jobResult, stepResult, extractionResult].forEach((result) => throwIfError(result.error));
       if (!fileResult.data || !labResult.data || !jobResult.data || !extractionResult.data) {
@@ -192,11 +195,17 @@ describeLive("live staging Inngest saga", () => {
       expect(labResult.data).toMatchObject({ report_type: "unsupported", status: "unsupported" });
       expect(labResult.data.unsupported_reason).toContain("Radiology");
       expect(jobResult.data).toEqual({ current_state: "unsupported", status: "completed" });
-      expect(extractionResult.data).toEqual({ parser_provider: "textract", status: "success", user_id: userId });
+      expect(extractionResult.data).toEqual({
+        ocr_provider: "textract",
+        parser_provider: "textract",
+        status: "success",
+        user_id: userId
+      });
       expect(stepStatusMap(stepResult.data ?? [])).toMatchObject({
         classify_report: "completed",
         extract_document: "completed",
-        malware_scan: "completed"
+        malware_scan: "completed",
+        ocr_fallback: "completed"
       });
 
       await expectNoAiOutputs(service, userId, reportFileId);
@@ -304,36 +313,8 @@ function stepStatusMap(rows: Array<{ status: string; step_name: string }>) {
   return Object.fromEntries(rows.map((row) => [row.step_name, row.status]));
 }
 
-function syntheticUnsupportedPdf() {
-  const text = [
-    "Lyf9 AI Synthetic Radiology Report",
-    "MRI Brain Imaging",
-    "Synthetic findings for workflow verification only",
-    "This document contains no patient information"
-  ];
-  const stream = `BT\n/F1 14 Tf\n50 760 Td\n${text.map((line, index) => `${index > 0 ? "0 -28 Td\n" : ""}(${escapePdfText(line)}) Tj`).join("\n")}\nET`;
-  const objects = [
-    "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`
-  ];
-  let pdf = "%PDF-1.4\n";
-  const offsets = [0];
-  for (const [index, object] of objects.entries()) {
-    offsets.push(Buffer.byteLength(pdf));
-    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
-  }
-  const xrefOffset = Buffer.byteLength(pdf);
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  pdf += offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("");
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
-  return Buffer.from(pdf);
-}
-
-function escapePdfText(value: string) {
-  return value.replace(/([\\()])/g, "\\$1");
+async function readFixture(filename: string) {
+  return readFile(new URL(`../../../../tests/fixtures/ocr/${filename}`, import.meta.url));
 }
 
 async function postJson(

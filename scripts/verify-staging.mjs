@@ -153,10 +153,15 @@ for (const section of selected) {
   await writeSection(section, result);
 }
 
+const isFullReleaseRun = selected.length === Object.keys(sections).length;
+const allSelectedPassed = results.every((result) => result.status === "passed");
 const latest = {
   generatedAt: now(),
   environment: process.env.APP_ENV ?? null,
-  releaseVerdict: results.every((result) => result.status === "passed") ? "ready_for_review" : "no_go",
+  releaseVerdict: allSelectedPassed
+    ? isFullReleaseRun ? "ready_for_review" : "section_passed"
+    : "no_go",
+  scope: isFullReleaseRun ? "full_release" : "selected_sections",
   syntheticOnly: true,
   results
 };
@@ -395,6 +400,8 @@ Environment: ${report.environment ?? "unset"}
 Synthetic data only: ${report.syntheticOnly ? "yes" : "no"}
 
 Release verdict: **${report.releaseVerdict}**
+
+Verification scope: **${report.scope}**
 
 | Section | Status | Checks passed |
 | --- | --- | ---: |

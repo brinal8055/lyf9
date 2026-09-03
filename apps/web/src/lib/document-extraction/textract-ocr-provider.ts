@@ -21,6 +21,10 @@ type TextractPollResult = Pick<
 export type TextractOcrProviderOptions = {
   bucket?: string;
   getResult?: (jobId: string, nextToken?: string) => Promise<TextractPollResult>;
+  maxLowConfidenceLineRatio?: number;
+  minLineConfidence?: number;
+  minMeanConfidence?: number;
+  minTextChars?: number;
   now?: () => number;
   pollIntervalMs?: number;
   region?: string;
@@ -112,7 +116,7 @@ export class TextractOcrProvider implements OcrProvider {
         nextToken = page.NextToken;
       }
 
-      return toExtractedDocument(blocks, firstPage.DocumentMetadata?.Pages);
+      return toExtractedDocument(blocks, firstPage.DocumentMetadata?.Pages, config.quality);
     } catch (caught) {
       return failedResult(textractErrorCode(caught), "Textract document extraction failed.");
     } finally {
@@ -131,13 +135,29 @@ export class TextractOcrProvider implements OcrProvider {
     return {
       bucket,
       pollIntervalMs: this.options.pollIntervalMs ?? positiveIntegerEnv("OCR_POLL_INTERVAL_MS", 2_000),
+      quality: {
+        maxLowConfidenceLineRatio: this.options.maxLowConfidenceLineRatio
+          ?? unitIntervalEnv("OCR_MAX_LOW_CONFIDENCE_LINE_RATIO", 0.2),
+        minLineConfidence: this.options.minLineConfidence
+          ?? unitIntervalEnv("OCR_MIN_LINE_CONFIDENCE", 0.8),
+        minMeanConfidence: this.options.minMeanConfidence
+          ?? unitIntervalEnv("OCR_MIN_MEAN_CONFIDENCE", 0.85),
+        minTextChars: this.options.minTextChars ?? positiveIntegerEnv("OCR_MIN_TEXT_CHARS", 40)
+      },
       region,
       timeoutMs: this.options.timeoutMs ?? positiveIntegerEnv("OCR_TIMEOUT_SECONDS", 180) * 1_000
     };
   }
 }
 
-function toExtractedDocument(blocks: Block[], declaredPageCount?: number) {
+type OcrQualityPolicy = {
+  maxLowConfidenceLineRatio: number;
+  minLineConfidence: number;
+  minMeanConfidence: number;
+  minTextChars: number;
+};
+
+function toExtractedDocument(blocks: Block[], declaredPageCount: number | undefined, quality: OcrQualityPolicy) {
   const lines = blocks
     .filter((block) => block.BlockType === "LINE" && block.Text?.trim())
     .sort((left, right) =>
@@ -145,7 +165,23 @@ function toExtractedDocument(blocks: Block[], declaredPageCount?: number) {
       (left.Geometry?.BoundingBox?.Top ?? 0) - (right.Geometry?.BoundingBox?.Top ?? 0) ||
       (left.Geometry?.BoundingBox?.Left ?? 0) - (right.Geometry?.BoundingBox?.Left ?? 0)
     );
-  const extractedText = lines.map((line) => line.Text?.trim()).filter(Boolean).join("\n");
+  const lineMetadata: Array<Record<string, unknown>> = [];
+  let textOffset = 0;
+  const extractedText = lines.map((line) => {
+    const text = line.Text?.trim() ?? "";
+    const startOffset = textOffset;
+    const endOffset = startOffset + text.length;
+    textOffset = endOffset + 1;
+    const boundingBox = normalizedBoundingBox(line);
+    lineMetadata.push({
+      ...(boundingBox ? { boundingBox } : {}),
+      confidenceScore: typeof line.Confidence === "number" ? line.Confidence / 100 : null,
+      endOffset,
+      pageNumber: line.Page ?? 1,
+      startOffset
+    });
+    return text;
+  }).join("\n");
   if (!extractedText) {
     return failedResult("textract_no_text", "Textract did not find readable text in the document.");
   }
@@ -159,15 +195,58 @@ function toExtractedDocument(blocks: Block[], declaredPageCount?: number) {
     : undefined;
   const pages = Array.from({ length: pageCount }, (_, index) => {
     const pageLines = lines.filter((line) => (line.Page ?? 1) === index + 1);
-    return { lineCount: pageLines.length, pageNumber: index + 1 };
+    const pageConfidences = pageLines
+      .map((line) => line.Confidence)
+      .filter((value): value is number => typeof value === "number")
+      .map((value) => value / 100);
+    return {
+      averageConfidence: average(pageConfidences),
+      lineCount: pageLines.length,
+      minimumConfidence: pageConfidences.length > 0 ? Math.min(...pageConfidences) : null,
+      pageNumber: index + 1
+    };
   });
+  const normalizedConfidences = confidenceValues.map((value) => value / 100);
+  const lowConfidenceLineCount = normalizedConfidences.filter(
+    (confidence) => confidence < quality.minLineConfidence
+  ).length;
+  const lowConfidenceLineRatio = lines.length > 0 ? lowConfidenceLineCount / lines.length : 1;
+  const qualityFailed = extractedText.replace(/\s/g, "").length < quality.minTextChars
+    || confidenceValues.length !== lines.length
+    || confidenceScore === undefined
+    || confidenceScore < quality.minMeanConfidence
+    || lowConfidenceLineRatio > quality.maxLowConfidenceLineRatio;
+
+  const pageMetadataJson = {
+    lineCount: lines.length,
+    lines: lineMetadata,
+    lowConfidenceLineCount,
+    lowConfidenceLineRatio,
+    pages,
+    schemaVersion: 1
+  };
+
+  if (qualityFailed) {
+    return {
+      confidenceScore,
+      errorCode: "textract_low_text_confidence",
+      errorMessage: "Textract output requires manual review because text quality is below the configured threshold.",
+      extractedTablesJson: [],
+      extractedText,
+      pageCount,
+      pageMetadataJson,
+      parserVersion: "aws_textract_document_text_detection_v1",
+      provider: "textract",
+      status: "low_text_confidence" as const
+    };
+  }
 
   return {
     confidenceScore,
     extractedTablesJson: [],
     extractedText,
     pageCount,
-    pageMetadataJson: { lineCount: lines.length, pages },
+    pageMetadataJson,
     parserVersion: "aws_textract_document_text_detection_v1",
     provider: "textract",
     status: "success" as const
@@ -196,9 +275,44 @@ function positiveIntegerEnv(name: string, fallback: number) {
   return value;
 }
 
+function unitIntervalEnv(name: string, fallback: number) {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0 || value > 1) {
+    throw new Error(`${name} must be between 0 and 1.`);
+  }
+  return value;
+}
+
+function average(values: number[]) {
+  if (values.length === 0) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function normalizedBoundingBox(line: Block) {
+  const box = line.Geometry?.BoundingBox;
+  if (
+    typeof box?.Height !== "number" ||
+    typeof box.Left !== "number" ||
+    typeof box.Top !== "number" ||
+    typeof box.Width !== "number"
+  ) {
+    return null;
+  }
+  return { height: box.Height, left: box.Left, top: box.Top, width: box.Width };
+}
+
 function textractErrorCode(caught: unknown) {
   const name = caught instanceof Error ? caught.name : "";
   if (name === "AccessDeniedException") return "textract_access_denied";
+  if (
+    name === "LimitExceededException" ||
+    name === "ProvisionedThroughputExceededException" ||
+    name === "ThrottlingException"
+  ) {
+    return "textract_throttled";
+  }
   if (name === "UnsupportedDocumentException" || name === "BadDocumentException") {
     return "textract_unsupported_document";
   }

@@ -1,10 +1,12 @@
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
+import { readFile } from "fs/promises";
 
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { TextractOcrProvider } from "./textract-ocr-provider";
+import { classifyExtractedReport } from "./report-classifier";
 
 const liveEnabled = process.env.RUN_LIVE_STAGING_TEXTRACT === "true";
 const describeLive = liveEnabled ? describe : describe.skip;
@@ -56,7 +58,7 @@ describe("staging Textract target guard", () => {
 });
 
 describeLive("live staging Textract document extraction", () => {
-  it("extracts a synthetic S3 PDF, persists provenance, and cleans up", async () => {
+  it("extracts a synthetic CBC scan, blocks a blank scan, persists provenance, and cleans up", async () => {
     const env = getLiveEnv();
     const service = createClient(env.supabaseUrl, env.serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false }
@@ -70,11 +72,20 @@ describeLive("live staging Textract document extraction", () => {
     });
     const suffix = `${Date.now()}-${randomUUID().slice(0, 8)}`;
     const email = `lyf9-staging-textract-${suffix}@lyf9.ai`;
-    const storageKey = `reports/textract-verification/${suffix}/synthetic-cbc.pdf`;
-    const pdf = syntheticLabPdf();
+    const storagePrefix = `reports/textract-verification/${suffix}/`;
+    const readableStorageKey = `${storagePrefix}synthetic-cbc-scan.png`;
+    const blankStorageKey = `${storagePrefix}synthetic-blank-scan.png`;
+    const readableImage = await readFixture("synthetic-cbc-scan.png");
+    const blankImage = await readFixture("synthetic-blank-scan.png");
     let userId: string | null = null;
+    let caughtFailure: unknown;
 
     try {
+      expect(createHash("sha256").update(readableImage).digest("hex"))
+        .toBe("6ddafb199b5567c5b5812997e9cdc6efa62fe854b3b3c0fdd97051de217cf115");
+      expect(createHash("sha256").update(blankImage).digest("hex"))
+        .toBe("301051ebb765f55b11b770934c6cb48595561612bc47e8728f3a4983711c69a3");
+
       const createdUser = await service.auth.admin.createUser({
         email,
         email_confirm: true,
@@ -85,23 +96,19 @@ describeLive("live staging Textract document extraction", () => {
       userId = createdUser.data.user?.id ?? null;
       if (!userId) throw new Error("Synthetic staging Textract user was not created.");
 
-      await s3.send(new PutObjectCommand({
-        Body: pdf,
-        Bucket: env.stagingBucket,
-        ContentType: "application/pdf",
-        Key: storageKey,
-        Metadata: { synthetic_verification: "true" },
-        ServerSideEncryption: "AES256"
-      }));
+      await Promise.all([
+        putSyntheticImage(s3, env.stagingBucket, readableStorageKey, readableImage),
+        putSyntheticImage(s3, env.stagingBucket, blankStorageKey, blankImage)
+      ]);
 
       const reportFile = await insertRow(service, "report_files", {
-        file_size_bytes: pdf.length,
-        mime_type: "application/pdf",
-        original_filename: "Synthetic CBC Verification.pdf",
+        file_size_bytes: readableImage.length,
+        mime_type: "image/png",
+        original_filename: "Synthetic CBC Scan Verification.png",
         scan_status: "scan_passed",
         status: "scan_passed",
         storage_bucket: env.stagingBucket,
-        storage_key: storageKey,
+        storage_key: readableStorageKey,
         storage_provider: "s3-private",
         user_id: userId
       });
@@ -110,57 +117,123 @@ describeLive("live staging Textract document extraction", () => {
         status: "processing",
         user_id: userId
       });
+      const blankReportFile = await insertRow(service, "report_files", {
+        file_size_bytes: blankImage.length,
+        mime_type: "image/png",
+        original_filename: "Synthetic Blank Scan Verification.png",
+        scan_status: "scan_passed",
+        status: "scan_passed",
+        storage_bucket: env.stagingBucket,
+        storage_key: blankStorageKey,
+        storage_provider: "s3-private",
+        user_id: userId
+      });
+      const blankLabReport = await insertRow(service, "lab_reports", {
+        report_file_id: blankReportFile.id,
+        status: "processing",
+        user_id: userId
+      });
 
       const result = await new TextractOcrProvider().parseDocument({
-        filename: "Synthetic CBC Verification.pdf",
+        filename: "Synthetic CBC Scan Verification.png",
         labReportId: labReport.id,
-        mimeType: "application/pdf",
+        mimeType: "image/png",
         reportFileId: reportFile.id,
-        storageKey
+        storageKey: readableStorageKey
       });
       expect(result.status, result.errorCode).toBe("success");
       expect(result.extractedText).toContain("Hemoglobin");
       expect(result.extractedText).toContain("13.4");
       expect(result.pageCount).toBe(1);
-      expect(result.confidenceScore).toBeGreaterThan(0.8);
+      expect(result.confidenceScore).toBeGreaterThanOrEqual(0.85);
+      const pageMetadata = result.pageMetadataJson as PageMetadata;
+      expect(pageMetadata.schemaVersion).toBe(1);
+      expect(pageMetadata.pages).toEqual([
+        expect.objectContaining({ lineCount: expect.any(Number), pageNumber: 1 })
+      ]);
+      expect(pageMetadata.lines.length).toBeGreaterThanOrEqual(6);
+      expect(pageMetadata.lines.every((line) =>
+        line.pageNumber === 1 &&
+        typeof line.confidenceScore === "number" &&
+        typeof line.startOffset === "number" &&
+        typeof line.endOffset === "number" &&
+        !Object.hasOwn(line, "text")
+      )).toBe(true);
 
-      const extractedDocument = await insertRow(service, "extracted_documents", {
-        confidence_score: result.confidenceScore ?? null,
-        error_code: result.errorCode ?? null,
-        error_message: result.errorMessage ?? null,
-        extracted_tables_json: result.extractedTablesJson ?? null,
-        extracted_text: result.extractedText ?? null,
-        extraction_version: 1,
-        lab_report_id: labReport.id,
-        ocr_provider: null,
-        page_count: result.pageCount ?? null,
-        page_metadata_json: result.pageMetadataJson ?? {},
-        parser_name: "textract",
-        parser_provider: "textract",
-        parser_version: result.parserVersion,
-        report_file_id: reportFile.id,
-        status: result.status,
-        user_id: userId
+      const classification = await classifyExtractedReport({
+        extractedText: result.extractedText ?? "",
+        filename: "Synthetic CBC Scan Verification.png"
+      });
+      expect(classification).toMatchObject({ reportType: "cbc", status: "supported" });
+
+      const extractedDocument = await persistExtraction(service, {
+        labReportId: labReport.id,
+        reportFileId: reportFile.id,
+        result,
+        userId
       });
       const persisted = await service
         .from("extracted_documents")
-        .select("error_code, ocr_provider, parser_provider, parser_version, status, user_id")
+        .select("error_code, ocr_provider, page_metadata_json, parser_provider, parser_version, status, user_id")
         .eq("id", extractedDocument.id)
         .single();
       throwIfError(persisted.error);
       expect(persisted.data).toMatchObject({
         error_code: null,
-        ocr_provider: null,
+        ocr_provider: "textract",
         parser_provider: "textract",
         parser_version: "aws_textract_document_text_detection_v1",
         status: "success",
         user_id: userId
       });
+      expect((persisted.data?.page_metadata_json as PageMetadata).schemaVersion).toBe(1);
+
+      const blankResult = await new TextractOcrProvider().parseDocument({
+        filename: "Synthetic Blank Scan Verification.png",
+        labReportId: blankLabReport.id,
+        mimeType: "image/png",
+        reportFileId: blankReportFile.id,
+        storageKey: blankStorageKey
+      });
+      expect(blankResult).toMatchObject({ errorCode: "textract_no_text", status: "failed" });
+      await persistExtraction(service, {
+        labReportId: blankLabReport.id,
+        reportFileId: blankReportFile.id,
+        result: blankResult,
+        userId
+      });
+
+      const [modelRuns, biomarkers, insights] = await Promise.all([
+        countRows(service, "model_runs", userId),
+        countRows(service, "biomarker_results", userId),
+        countRows(service, "health_insights", userId)
+      ]);
+      expect({ biomarkers, insights, modelRuns }).toEqual({ biomarkers: 0, insights: 0, modelRuns: 0 });
+    } catch (caught) {
+      caughtFailure = caught;
     } finally {
-      await s3.send(new DeleteObjectCommand({ Bucket: env.stagingBucket, Key: storageKey })).catch(() => undefined);
+      await Promise.all([
+        s3.send(new DeleteObjectCommand({ Bucket: env.stagingBucket, Key: readableStorageKey })).catch(() => undefined),
+        s3.send(new DeleteObjectCommand({ Bucket: env.stagingBucket, Key: blankStorageKey })).catch(() => undefined)
+      ]);
       await cleanupSyntheticUser(service, email, userId);
+      const remainingObjects = await s3.send(new ListObjectsV2Command({
+        Bucket: env.stagingBucket,
+        Prefix: storagePrefix
+      }));
+      expect(remainingObjects.Contents ?? []).toHaveLength(0);
+      if (userId) {
+        const remainingRows = await Promise.all([
+          countRows(service, "report_files", userId),
+          countRows(service, "lab_reports", userId),
+          countRows(service, "extracted_documents", userId)
+        ]);
+        expect(remainingRows).toEqual([0, 0, 0]);
+      }
       s3.destroy();
     }
+
+    if (caughtFailure) throw caughtFailure;
   }, 240_000);
 });
 
@@ -212,43 +285,74 @@ function getLiveEnv() {
   };
 }
 
-function syntheticLabPdf() {
-  const text = [
-    "Lyf9 AI Synthetic CBC Report",
-    "Hemoglobin 13.4 g/dL Reference 12.0 - 16.0",
-    "WBC 7200 /cumm Reference 4000 - 11000",
-    "Platelets 250000 /cumm Reference 150000 - 450000"
-  ];
-  const stream = `BT\n/F1 14 Tf\n50 760 Td\n${text.map((line, index) => `${index > 0 ? "0 -28 Td\n" : ""}(${escapePdfText(line)}) Tj`).join("\n")}\nET`;
-  const objects = [
-    "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`
-  ];
-  let pdf = "%PDF-1.4\n";
-  const offsets = [0];
-  for (const [index, object] of objects.entries()) {
-    offsets.push(Buffer.byteLength(pdf));
-    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
-  }
-  const xrefOffset = Buffer.byteLength(pdf);
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  pdf += offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("");
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
-  return Buffer.from(pdf);
-}
-
-function escapePdfText(value: string) {
-  return value.replace(/([\\()])/g, "\\$1");
-}
-
 async function insertRow(service: SupabaseClient, table: string, values: Record<string, unknown>) {
   const result = await service.from(table).insert(values).select("id").single();
   throwIfError(result.error);
   return result.data as { id: string };
 }
+
+async function persistExtraction(service: SupabaseClient, input: {
+  labReportId: string;
+  reportFileId: string;
+  result: Awaited<ReturnType<TextractOcrProvider["parseDocument"]>>;
+  userId: string;
+}) {
+  return insertRow(service, "extracted_documents", {
+    confidence_score: input.result.confidenceScore ?? null,
+    error_code: input.result.errorCode ?? null,
+    error_message: input.result.errorMessage ?? null,
+    extracted_tables_json: input.result.extractedTablesJson ?? null,
+    extracted_text: input.result.extractedText ?? null,
+    extraction_version: 1,
+    lab_report_id: input.labReportId,
+    ocr_provider: "textract",
+    page_count: input.result.pageCount ?? null,
+    page_metadata_json: input.result.pageMetadataJson ?? {},
+    parser_name: "textract",
+    parser_provider: "textract",
+    parser_version: input.result.parserVersion,
+    report_file_id: input.reportFileId,
+    status: input.result.status,
+    user_id: input.userId
+  });
+}
+
+async function putSyntheticImage(
+  s3: S3Client,
+  bucket: string,
+  storageKey: string,
+  body: Buffer
+) {
+  await s3.send(new PutObjectCommand({
+    Body: body,
+    Bucket: bucket,
+    ContentType: "image/png",
+    Key: storageKey,
+    Metadata: { synthetic_verification: "true" },
+    ServerSideEncryption: "AES256"
+  }));
+}
+
+async function countRows(service: SupabaseClient, table: string, userId: string) {
+  const result = await service.from(table).select("id", { count: "exact", head: true }).eq("user_id", userId);
+  throwIfError(result.error);
+  return result.count ?? 0;
+}
+
+async function readFixture(filename: string) {
+  return readFile(new URL(`../../../../../tests/fixtures/ocr/${filename}`, import.meta.url));
+}
+
+type PageMetadata = {
+  lines: Array<{
+    confidenceScore: number | null;
+    endOffset: number;
+    pageNumber: number;
+    startOffset: number;
+  }>;
+  pages: Array<{ lineCount: number; pageNumber: number }>;
+  schemaVersion: number;
+};
 
 async function cleanupSyntheticUser(service: SupabaseClient, email: string, knownUserId: string | null) {
   let userId = knownUserId;

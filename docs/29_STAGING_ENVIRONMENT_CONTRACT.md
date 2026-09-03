@@ -127,9 +127,13 @@ OCR_PROVIDER=textract
 AWS_TEXTRACT_REGION=ap-south-1
 OCR_TIMEOUT_SECONDS=180
 OCR_POLL_INTERVAL_MS=2000
+OCR_MIN_TEXT_CHARS=40
+OCR_MIN_MEAN_CONFIDENCE=0.85
+OCR_MIN_LINE_CONFIDENCE=0.80
+OCR_MAX_LOW_CONFIDENCE_LINE_RATIO=0.20
 ```
 
-The application IAM principal needs only `textract:StartDocumentTextDetection` and `textract:GetDocumentTextDetection` in `ap-south-1`, plus its existing private staging S3 access. Setup and verification are documented in `docs/35_TEXTRACT_STAGING_SETUP.md`. Missing configuration, access denial, unsupported documents, timeouts, and empty extraction fail closed.
+The application IAM principal needs only `textract:StartDocumentTextDetection` and `textract:GetDocumentTextDetection` in `ap-south-1`, plus its existing private staging S3 access. Setup and verification are documented in `docs/35_TEXTRACT_STAGING_SETUP.md`. Raster images route directly to OCR. Missing configuration, access denial, unsupported documents, timeouts, empty extraction, and output below the configured quality thresholds fail closed.
 
 ## AI
 

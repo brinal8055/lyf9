@@ -1,20 +1,21 @@
 {
-  "generatedAt": "2026-09-03T11:48:35.011Z",
+  "generatedAt": "2026-09-03T14:12:05.295Z",
   "environment": "staging",
-  "releaseVerdict": "ready_for_review",
+  "releaseVerdict": "section_passed",
+  "scope": "selected_sections",
   "syntheticOnly": true,
   "results": [
     {
       "checks": [
         {
-          "detail": "> @lyf9/web@0.1.0 test:ai-live\n> vitest run src/lib/ai/staging-ai-live.test.ts\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ✓ src/lib/ai/staging-ai-live.test.ts (1 test) 19467ms\n   ✓ live staging clinical AI adapter > returns schema-valid, source-traceable output for synthetic CBC text 19466ms\n\n Test Files  1 passed (1)\n      Tests  1 passed (1)\n   Start at  17:18:14\n   Duration  20.36s (transform 146ms, setup 0ms, collect 167ms, tests 19.47s, environment 0ms, prepare 87ms)",
-          "name": "live_ai_adapter_harness_passed",
+          "detail": "> @lyf9/web@0.1.0 test:textract-live\n> vitest run src/lib/document-extraction/staging-textract-live.test.ts\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ✓ src/lib/document-extraction/staging-textract-live.test.ts (3 tests) 15562ms\n   ✓ live staging Textract document extraction > extracts a synthetic CBC scan, blocks a blank scan, persists provenance, and cleans up 15560ms\n\n Test Files  1 passed (1)\n      Tests  3 passed (3)\n   Start at  19:41:48\n   Duration  16.54s (transform 137ms, setup 0ms, collect 248ms, tests 15.56s, environment 0ms, prepare 121ms)",
+          "name": "live_textract_harness_passed",
           "passed": true
         }
       ],
-      "endedAt": "2026-09-03T11:48:35.009Z",
-      "section": "ai",
-      "startedAt": "2026-09-03T11:48:13.919Z",
+      "endedAt": "2026-09-03T14:12:05.293Z",
+      "section": "textract",
+      "startedAt": "2026-09-03T14:11:48.120Z",
       "status": "passed",
       "syntheticOnly": true
     }

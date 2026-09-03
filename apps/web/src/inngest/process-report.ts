@@ -12,6 +12,7 @@ import {
   classifyExtractedReport,
   getDocumentParserProvider,
   getOcrProvider,
+  isRasterImageMimeType,
   type ExtractedDocumentResult
 } from "@/lib/document-extraction";
 import { minExtractedTextChars } from "@/lib/document-extraction/document-parser-provider";
@@ -149,52 +150,32 @@ export const processReport = inngest.createFunction(
           storageKey: String(reportFile.storage_key ?? "")
         };
 
-        const parser = getDocumentParserProvider();
-        let result: ExtractedDocumentResult = await parser.parseDocument(parseParams);
-        let parserName = parser.name;
+        const directOcr = isRasterImageMimeType(parseParams.mimeType);
+        let parserName = "image_ocr_route";
         let ocrProviderName: string | null = null;
+        let result: ExtractedDocumentResult = directOcr
+          ? {
+              errorCode: "ocr_required",
+              errorMessage: "Raster image reports require OCR extraction.",
+              parserVersion: "image_ocr_route_v1",
+              provider: parserName,
+              status: "ocr_required"
+            }
+          : await getDocumentParserProvider().parseDocument(parseParams);
+
+        if (!directOcr) parserName = result.provider;
 
         const textTooShort = (result.extractedText?.length ?? 0) < minExtractedTextChars();
-        if (result.status === "ocr_required" || (result.status === "low_text_confidence" && textTooShort)) {
+        const shouldRunOcr = directOcr
+          || result.status === "ocr_required"
+          || (result.status === "low_text_confidence" && textTooShort);
+        if (shouldRunOcr) {
           await workflow.runJobStep({ jobId, stepName: "ocr_fallback", workerId: WORKER_ID });
           await updateJobState(jobId, "ocr_required");
           const ocr = getOcrProvider();
           result = await ocr.extractText(parseParams);
           ocrProviderName = ocr.name;
-          if (result.status === "success" || result.status === "low_text_confidence") {
-            await workflow.markStepSucceeded({
-              jobId,
-              outputSnapshot: { provider: ocrProviderName, status: result.status },
-              stepName: "ocr_fallback"
-            });
-          } else {
-            await workflow.markStepFailed({
-              errorCode: result.errorCode ?? "ocr_failed",
-              errorMessage: result.errorMessage ?? "OCR extraction failed.",
-              jobId,
-              retryable: true,
-              stepName: "ocr_fallback"
-            });
-          }
-        }
-
-        if (result.status === "failed" || !result.extractedText) {
-          await workflow.markStepFailed({
-            errorCode: result.errorCode ?? "extraction_failed",
-            errorMessage: result.errorMessage ?? "Document extraction failed.",
-            jobId,
-            retryable: true,
-            stepName: "extract_document"
-          });
-          await workflow.markJobBlocked({
-            errorCode: result.errorCode ?? "extraction_failed",
-            jobId,
-            reason: result.errorMessage ?? "Document extraction failed.",
-            stepName: "extract_document"
-          });
-          await updateReportFileStatus(reportFileId, "extraction_failed");
-          await updateJobState(jobId, "extraction_failed");
-          return { extractedDocumentId: null, extractedText: null };
+          if (directOcr) parserName = ocr.name;
         }
 
         const extractedDocumentId = await insertExtractedDocument({
@@ -206,6 +187,61 @@ export const processReport = inngest.createFunction(
           result,
           userId
         });
+
+        if (result.status === "low_text_confidence") {
+          const errorCode = result.errorCode ?? "ocr_low_text_confidence";
+          const errorMessage = result.errorMessage ?? "Extracted text requires manual review.";
+          const failedStep = ocrProviderName ? "ocr_fallback" : "extract_document";
+          await workflow.markStepFailed({
+            errorCode,
+            errorMessage,
+            jobId,
+            retryable: false,
+            stepName: failedStep
+          });
+          await workflow.markJobBlocked({ errorCode, jobId, reason: errorMessage, stepName: failedStep });
+          await updateReportFileStatus(reportFileId, "ocr_required");
+          await updateJobState(jobId, "ocr_required");
+          return { extractedDocumentId, extractedText: null };
+        }
+
+        if (result.status !== "success" || !result.extractedText) {
+          const errorCode = result.errorCode ?? "extraction_failed";
+          const errorMessage = result.errorMessage ?? "Document extraction failed.";
+          if (ocrProviderName) {
+            await workflow.markStepFailed({
+              errorCode,
+              errorMessage,
+              jobId,
+              retryable: isRetryableExtractionError(errorCode),
+              stepName: "ocr_fallback"
+            });
+          }
+          await workflow.markStepFailed({
+            errorCode,
+            errorMessage,
+            jobId,
+            retryable: isRetryableExtractionError(errorCode),
+            stepName: "extract_document"
+          });
+          await workflow.markJobBlocked({
+            errorCode,
+            jobId,
+            reason: errorMessage,
+            stepName: ocrProviderName ? "ocr_fallback" : "extract_document"
+          });
+          await updateReportFileStatus(reportFileId, "extraction_failed");
+          await updateJobState(jobId, "extraction_failed");
+          return { extractedDocumentId: null, extractedText: null };
+        }
+
+        if (ocrProviderName) {
+          await workflow.markStepSucceeded({
+            jobId,
+            outputSnapshot: { provider: ocrProviderName, status: result.status },
+            stepName: "ocr_fallback"
+          });
+        }
         await workflow.markStepSucceeded({
           jobId,
           outputSnapshot: { extractedDocumentId, pageCount: result.pageCount ?? null },
@@ -632,4 +668,10 @@ async function autoAssignDoctorReview(input: {
     });
     return null;
   }
+}
+
+function isRetryableExtractionError(errorCode: string) {
+  return errorCode === "textract_request_failed"
+    || errorCode === "textract_throttled"
+    || errorCode === "textract_timeout";
 }
