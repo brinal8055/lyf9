@@ -1091,6 +1091,7 @@ Verification:
 - `npm run eval:golden:live` ran for **109 seconds** and stopped fail-closed on `ai_provider_quota_exhausted`; AI Studio showed `gemini-3.5-flash` at **21/20 RPD**, with RPM and TPM still below their limits. It is not recorded as a pass.
 - On 2026-09-03 the Vercel Preview variables were updated for Gemini. Empty commit `2340ec0` was intentionally ignored by Vercel because it did not change the source tree, so documentation-only commit `dc54703` supplied a non-runtime deployment trigger.
 - Vercel completed Preview deployment `7x7exrAQ1cdSxRJHAQasabkV7Vdb` for `dc54703`. Both its unique deployment URL and `https://lyf9-dev.vercel.app/api/health` returned HTTP 200 with `aiProvider: gemini`, `aiConfigured: true`, all three AI capabilities enabled, and healthy Supabase Postgres, S3, and Inngest checks.
+- After the daily quota reset on 2026-09-03, `npm run verify:staging:ai` passed again. The guarded synthetic CBC test completed in 20.36 seconds, with the live Gemini extraction/explanation assertion taking 19.47 seconds; schema validation, exact source tracing, disclaimer enforcement, and deterministic safety checks all passed.
 - No real PHI was used and Production was not changed.
 
 Known risks:
