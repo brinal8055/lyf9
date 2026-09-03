@@ -1090,6 +1090,7 @@ Verification:
 - Added bounded provider-neutral retry for transient 429/5xx failures and sanitized classifications for quota, authentication, model, request, timeout, schema, and safety failures. No automatic provider fallback was added.
 - `npm run eval:golden:live` ran for **109 seconds** and stopped fail-closed on `ai_provider_quota_exhausted`; AI Studio showed `gemini-3.5-flash` at **21/20 RPD**, with RPM and TPM still below their limits. It is not recorded as a pass.
 - A final read-only check of `https://lyf9-dev.vercel.app/api/health` returned HTTP 200 and healthy Supabase Postgres/S3/Inngest checks, but reported `aiProvider: openai`. Preview therefore has provider configuration drift from the selected Gemini setup. Set `AI_PROVIDER=gemini` and all three `GEMINI_MODEL_*` variables to `gemini-3.5-flash` for Preview branch `dev`, redeploy the latest `dev` commit, and require health to report `aiProvider: gemini` before rerunning live AI verification.
+- On 2026-09-03 the Vercel Preview variables were updated for Gemini. Empty commit `2340ec0` was intentionally ignored by Vercel because it did not change the source tree; the following documentation-only commit provides a non-runtime deployment trigger for the updated Preview configuration.
 - No real PHI was used and Production was not changed.
 
 Known risks:
