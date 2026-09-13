@@ -77,6 +77,17 @@ with migration_checks(version, name, schema_present) as (
     and not has_table_privilege('anon', 'public.beta_invites', 'SELECT')
     and not has_table_privilege('authenticated', 'public.beta_invites', 'SELECT')
     and has_table_privilege('service_role', 'public.beta_invites', 'SELECT')
+  union all
+  select '202609130002', 'processing_validated_state',
+    exists (
+      select 1
+      from pg_enum enum_value
+      join pg_type enum_type on enum_type.oid = enum_value.enumtypid
+      join pg_namespace enum_schema on enum_schema.oid = enum_type.typnamespace
+      where enum_schema.nspname = 'public'
+        and enum_type.typname = 'processing_job_state'
+        and enum_value.enumlabel = 'validated'
+    )
 )
 select version, name, schema_present
 from migration_checks

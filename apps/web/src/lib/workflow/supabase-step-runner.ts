@@ -318,7 +318,7 @@ function stepNameToState(stepName: ProcessingStepName): ProcessingJobState {
   if (stepName === "extract_biomarkers") return "biomarker_extraction_pending";
   if (stepName === "normalize_biomarkers") return "normalized";
   if (stepName === "validate_biomarkers") return "validated";
-  if (stepName === "run_safety_rules") return "validation_failed";
+  if (stepName === "run_safety_rules") return "insight_generated";
   if (stepName === "generate_patient_explanation") return "insight_generation_pending";
   if (stepName === "route_review") return "doctor_review_required";
   return "published";

@@ -1,22 +1,22 @@
 {
-  "generatedAt": "2026-09-13T11:31:01.913Z",
+  "generatedAt": "2026-09-13T17:58:13.059Z",
   "environment": "staging",
-  "releaseVerdict": "section_passed",
+  "releaseVerdict": "no_go",
   "scope": "selected_sections",
   "syntheticOnly": true,
   "results": [
     {
       "checks": [
         {
-          "detail": "> @lyf9/web@0.1.0 test:ai-live\n> vitest run src/lib/ai/staging-ai-live.test.ts\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ✓ src/lib/ai/staging-ai-live.test.ts (1 test) 54625ms\n   ✓ live staging clinical AI adapter > returns schema-valid, source-traceable output for synthetic CBC text 54624ms\n\n Test Files  1 passed (1)\n      Tests  1 passed (1)\n   Start at  17:00:05\n   Duration  56.54s (transform 285ms, setup 0ms, collect 352ms, tests 54.62s, environment 0ms, prepare 292ms)",
-          "name": "live_ai_adapter_harness_passed",
-          "passed": true
+          "detail": "> @lyf9/web@0.1.0 test:launch-live\n> vitest run src/inngest/staging-inngest-live.test.ts -t \"supported CBC\"\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ❯ src/inngest/staging-inngest-live.test.ts (5 tests | 1 failed | 4 skipped) 286819ms\n   × live staging Inngest saga > runs a supported CBC through result, correction, doctor review, reminder, and feedback 286818ms\n     → Supported-report saga failed closed: processing_failed; diagnostics={\"modelRuns\":[{\"error_code\":null,\"model_name\":\"gemini-3.5-flash\",\"provider\":\"gemini_structured_outputs\",\"status\":\"succeeded\",\"task_type\":\"biomarker_extraction\"},{\"error_code\":null,\"model_name\":\"gemini-3.5-flash\",\"provider\":\"gemini_structured_outputs\",\"status\":\"succeeded\",\"task_type\":\"biomarker_extraction\"},{\"error_code\":null,\"model_name\":\"gemini-3.5-flash\",\"provider\":\"gemini_structured_outputs\",\"status\":\"succeeded\",\"task_type\":\"biomarker_extraction\"},{\"error_code\":null,\"model_name\":\"gemini-3.5-flash\",\"provider\":\"gemini_structured_outputs\",\"status\":\"succeeded\",\"task_type\":\"biomarker_extraction\"}],\"steps\":[{\"error_code\":null,\"status\":\"completed\",\"step_name\":\"malware_scan\"},{\"error_code\":null,\"status\":\"completed\",\"step_name\":\"extract_document\"},{\"error_code\":null,\"status\":\"completed\",\"step_name\":\"ocr_fallback\"},{\"error_code\":null,\"status\":\"completed\",\"step_name\":\"classify_report\"},{\"error_code\":null,\"status\":\"completed\",\"step_name\":\"extract_biomarkers\"},{\"error_code\":null,\"status\":\"completed\",\"step_name\":\"normalize_biomarkers\"}]}\n\n Test Files  1 failed (1)\n      Tests  1 failed | 4 skipped (5)\n   Start at  23:23:22\n   Duration  290.90s (transform 413ms, setup 0ms, collect 931ms, tests 286.82s, environment 0ms, prepare 566ms)\n\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/inngest/staging-inngest-live.test.ts > live staging Inngest saga > runs a supported CBC through result, correction, doctor review, reminder, and feedback\nError: Supported-report saga failed closed: processing_failed; diagnostics={\"modelRuns\":[{\"error_code\":null,\"model_name\":\"gemini-3.5-flash\",\"provider\":\"gemini_structured_outputs\",\"status\":\"succeeded\",\"task_type\":\"biomarker_extraction\"},{\"error_code\":null,\"model_name\":\"gemini-3.5-flash\",\"provider\":\"gemini_structured_outputs\",\"status\":\"succeeded\",\"task_type\":\"biomarker_extraction\"},{\"error_code\":null,\"model_name\":\"gemini-3.5-flash\",\"provider\":\"gemini_structured_outputs\",\"status\":\"succeeded\",\"task_type\":\"biomarker_extraction\"},{\"error_code\":null,\"model_name\":\"gemini-3.5-flash\",\"provider\":\"gemini_structured_outputs\",\"status\":\"succeeded\",\"task_type\":\"biomarker_extraction\"}],\"steps\":[{\"error_code\":null,\"status\":\"completed\",\"step_name\":\"malware_scan\"},{\"error_code\":null,\"status\":\"completed\",\"step_name\":\"extract_document\"},{\"error_code\":null,\"status\":\"completed\",\"step_name\":\"ocr_fallback\"},{\"error_code\":null,\"status\":\"completed\",\"step_name\":\"classify_report\"},{\"error_code\":null,\"status\":\"completed\",\"step_name\":\"extract_biomarkers\"},{\"error_code\":null,\"status\":\"completed\",\"step_name\":\"normalize_biomarkers\"}]}\n ❯ waitForSupportedResult src/inngest/staging-inngest-live.test.ts:560:13\n    558|     if (result.data.status === \"blocked\" || result.data.status === \"fa…\n    559|       const diagnostics = await supportedJobDiagnostics(service, jobId…\n    560|       throw new Error(\n       |             ^\n    561|         `Supported-report saga failed closed: ${result.data.error_code…\n    562|       );\n ❯ src/inngest/staging-inngest-live.test.ts:311:7\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\nnpm error Lifecycle script `test:launch-live` failed with error:\nnpm error code 1\nnpm error path [workspace]/apps/web\nnpm error workspace @lyf9/web@0.1.0\nnpm error location [workspace]/apps/web\nnpm error command failed\nnpm error command sh -c vitest run src/inngest/staging-inngest-live.test.ts -t \"supported CBC\"",
+          "name": "supported_report_launch_harness_passed",
+          "passed": false
         }
       ],
-      "endedAt": "2026-09-13T11:31:01.912Z",
-      "section": "ai",
-      "startedAt": "2026-09-13T11:30:04.717Z",
-      "status": "passed",
+      "endedAt": "2026-09-13T17:58:13.056Z",
+      "section": "e2e",
+      "startedAt": "2026-09-13T17:53:20.484Z",
+      "status": "failed",
       "syntheticOnly": true
     }
   ]

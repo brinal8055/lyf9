@@ -60,6 +60,11 @@
       "version": "202609130001",
       "name": "private_beta_operations",
       "sha256": "fabe99938309acc253eab9e63f266c4079f4410b72446987b6a204699e47d8db"
+    },
+    {
+      "version": "202609130002",
+      "name": "processing_validated_state",
+      "sha256": "a407f49e795f53431ee2ffc4c5b37e7324707c727ab12e99f8d3ed72906b0165"
     }
   ]
 }
