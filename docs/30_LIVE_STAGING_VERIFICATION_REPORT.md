@@ -2,6 +2,19 @@
 
 ## Run Summary
 
+### 2026-09-13 Supported-Report Launch Gate: Fail-Closed AI Credential
+
+Environment: Vercel Preview branch `dev`, Inngest Staging, Supabase `lyf9-staging` (`wjjwdakfyigwwohbntyv`), and `lyf9-reports-storage-staging`. Production was not accessed or changed, and the run used only the synthetic CBC fixture.
+
+- Applied and verified migration `202609130001_private_beta_operations.sql`; the staging ledger is 12/12 and beta invites deny anon/authenticated table access while allowing service-role operations.
+- Deployed commit `4f36fd1`; `/api/health` returned `status: ok`, `store.ok: true`, and `reportUploadsEnabled: true`.
+- The launch harness created isolated synthetic patient/admin/doctor users, uploaded the synthetic CBC image privately, and advanced through GuardDuty, Textract, and supported CBC classification.
+- Inngest Staging run `01M2D7SV9PYG16VSFCFVV3B5K0` failed closed in `extract-biomarkers` with `ai_provider_auth_failed`; compensation ran and the harness removed its synthetic Auth, database, and S3 fixtures.
+- A direct local staging adapter run authenticated successfully but initially caught a safety false positive on the benign phrase `stop bleeding`. The rule was narrowed with regression coverage, and `npm run verify:staging:ai` then passed.
+- Pipeline failures now preserve provider-specific codes, and the launch harness captures PHI-free processing-step/model diagnostics before cleanup.
+
+Verdict: **No-go for real PHI**. Rotate the staging Gemini key in Google AI Studio, store the replacement as a Vercel Secret scoped only to Preview branch `dev`, redeploy, and rerun `npm run verify:staging:e2e`.
+
 ### 2026-09-04 Supabase Migration Ledger And RLS Recheck
 
 Environment: Supabase `lyf9-staging` (`wjjwdakfyigwwohbntyv`) only. Production was not accessed or changed, and no real PHI was used.

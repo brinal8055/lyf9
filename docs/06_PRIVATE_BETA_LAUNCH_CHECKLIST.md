@@ -6,7 +6,7 @@ Use this checklist for the first 30-50 early users. This is a private beta gate,
 
 Current decision: **No-go for real PHI private beta**.
 
-Private beta readiness score including current live staging evidence: **94/100 pending deployment verification**.
+Private beta readiness score including current live staging evidence: **94/100 with the supported pipeline blocked at deployed AI authentication**.
 
 This repo is ready for scaffold/operator rehearsal and now has live-tested staging Supabase Auth/Postgres/RLS, a reconciled and checksum-locked migration ledger, private S3, GuardDuty malware enforcement, atomic workflow concurrency/recovery, scanned-image Textract OCR, the deployed Inngest saga, and a schema-valid Gemini smoke. Real 30-50 user testing remains blocked by reliable signup email delivery, provider-backed golden QA capacity, expanded human-reviewed golden coverage, observability, retention governance, doctor threshold review, and legal review.
 
@@ -21,7 +21,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Upload flow | Ready for synthetic staging | Engineering | Deployed consent gate, private S3 upload/download/delete, and real GuardDuty clean/threat behavior pass with synthetic fixtures. |
 | Processing pipeline | Ready for synthetic staging | Backend/Platform | The deployed Inngest saga passed authenticated PNG upload, GuardDuty, Textract OCR, Postgres transitions, unsupported classification, zero AI output, and cleanup. Provider-backed golden QA remains blocked. |
 | Document extraction/OCR | Ready for synthetic staging | AI/Backend | Textract passed readable and blank synthetic PNG scans with page/line provenance, confidence quality gates, fail-closed blank handling, zero AI output, and independent cleanup. Marker remains optional while Textract is selected. |
-| AI structured outputs | Ready for synthetic smoke | AI/Backend | `gemini-3.5-flash` passed live schema, source-trace, disclaimer, and unsafe-language checks; the 13-fixture live golden run stopped on exhausted provider quota. |
+| AI structured outputs | Blocked in deployed pipeline | AI/Backend/DevOps | The direct staging adapter passes schema, source-trace, disclaimer, and unsafe-language checks, but the deployed supported-report run failed closed with `ai_provider_auth_failed`. Rotate the Gemini key and store it as a Vercel Secret before redeploying. |
 | Safety rules | Partially ready | AI/Safety/Medical | Unsafe-language filter and routing exist; doctor-review critical thresholds with real report set. |
 | Unsupported report handling | Partially ready | AI/Safety | Unsupported reports are blocked from AI-only interpretation; expand internal fixture coverage. |
 | Admin correction | Implemented, live verification pending | Ops/Engineering | Supabase correction overlays preserve originals and write audit records; require the supported-report launch harness to pass after deployment. |
@@ -164,7 +164,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Marker live check | Optional | `npm run verify:staging:marker` | Run before selecting Marker; Textract is the current verified parser. |
 | Textract live check | Ready for synthetic staging | `npm run verify:staging:textract` | Readable and blank synthetic PNG OCR, provenance, confidence gates, persistence, no-AI boundary, and independent cleanup pass. |
 | Selected AI live check | Ready for synthetic staging | `npm run verify:staging:ai` passed with `gemini-3.5-flash` in 72.84 seconds | Re-run after provider, model, prompt, or schema changes. |
-| Supported-report launch E2E | Implemented, deployment pending | `npm run verify:staging:e2e` | After deploying this commit, require the synthetic CBC flow to pass through S3, GuardDuty, Textract, Gemini, persistence, admin correction, doctor approval, feedback, reminder, audit, and cleanup. |
+| Supported-report launch E2E | Blocked at deployed AI authentication | `npm run verify:staging:e2e` | Commit `4f36fd1` is deployed and healthy; GuardDuty, Textract, and CBC classification passed before `extract-biomarkers` failed closed with `ai_provider_auth_failed`. Rotate the Gemini key, redeploy, and rerun. |
 | Live golden subset | Blocked by provider quota | `npm run eval:golden:live` stopped fail-closed on `ai_provider_quota_exhausted` after 109 seconds | Re-run with replenished/paid Gemini quota; do not weaken the gate. |
 | Live report | Ready as template | `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` | Replace blocked statuses with evidence only after commands pass. |
 

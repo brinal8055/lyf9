@@ -1,6 +1,7 @@
 import {
   BIOMARKER_EXTRACTION_SCHEMA_VERSION,
   PATIENT_EXPLANATION_SCHEMA_VERSION,
+  AiGatewayError,
   aiFailureDetails,
   biomarkerExtractionPromptVersion,
   getClinicalAiGateway,
@@ -615,11 +616,13 @@ export const processReport = inngest.createFunction(
       }
 
       const reason = error instanceof Error ? error.message : "processing_failed";
+      const errorCode = processingFailureCode(error);
+      logError("report_processing_failed", { errorCode, jobId, reportFileId });
       await step.run("compensate", async () => {
         for (const name of [...completedSteps].reverse()) {
           await compensate(reportFileId, name);
         }
-        await workflow.markJobBlocked({ jobId, reason: reason.slice(0, 900) });
+        await workflow.markJobBlocked({ errorCode, jobId, reason: reason.slice(0, 900) });
         await updateJobState(jobId, "failed");
         await updateReportFileStatus(reportFileId, "failed");
       });
@@ -683,4 +686,12 @@ function isRetryableExtractionError(errorCode: string) {
   return errorCode === "textract_request_failed"
     || errorCode === "textract_throttled"
     || errorCode === "textract_timeout";
+}
+
+function processingFailureCode(error: unknown) {
+  if (error instanceof AiGatewayError) return error.code;
+  if (!(error instanceof Error)) return "processing_failed";
+
+  const candidate = error.message.split(":", 1)[0]?.trim() ?? "";
+  return /^[a-z][a-z0-9_]{2,80}$/.test(candidate) ? candidate : "processing_failed";
 }

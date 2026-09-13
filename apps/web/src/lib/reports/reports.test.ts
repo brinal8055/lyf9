@@ -1586,7 +1586,9 @@ describe("biomarker extraction and safety", () => {
   it("blocks unsafe diagnosis and prescription language", () => {
     expect(runUnsafeLanguageFilter("You have diabetes.").blocked).toBe(true);
     expect(runUnsafeLanguageFilter("Start metformin today.").blocked).toBe(true);
+    expect(runUnsafeLanguageFilter("Stop metformin today.").blocked).toBe(true);
     expect(runUnsafeLanguageFilter("No doctor needed.").blocked).toBe(true);
+    expect(runUnsafeLanguageFilter("Platelets help blood clot and stop bleeding.").blocked).toBe(false);
     expect(runUnsafeLanguageFilter("Please discuss this marker with a doctor.").blocked).toBe(false);
     expect(
       runUnsafeLanguageFilter("This value may need urgent medical attention, especially if you have symptoms.").blocked

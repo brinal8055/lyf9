@@ -1,14 +1,14 @@
 {
   "checks": [
     {
-      "detail": "Missing required env: APP_BASE_URL, NEXT_PUBLIC_APP_BASE_URL",
-      "name": "required_env_present",
+      "detail": "> @lyf9/web@0.1.0 test:launch-live\n> vitest run src/inngest/staging-inngest-live.test.ts -t \"supported CBC\"\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ❯ src/inngest/staging-inngest-live.test.ts (5 tests | 1 failed | 4 skipped) 254006ms\n   × live staging Inngest saga > runs a supported CBC through result, correction, doctor review, reminder, and feedback 254005ms\n     → Supported-report saga failed closed: processing_blocked\n\n Test Files  1 failed (1)\n      Tests  1 failed | 4 skipped (5)\n   Start at  16:47:26\n   Duration  255.29s (transform 153ms, setup 0ms, collect 293ms, tests 254.01s, environment 0ms, prepare 162ms)\n\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/inngest/staging-inngest-live.test.ts > live staging Inngest saga > runs a supported CBC through result, correction, doctor review, reminder, and feedback\nError: Supported-report saga failed closed: processing_blocked\n ❯ waitForSupportedResult src/inngest/staging-inngest-live.test.ts:559:13\n    557|     }\n    558|     if (result.data.status === \"blocked\" || result.data.status === \"fa…\n    559|       throw new Error(\n       |             ^\n    560|         `Supported-report saga failed closed: ${result.data.error_code…\n    561|       );\n ❯ src/inngest/staging-inngest-live.test.ts:311:7\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\nnpm error Lifecycle script `test:launch-live` failed with error:\nnpm error code 1\nnpm error path [workspace]/apps/web\nnpm error workspace @lyf9/web@0.1.0\nnpm error location [workspace]/apps/web\nnpm error command failed\nnpm error command sh -c vitest run src/inngest/staging-inngest-live.test.ts -t \"supported CBC\"",
+      "name": "supported_report_launch_harness_passed",
       "passed": false
     }
   ],
-  "endedAt": "2026-06-12T16:18:58.011Z",
+  "endedAt": "2026-09-13T11:21:42.565Z",
   "section": "e2e",
-  "startedAt": "2026-06-12T16:18:58.011Z",
-  "status": "blocked",
+  "startedAt": "2026-09-13T11:17:25.947Z",
+  "status": "failed",
   "syntheticOnly": true
 }

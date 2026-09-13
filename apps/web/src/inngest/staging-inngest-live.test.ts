@@ -556,13 +556,32 @@ async function waitForSupportedResult(service: SupabaseClient, jobId: string) {
       return;
     }
     if (result.data.status === "blocked" || result.data.status === "failed") {
+      const diagnostics = await supportedJobDiagnostics(service, jobId);
       throw new Error(
-        `Supported-report saga failed closed: ${result.data.error_code ?? result.data.error_message ?? result.data.status}`
+        `Supported-report saga failed closed: ${result.data.error_code ?? result.data.error_message ?? result.data.status}; diagnostics=${JSON.stringify(diagnostics)}`
       );
     }
     await new Promise((resolve) => setTimeout(resolve, 3_000));
   }
   throw new Error("Timed out waiting for the supported staging report saga.");
+}
+
+async function supportedJobDiagnostics(service: SupabaseClient, jobId: string) {
+  const [steps, modelRuns] = await Promise.all([
+    service
+      .from("processing_job_steps")
+      .select("error_code, status, step_name")
+      .eq("processing_job_id", jobId)
+      .order("created_at", { ascending: true }),
+    service
+      .from("model_runs")
+      .select("error_code, model_name, provider, status, task_type")
+      .eq("processing_job_id", jobId)
+      .order("created_at", { ascending: true })
+  ]);
+  throwIfError(steps.error);
+  throwIfError(modelRuns.error);
+  return { modelRuns: modelRuns.data ?? [], steps: steps.data ?? [] };
 }
 
 async function createConfirmedUser(

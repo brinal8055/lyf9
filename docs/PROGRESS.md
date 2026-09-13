@@ -4,9 +4,9 @@
 
 Staging foundation reconciliation and release-gate hardening are in progress for a **production-shaped private beta MVP**.
 
-Supabase staging now has the current schema, an exact migration ledger protected by a repository checksum lock, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, live GuardDuty clean/threat enforcement, live-verified atomic workflow claims, scanned-image AWS Textract OCR, a live-verified deployed Inngest saga, a live Gemini structured-output smoke, and a backend-only durable beta invitation table. The product is not approved for real 30-50 user PHI until the new supported-report rollout gate passes after deployment, signup email delivery is reliable, provider-backed golden QA passes, and retention, clinical-threshold, and legal reviews are completed.
+Supabase staging now has the current schema, an exact migration ledger protected by a repository checksum lock, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, live GuardDuty clean/threat enforcement, live-verified atomic workflow claims, scanned-image AWS Textract OCR, a live-verified deployed Inngest saga, a live Gemini structured-output smoke, and a backend-only durable beta invitation table. Commit `4f36fd1` is deployed and healthy on `dev`; the first supported-report launch run reached GuardDuty, Textract, and deterministic CBC classification but failed closed at Gemini authentication. The product is not approved for real 30-50 user PHI until the deployed Gemini secret is rotated, the supported-report rollout gate passes, signup email delivery is reliable, provider-backed golden QA passes, and retention, clinical-threshold, and legal reviews are completed.
 
-Current private beta readiness score: **9.4/10 pending deployment verification**. Implementation confidence for the code-side rollout controls is **9.6/10**; the score does not override external clinical, legal, SMTP, or retention gates.
+Current private beta readiness score: **9.4/10 with the supported pipeline blocked at deployed AI authentication**. Implementation confidence for the code-side rollout controls is **9.6/10**; the score does not override external clinical, legal, SMTP, or retention gates.
 
 No public launch, autonomous diagnosis, prescriptions, medicine-change advice, supplement protocols, pharmacy commerce, lab booking, full doctor marketplace, mobile app, wearables, ABDM/ABHA, genetics, employer, or insurance workflows have been added.
 
@@ -26,6 +26,10 @@ No public launch, autonomous diagnosis, prescriptions, medicine-change advice, s
 - Hardened structured logs and client analytics metadata against common PHI/token leakage; non-signup anonymous analytics are denied and authenticated events now persist the Supabase UUID rather than email.
 - Added deterministic CI and a protected manual staging release workflow.
 - Replaced the blocked E2E verifier with a cleanup-safe supported CBC launch harness covering Auth, consent, S3, GuardDuty, Textract, Gemini, Supabase output persistence, patient result/source traces, reminder, feedback, admin correction, doctor assignment/approval, and audit evidence.
+- Deployed commit `4f36fd1` to `dev`; `/api/health` returned `status: ok`, `store.ok: true`, and the new `reportUploadsEnabled: true` release signal.
+- Ran the supported-report launch harness. GuardDuty, Textract, and classification completed, then the deployed `extract-biomarkers` step failed closed with `ai_provider_auth_failed`; synthetic users, rows, and S3 data were cleaned up.
+- Fixed the safety-filter false positive for the benign phrase `stop bleeding`, added regression coverage, and re-ran the direct Gemini adapter successfully.
+- Preserved provider-specific pipeline failure codes and added PHI-free step/model diagnostics to future launch artifacts instead of collapsing every failure into `processing_blocked`.
 
 Verification completed locally:
 
@@ -40,19 +44,20 @@ npm run api:health        # passed
 npm run worker:health     # passed in local configuration mode
 npm run build:web         # passed; 44 routes generated
 npm run verify:staging:marker # passed because Textract is selected and Marker is optional
+npm run verify:staging:ai # passed after safety-filter regression fix
 git diff --check          # passed
 ```
 
 Pending verification:
 
-- Deploy the application commit to `dev` after the staging migration.
-- Run `npm run verify:staging:e2e` against the deployed commit and retain the synthetic artifact.
+- Rotate the exposed/stale Gemini key in Google AI Studio, save the replacement as a Vercel Secret scoped to Preview branch `dev`, and redeploy.
+- Re-run `npm run verify:staging:e2e` against the redeployed commit and retain the synthetic artifact.
 - Configure Supabase custom SMTP and pass strict public signup without fixture fallback.
 - Complete provider-backed golden QA, retention/versioning approval, clinician threshold sign-off, and legal review.
 
 Next recommended prompt:
 
-> Deploy the rollout-hardening commit to `dev`, wait for the Vercel Preview deployment to become healthy, run the staging supported-CBC launch harness with synthetic data and cleanup, fix any failures without weakening safety gates, and update the release verdict from the resulting evidence.
+> Rotate the staging Gemini key at the provider, store it as a Vercel Secret scoped only to Preview branch `dev`, redeploy, run the supported-CBC launch harness with synthetic data and cleanup, and fix any remaining failures without weakening safety gates.
 
 ### 2026-09-04 Supabase Staging Migration Reconciliation
 

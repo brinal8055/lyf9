@@ -4,7 +4,7 @@
 
 Decision: **No-go for real PHI private beta**.
 
-Current readiness score including live staging evidence: **94/100 pending deployment verification**.
+Current readiness score including live staging evidence: **94/100 with the supported pipeline blocked at deployed AI authentication**.
 
 Reason: synthetic golden QA, live staging Supabase/RLS, an exact checksum-locked migration ledger, private S3, GuardDuty clean/threat verification, atomic workflow concurrency/recovery, scanned-image Textract OCR, the deployed Inngest saga, and a live Gemini structured-output smoke pass. Provider-backed golden QA, doctor threshold review, retention governance, observability, signup email reliability, and legal review are still incomplete.
 
@@ -49,7 +49,7 @@ Interpretation: local deterministic QA is healthy, but it does not replace live 
 | Real malware scanner | Ready for synthetic staging | GuardDuty is Active for staging `reports/`; `npm run verify:staging:malware` passes clean/EICAR checks and cleanup. |
 | Live Textract document extraction | Ready for synthetic staging | `npm run verify:staging:textract` passes readable and blank synthetic PNG scans, page/line provenance, confidence quality gates, fail-closed blank handling, zero AI output, and independent S3/Postgres cleanup. |
 | Live Marker extraction | Optional | Marker is not required while staging explicitly selects Textract; verify Marker before making it the configured parser. |
-| Live structured AI provider | Ready for synthetic smoke | `npm run verify:staging:ai` passed with `gemini-3.5-flash`; the 13-fixture live golden run stopped fail-closed on exhausted provider quota. |
+| Live structured AI provider | Direct adapter ready; deployed credential blocked | `npm run verify:staging:ai` passes with `gemini-3.5-flash`, but the deployed Inngest path failed closed with `ai_provider_auth_failed`. Rotate the staging key and save it as a Vercel Secret before rerunning E2E. |
 | Doctor-reviewed critical thresholds | Blocked | Critical rules reviewed and signed off by qualified clinician. |
 | Legal review | Blocked | Consent, privacy, disclaimer, doctor review, payment/refund, and beta terms approved. |
 
@@ -60,7 +60,7 @@ Interpretation: local deterministic QA is healthy, but it does not replace live 
 | Workflow concurrency | Ready for synthetic staging | Database claims/recovery and the deployed event-driven Inngest saga pass with synthetic cleanup; re-run after workflow, scanner, parser, or deployment changes. |
 | Observability | Partial | Sentry or equivalent with PHI scrubbing and alert routing. |
 | Admin QA UI | Partial | Operators can see golden failures, low confidence, unmapped markers, unsafe blocks, model failures. |
-| Broader E2E | Implemented, verification pending | The synthetic supported-CBC harness covers auth, consent, S3, GuardDuty, Textract, AI, persisted results, admin correction, doctor approval, reminder, feedback, audit, and cleanup. Require a passing post-deploy artifact. |
+| Broader E2E | Blocked at deployed AI authentication | The synthetic CBC run passed upload, GuardDuty, Textract, and classification, then failed closed at `extract-biomarkers`. Rotate the staging Gemini key, redeploy, and rerun the complete path. |
 | CI | Implemented, first remote run pending | Deterministic CI runs typecheck, lint, copy scan, tests, API/worker checks, and the web build; the protected manual workflow runs the synthetic staging release gate. |
 
 ## Go Criteria
