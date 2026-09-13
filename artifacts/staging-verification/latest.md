@@ -1,6 +1,6 @@
 # Live Staging Verification Artifact
 
-Generated: 2026-09-13T17:58:13.059Z
+Generated: 2026-09-13T18:08:13.718Z
 
 Environment: staging
 
@@ -22,28 +22,39 @@ Verification scope: **selected_sections**
 
  RUN  v2.1.9 [workspace]/apps/web
 
- ❯ src/inngest/staging-inngest-live.test.ts (5 tests | 1 failed | 4 skipped) 286819ms
-   × live staging Inngest saga > runs a supported CBC through result, correction, doctor review, reminder, and feedback 286818ms
-     → Supported-report saga failed closed: processing_failed; diagnostics={"modelRuns":[{"error_code":null,"model_name":"gemini-3.5-flash","provider":"gemini_structured_outputs","status":"succeeded","task_type":"biomarker_extraction"},{"error_code":null,"model_name":"gemini-3.5-flash","provider":"gemini_structured_outputs","status":"succeeded","task_type":"biomarker_extraction"},{"error_code":null,"model_name":"gemini-3.5-flash","provider":"gemini_structured_outputs","status":"succeeded","task_type":"biomarker_extraction"},{"error_code":null,"model_name":"gemini-3.5-flash","provider":"gemini_structured_outputs","status":"succeeded","task_type":"biomarker_extraction"}],"steps":[{"error_code":null,"status":"completed","step_name":"malware_scan"},{"error_code":null,"status":"completed","step_name":"extract_document"},{"error_code":null,"status":"completed","step_name":"ocr_fallback"},{"error_code":null,"status":"completed","step_name":"classify_report"},{"error_code":null,"status":"completed","step_name":"extract_biomarkers"},{"error_code":null,"status":"completed","step_name":"normalize_biomarkers"}]}
+ ❯ src/inngest/staging-inngest-live.test.ts (5 tests | 1 failed | 4 skipped) 102947ms
+   × live staging Inngest saga > runs a supported CBC through result, correction, doctor review, reminder, and feedback 102946ms
+     → expected { …(27) } to match object { status: 'doctor_reviewed', …(1) }
+(35 matching properties omitted from actual)
 
  Test Files  1 failed (1)
       Tests  1 failed | 4 skipped (5)
-   Start at  23:23:22
-   Duration  290.90s (transform 413ms, setup 0ms, collect 931ms, tests 286.82s, environment 0ms, prepare 566ms)
+   Start at  23:36:26
+   Duration  107.02s (transform 403ms, setup 0ms, collect 778ms, tests 102.95s, environment 0ms, prepare 354ms)
 
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
 
  FAIL  src/inngest/staging-inngest-live.test.ts > live staging Inngest saga > runs a supported CBC through result, correction, doctor review, reminder, and feedback
-Error: Supported-report saga failed closed: processing_failed; diagnostics={"modelRuns":[{"error_code":null,"model_name":"gemini-3.5-flash","provider":"gemini_structured_outputs","status":"succeeded","task_type":"biomarker_extraction"},{"error_code":null,"model_name":"gemini-3.5-flash","provider":"gemini_structured_outputs","status":"succeeded","task_type":"biomarker_extraction"},{"error_code":null,"model_name":"gemini-3.5-flash","provider":"gemini_structured_outputs","status":"succeeded","task_type":"biomarker_extraction"},{"error_code":null,"model_name":"gemini-3.5-flash","provider":"gemini_structured_outputs","status":"succeeded","task_type":"biomarker_extraction"}],"steps":[{"error_code":null,"status":"completed","step_name":"malware_scan"},{"error_code":null,"status":"completed","step_name":"extract_document"},{"error_code":null,"status":"completed","step_name":"ocr_fallback"},{"error_code":null,"status":"completed","step_name":"classify_report"},{"error_code":null,"status":"completed","step_name":"extract_biomarkers"},{"error_code":null,"status":"completed","step_name":"normalize_biomarkers"}]}
- ❯ waitForSupportedResult src/inngest/staging-inngest-live.test.ts:560:13
-    558|     if (result.data.status === "blocked" || result.data.status === "fa…
-    559|       const diagnostics = await supportedJobDiagnostics(service, jobId…
-    560|       throw new Error(
-       |             ^
-    561|         `Supported-report saga failed closed: ${result.data.error_code…
-    562|       );
- ❯ src/inngest/staging-inngest-live.test.ts:311:7
+AssertionError: expected { …(27) } to match object { status: 'doctor_reviewed', …(1) }
+(35 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+    "status": "doctor_reviewed",
+-   "summary": "Doctor-reviewed synthetic CBC verification summary.",
++   "summary": "All your primary blood parameters—including Hemoglobin, White Blood Cells, Platelets, and Red Blood Cells—are within the normal reference ranges. This suggests healthy blood production, normal oxygen-carrying capacity, and a stable immune system.",
+  }
+
+ ❯ src/inngest/staging-inngest-live.test.ts:436:88
+    434|       );
+    435|       expect(reviewedResult.response.status, responseFailure(reviewedR…
+    436|       expect(objectField(objectField(reviewedResult.body, "report"), "…
+       |                                                                                        ^
+    437|         status: "doctor_reviewed",
+    438|         summary: reviewedSummary
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
 

@@ -2087,6 +2087,7 @@ export function toHealthRiskFlag(row: DbRow): HealthRiskFlagRecord {
 export function toHealthInsight(row: DbRow): HealthInsightRecord {
   const explanation = explanationPayload(row);
   const rawStatus = stringField(row, "status");
+  const persistedSummary = stringField(row, "summary");
 
   return {
     createdAt: stringField(row, "created_at"),
@@ -2118,7 +2119,10 @@ export function toHealthInsight(row: DbRow): HealthInsightRecord {
         ? arrayField(row, "source_biomarker_ids")
         : stringArray(explanation.source_biomarker_ids),
     status: normalizeInsightStatus(rawStatus),
-    summary: stringValue(explanation.summary) || stringField(row, "summary"),
+    summary:
+      rawStatus === "doctor_reviewed"
+        ? persistedSummary || stringValue(explanation.summary)
+        : stringValue(explanation.summary) || persistedSummary,
     updatedAt: stringField(row, "updated_at"),
     userId: stringField(row, "user_id")
   };

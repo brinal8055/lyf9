@@ -93,6 +93,22 @@ describe("Supabase report row mapping", () => {
     ).toMatchObject({ flagType: "unsafe_language", severity: "critical" });
   });
 
+  it("publishes the persisted doctor-edited summary while retaining the AI draft", () => {
+    const insight = toHealthInsight({
+      created_at: timestamp,
+      explanation_json: { summary: "Original AI summary." },
+      id: "insight-reviewed",
+      lab_report_id: "report-1",
+      status: "doctor_reviewed",
+      summary: "Doctor-reviewed summary.",
+      updated_at: timestamp,
+      user_id: "user-1"
+    });
+
+    expect(insight.summary).toBe("Doctor-reviewed summary.");
+    expect(insight.explanationJson).toMatchObject({ summary: "Original AI summary." });
+  });
+
   it("maps persisted feedback fields", () => {
     expect(
       toFeedbackEvent({
