@@ -39,6 +39,7 @@
     "test:s3-live": "npm --workspace apps/web run test:s3-live",
     "test:malware-live": "npm --workspace apps/web run test:malware-live",
     "test:inngest-live": "npm --workspace apps/web run test:inngest-live",
+    "test:launch-live": "npm --workspace apps/web run test:launch-live",
     "test:textract-live": "npm --workspace apps/web run test:textract-live",
     "test:ai-live": "npm --workspace apps/web run test:ai-live",
     "test:workflow-live": "npm --workspace apps/web run test:workflow-live",

@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/providers/supabase-server";
 import { isInngestConfigured } from "@/inngest/client";
 import { getAiRuntimeStatus } from "@/lib/ai";
+import { reportUploadsEnabled } from "@/lib/operations/launch-controls";
 import { getStoreHealth } from "@/lib/reports/repository";
 
 export async function GET() {
@@ -31,6 +32,7 @@ export async function GET() {
       inngestConfigured,
       paymentSandboxConfigured: Boolean(process.env.RAZORPAY_KEY_ID),
       queueConfigured: Boolean(process.env.REDIS_URL),
+      reportUploadsEnabled: reportUploadsEnabled(),
       reportUrlSecret: Boolean(process.env.LYF9_REPORT_URL_SECRET),
       storageConfigured: Boolean(
         process.env.S3_REPORT_BUCKET ||

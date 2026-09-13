@@ -216,22 +216,34 @@ export async function insertBiomarkerResults(input: {
 export async function insertHealthInsight(input: {
   aiModelRunId: string;
   disclaimer: string;
+  doctorReviewReason: string | null;
+  doctorReviewRequired: boolean;
   labReportId: string;
   output: PatientExplanationOutput;
+  reportFileId: string;
   safetyFlags: string[];
+  safetyStatus: "passed" | "blocked" | "review_required";
   sourceBiomarkerIds: string[];
-  status: "ai_only_published" | "doctor_review_pending" | "admin_review_pending";
+  status: "ai_only_ready" | "doctor_review_required";
   userId: string;
 }): Promise<string> {
+  const now = new Date().toISOString();
   const { data, error } = await client()
     .from("health_insights")
     .insert({
       ai_model_run_id: input.aiModelRunId,
       disclaimer: input.disclaimer,
+      doctor_review_reason: input.doctorReviewReason,
+      doctor_review_required: input.doctorReviewRequired,
+      explanation_json: input.output,
+      insight_type: "patient_explanation",
       lab_report_id: input.labReportId,
       model_run_id: input.aiModelRunId,
       output_json: input.output,
+      published_at: input.status === "ai_only_ready" ? now : null,
+      report_file_id: input.reportFileId,
       safety_flags: input.safetyFlags,
+      safety_status: input.safetyStatus,
       source_biomarker_ids: input.sourceBiomarkerIds,
       status: input.status,
       summary: input.output.summary,

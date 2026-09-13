@@ -30,7 +30,8 @@ const expectedTables = [
   "reminders",
   "payments",
   "feedback_events",
-  "analytics_events"
+  "analytics_events",
+  "beta_invites"
 ];
 
 const sections = {
@@ -136,7 +137,23 @@ const sections = {
     run: verifyAi
   },
   e2e: {
-    required: ["APP_BASE_URL", "NEXT_PUBLIC_APP_BASE_URL"],
+    required: [
+      "APP_ENV",
+      "AWS_ACCESS_KEY_ID",
+      "AWS_REGION",
+      "AWS_SECRET_ACCESS_KEY",
+      "AWS_TEXTRACT_REGION",
+      "DOCUMENT_PARSER_PROVIDER",
+      "MALWARE_SCANNER_PROVIDER",
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "OCR_PROVIDER",
+      "PRODUCTION_S3_BUCKET",
+      "S3_REPORT_BUCKET",
+      "STAGING_APP_ORIGIN",
+      "STAGING_S3_BUCKET",
+      "STAGING_SUPABASE_PROJECT_REF",
+      "SUPABASE_SERVICE_ROLE_KEY"
+    ],
     run: verifyE2E
   },
   "golden-live": {
@@ -268,6 +285,7 @@ function verifyRls() {
 function verifyAuthApi() {
   assertStagingSupabaseTarget();
   return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:auth-live"], {
+    REQUIRE_PUBLIC_SIGNUP_EMAIL_DELIVERY: "true",
     RUN_LIVE_STAGING_AUTH_API: "true"
   }, "live_auth_api_harness_passed");
 }
@@ -300,8 +318,21 @@ function verifyInngest() {
 }
 
 function verifyMarker() {
+  if (process.env.DOCUMENT_PARSER_PROVIDER !== "marker") {
+    return {
+      checks: [
+        check(
+          "marker_optional_not_selected",
+          true,
+          `Marker is optional; ${process.env.DOCUMENT_PARSER_PROVIDER} is the selected document parser.`
+        )
+      ],
+      status: "passed"
+    };
+  }
+
   const checks = [
-    check("marker_selected", process.env.DOCUMENT_PARSER_PROVIDER === "marker"),
+    check("marker_selected", true),
     check("marker_command_or_api_configured", Boolean(process.env.MARKER_COMMAND || process.env.MARKER_API_URL)),
     check("marker_runner_available", false, "MarkerProvider currently exposes the contract and fail-closed behavior; live command/API execution is not wired.")
   ];
@@ -322,11 +353,10 @@ function verifyAi() {
 }
 
 function verifyE2E() {
-  const checks = [
-    check("synthetic_only", true),
-    check("all_live_provider_sections_passed", false, "Full staging E2E is blocked until Supabase/RLS, workflow, S3, scanner, Marker, Textract, and the selected AI provider checks pass.")
-  ];
-  return { checks, status: "blocked" };
+  assertStagingSupabaseTarget();
+  return runNpmHarness("npm", ["--workspace", "apps/web", "run", "test:launch-live"], {
+    RUN_LIVE_STAGING_INNGEST: "true"
+  }, "supported_report_launch_harness_passed");
 }
 
 function verifyGoldenLive() {

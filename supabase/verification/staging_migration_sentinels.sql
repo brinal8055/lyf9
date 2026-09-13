@@ -68,6 +68,15 @@ with migration_checks(version, name, schema_present) as (
     and has_function_privilege('service_role', 'public.release_expired_processing_locks(timestamp with time zone)', 'EXECUTE')
     and not has_function_privilege('authenticated', 'public.claim_next_processing_job(text,integer,timestamp with time zone)', 'EXECUTE')
     and not has_function_privilege('anon', 'public.release_expired_processing_locks(timestamp with time zone)', 'EXECUTE')
+  union all
+  select '202609130001', 'private_beta_operations',
+    exists (
+      select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relname = 'beta_invites' and c.relrowsecurity
+    )
+    and not has_table_privilege('anon', 'public.beta_invites', 'SELECT')
+    and not has_table_privilege('authenticated', 'public.beta_invites', 'SELECT')
+    and has_table_privilege('service_role', 'public.beta_invites', 'SELECT')
 )
 select version, name, schema_present
 from migration_checks

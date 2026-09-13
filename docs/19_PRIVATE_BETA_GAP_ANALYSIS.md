@@ -6,7 +6,7 @@
 
 The product can be used for internal scaffold rehearsal. The end-to-end user journey exists, but core PHI safety infrastructure is not production-ready.
 
-Private beta readiness score including current live staging evidence: **93/100**
+Private beta readiness score including current live staging evidence: **94/100 pending deployment verification**
 
 ## P0 Blockers Before Any Real PHI
 
@@ -19,14 +19,17 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 | Signup email delivery is rate-limited | Live `npm run test:auth-live` staging run | Configure custom SMTP or an approved Supabase Auth email quota, then require public invite signup to pass without service-role fixture provisioning. |
 | Provider-backed golden QA is quota-blocked | `artifacts/staging-verification/ai.json`, `artifacts/staging-verification/golden-live.json` | The Gemini smoke passes; replenish/upgrade Gemini quota and rerun the 13-fixture live golden gate. |
 | Golden dataset too small for PHI beta | `tests/golden/`, `docs/26_GOLDEN_DATASET_EVALUATION_REPORT.md` | Expand beyond synthetic smoke coverage to at least 25 internally reviewed samples and retain 100% safety gate pass. |
-| Observability not production-ready | `apps/web/src/lib/observability/logger.ts` | Sentry + PHI scrubbing + alert routing. |
+| External observability not production-ready | `apps/web/src/lib/observability/logger.ts` | Central PHI/token scrubbing now has tests; connect Sentry or equivalent with the same deny rules and alert routing. |
 | Health checks shallow | `apps/web/src/app/api/health/route.ts`, `apps/api/app/main.py`, `apps/worker/app/worker.py` | Real database/storage/queue connectivity probes. |
-| Full processing workflow E2E is missing | current test setup | Auth/onboarding/consent and private S3 pass live; add scanner, processing, admin correction, and doctor action E2E. |
-| No CI | no `.github` workflow | Add CI for lint/typecheck/test/build/copy scan. |
+| Supported processing workflow E2E needs post-deploy evidence | `apps/web/src/inngest/staging-inngest-live.test.ts` | The complete synthetic harness now exists; deploy it and require `npm run verify:staging:e2e` to pass. |
+| CI | `.github/workflows/ci.yml`, `.github/workflows/staging-release-gate.yml` | Implemented locally; verify the first remote run and configure protected staging secrets/variables. |
 
 ## Fixed Or Improved In The Staging Verification Pass
 
 - Reconciled the previously absent Supabase migration ledger in staging after all 11 repository migration sentinels passed. Exact-set verification reports 11 expected rows, no missing or unexpected versions/names, and non-empty statements.
+- Applied the additive durable beta-invite migration to staging and registered it as ledger entry 12/12 after RLS and privilege sentinels passed.
+- Fixed persisted insight/result mappings, Supabase admin queues, immutable correction overlays, doctor UUID routing, constrained analytics, PHI-safe logging, and Supabase data-rights routing.
+- Added a server-side upload kill switch, deterministic CI, and a full supported-report synthetic launch harness; live evidence awaits the next `dev` deployment.
 - Added a SHA-256 migration lock, local/remote drift verifiers, a staging-target guard, and a guarded history-repair generator. Production was not accessed or changed.
 - Re-ran the live staging RLS harness after reconciliation; synthetic user, doctor, admin, consent, service-role, and audit boundaries all passed.
 - Live private S3 verification passed upload, encryption/metadata, public denial, download, DB/audit evidence, deletion, and cleanup against the staging-only bucket.

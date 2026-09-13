@@ -217,6 +217,246 @@ describeLive("live staging Inngest saga", () => {
       s3.destroy();
     }
   }, 360_000);
+
+  it("runs a supported CBC through result, correction, doctor review, reminder, and feedback", async () => {
+    const env = getLiveEnv();
+    const service = createClient(env.supabaseUrl, env.serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+    const s3 = new S3Client({
+      credentials: {
+        accessKeyId: env.awsAccessKeyId,
+        secretAccessKey: env.awsSecretAccessKey
+      },
+      region: env.awsRegion
+    });
+    const suffix = `${Date.now()}-${randomUUID().slice(0, 8)}`;
+    const patientEmail = `lyf9-staging-patient-${suffix}@lyf9.ai`;
+    const adminEmail = `lyf9-staging-admin-${suffix}@lyf9.ai`;
+    const doctorEmail = `lyf9-staging-doctor-${suffix}@lyf9.ai`;
+    const password = `Launch-${suffix}!`;
+    const image = await readFixture("synthetic-cbc-scan.png");
+    const createdUsers: Array<{ email: string; id: string }> = [];
+    let storageKey: string | null = null;
+
+    try {
+      const patientId = await createConfirmedUser(service, patientEmail, password, "Synthetic Patient");
+      const adminId = await createConfirmedUser(service, adminEmail, password, "Synthetic Admin");
+      const doctorId = await createConfirmedUser(service, doctorEmail, password, "Synthetic Doctor");
+      createdUsers.push(
+        { email: patientEmail, id: patientId },
+        { email: adminEmail, id: adminId },
+        { email: doctorEmail, id: doctorId }
+      );
+
+      const patientHeaders = await loginHeaders(env.stagingOrigin, patientEmail, password);
+      const adminHeaders = await loginHeaders(env.stagingOrigin, adminEmail, password);
+      const doctorHeaders = await loginHeaders(env.stagingOrigin, doctorEmail, password);
+      await grantTestRole(service, adminId, "admin");
+      await grantTestRole(service, doctorId, "doctor");
+      await seedApprovedDoctor(service, { adminId, doctorId, suffix });
+
+      const consent = await postJson(
+        `${env.stagingOrigin}/api/consent`,
+        {
+          ai_analysis: true,
+          doctor_review: true,
+          lab_report_processing: true,
+          marketing_communication: false,
+          reminders_notifications: true
+        },
+        patientHeaders
+      );
+      expect(consent.response.status, responseFailure(consent)).toBe(200);
+
+      const init = await postJson(
+        `${env.stagingOrigin}/api/reports/upload-init`,
+        {
+          checksumSha256: createHash("sha256").update(image).digest("hex"),
+          fileSizeBytes: image.length,
+          mimeType: "image/png",
+          originalFilename: "Synthetic CBC Launch Verification.png"
+        },
+        patientHeaders
+      );
+      expect(init.response.status, responseFailure(init)).toBe(200);
+      const reportFile = objectField(init.body, "reportFile");
+      const labReport = objectField(init.body, "labReport");
+      const job = objectField(init.body, "job");
+      const reportFileId = stringField(reportFile, "id");
+      const labReportId = stringField(labReport, "id");
+      const jobId = stringField(job, "id");
+      storageKey = stringField(reportFile, "storageKey");
+
+      const upload = await fetch(stringField(init.body, "uploadUrl"), {
+        body: image,
+        headers: stringRecord(init.body.requiredHeaders),
+        method: "PUT"
+      });
+      expect(upload.status, await upload.text()).toBe(200);
+
+      const scan = await createGuardDutyS3MalwareScanner({
+        bucket: env.stagingBucket,
+        pollIntervalMs: 3_000,
+        timeoutMs: 240_000
+      }).scanFile({ mimeType: "image/png", reportFileId, storageKey });
+      expect(scan).toMatchObject({ provider: "guardduty_s3", status: "passed" });
+
+      const complete = await postJson(
+        `${env.stagingOrigin}/api/reports/${reportFileId}/upload-complete`,
+        {},
+        patientHeaders
+      );
+      expect(complete.response.status, responseFailure(complete)).toBe(200);
+      await waitForSupportedResult(service, jobId);
+
+      const [markers, insights, models, extraction, steps] = await Promise.all([
+        service.from("biomarker_results").select("*").eq("lab_report_id", labReportId),
+        service.from("health_insights").select("*").eq("lab_report_id", labReportId).single(),
+        service.from("model_runs").select("*").eq("report_file_id", reportFileId),
+        service.from("extracted_documents").select("*").eq("report_file_id", reportFileId).single(),
+        service.from("processing_job_steps").select("status, step_name").eq("processing_job_id", jobId)
+      ]);
+      [markers, insights, models, extraction, steps].forEach((result) => throwIfError(result.error));
+      expect(markers.data?.length ?? 0).toBeGreaterThanOrEqual(4);
+      expect(models.data?.map((row) => row.task_type)).toEqual(
+        expect.arrayContaining(["biomarker_extraction", "patient_explanation"])
+      );
+      expect(extraction.data).toMatchObject({ ocr_provider: "textract", parser_provider: "textract" });
+      expect(insights.data?.status).toMatch(/^(ai_only_ready|doctor_review_required)$/);
+      expect(insights.data?.source_biomarker_ids?.length ?? 0).toBeGreaterThan(0);
+      expect(insights.data?.explanation_json?.summary).toBeTruthy();
+      expect(stepStatusMap(steps.data ?? [])).toMatchObject({
+        extract_biomarkers: "completed",
+        generate_patient_explanation: "completed",
+        publish_result: "completed",
+        run_safety_rules: "completed"
+      });
+
+      const patientResult = await getJson(
+        `${env.stagingOrigin}/api/reports/${reportFileId}`,
+        patientHeaders
+      );
+      expect(patientResult.response.status, responseFailure(patientResult)).toBe(200);
+      const resultReport = objectField(patientResult.body, "report");
+      const resultInsight = objectField(resultReport, "healthInsight");
+      expect(stringField(resultInsight, "summary").length).toBeGreaterThan(10);
+      expect(Array.isArray(resultReport.markerCards)).toBe(true);
+      expect((resultReport.markerCards as unknown[]).length).toBeGreaterThanOrEqual(4);
+
+      const reminder = await postJson(
+        `${env.stagingOrigin}/api/reminders`,
+        {
+          reminderDate: "2026-12-15",
+          reportFileId,
+          title: "Discuss retest timing"
+        },
+        patientHeaders
+      );
+      expect(reminder.response.status, responseFailure(reminder)).toBe(201);
+      const feedback = await postJson(
+        `${env.stagingOrigin}/api/feedback`,
+        {
+          feedbackSurface: "report_result",
+          freeText: "Synthetic launch verification feedback.",
+          helpful: "yes",
+          reportFileId,
+          wouldTrustDoctorReview: "yes"
+        },
+        patientHeaders
+      );
+      expect(feedback.response.status, responseFailure(feedback)).toBe(201);
+
+      const adminQueue = await getJson(`${env.stagingOrigin}/api/admin/reports`, adminHeaders);
+      expect(adminQueue.response.status, responseFailure(adminQueue)).toBe(200);
+      expect(arrayField(adminQueue.body, "biomarkerResults").length).toBeGreaterThanOrEqual(4);
+      expect(arrayField(adminQueue.body, "healthInsights").length).toBeGreaterThan(0);
+
+      const firstMarker = markers.data?.[0];
+      if (!firstMarker) throw new Error("No biomarker was available for correction verification.");
+      const correction = await postJson(
+        `${env.stagingOrigin}/api/admin/corrections`,
+        {
+          biomarkerResultId: firstMarker.id,
+          canonicalName: firstMarker.canonical_name,
+          confidenceScore: firstMarker.confidence_score,
+          rawName: firstMarker.raw_name,
+          reason: "Synthetic private beta launch verification.",
+          referenceHigh: firstMarker.reference_high,
+          referenceLow: firstMarker.reference_low,
+          referenceRangeText: firstMarker.reference_range_text,
+          reviewRouting: firstMarker.review_routing,
+          sourceText: firstMarker.source_text,
+          systemFlag: firstMarker.system_flag,
+          unit: firstMarker.unit,
+          valueNumeric: firstMarker.value_numeric,
+          valueText: firstMarker.value_text
+        },
+        adminHeaders
+      );
+      expect(correction.response.status, responseFailure(correction)).toBe(200);
+      expect(objectField(correction.body, "marker").isManuallyCorrected).toBe(true);
+
+      const assignment = await postJson(
+        `${env.stagingOrigin}/api/admin/doctor-reviews`,
+        {
+          assignedDoctorEmail: doctorEmail,
+          healthInsightId: insights.data?.id,
+          priority: "standard"
+        },
+        adminHeaders
+      );
+      expect(assignment.response.status, responseFailure(assignment)).toBe(200);
+      const assignedReview = objectField(assignment.body, "review");
+      const reviewId = stringField(assignedReview, "id");
+
+      const doctorQueue = await getJson(`${env.stagingOrigin}/api/doctor/reviews`, doctorHeaders);
+      expect(doctorQueue.response.status, responseFailure(doctorQueue)).toBe(200);
+      expect(
+        arrayField(doctorQueue.body, "reviews").some((review) => {
+          const detail = objectFieldOrNull(review);
+          const reviewRecord = objectFieldOrNull(detail?.review);
+          return reviewRecord?.id === reviewId;
+        })
+      ).toBe(true);
+
+      const reviewedSummary = "Doctor-reviewed synthetic CBC verification summary.";
+      const action = await postJson(
+        `${env.stagingOrigin}/api/doctor/reviews/${reviewId}/action`,
+        { action: "edit_and_approve", editedSummary: reviewedSummary, notes: "Synthetic test." },
+        doctorHeaders
+      );
+      expect(action.response.status, responseFailure(action)).toBe(200);
+
+      const reviewedResult = await getJson(
+        `${env.stagingOrigin}/api/reports/${reportFileId}`,
+        patientHeaders
+      );
+      expect(reviewedResult.response.status, responseFailure(reviewedResult)).toBe(200);
+      expect(objectField(objectField(reviewedResult.body, "report"), "healthInsight")).toMatchObject({
+        status: "doctor_reviewed",
+        summary: reviewedSummary
+      });
+
+      const audit = await service
+        .from("audit_logs")
+        .select("action")
+        .in("action", ["admin_biomarker_corrected", "doctor_review_action", "feedback_submitted"])
+        .or(`actor_user_id.eq.${adminId},actor_user_id.eq.${doctorId},actor_user_id.eq.${patientId}`);
+      throwIfError(audit.error);
+      expect(audit.data?.map((row) => row.action)).toEqual(
+        expect.arrayContaining(["admin_biomarker_corrected", "doctor_review_action", "feedback_submitted"])
+      );
+    } finally {
+      if (storageKey) {
+        await s3.send(new DeleteObjectCommand({ Bucket: env.stagingBucket, Key: storageKey })).catch(() => undefined);
+      }
+      for (const user of createdUsers.reverse()) {
+        await cleanupSyntheticUser(service, user.email, user.id).catch(() => undefined);
+      }
+      s3.destroy();
+    }
+  }, 600_000);
 });
 
 function getLiveEnv() {
@@ -297,6 +537,100 @@ async function waitForUnsupportedResult(service: SupabaseClient, jobId: string) 
   throw new Error("Timed out waiting for the staging Inngest saga.");
 }
 
+async function waitForSupportedResult(service: SupabaseClient, jobId: string) {
+  const deadline = Date.now() + 480_000;
+  while (Date.now() < deadline) {
+    const result = await service
+      .from("processing_jobs")
+      .select("current_state, error_code, error_message, status")
+      .eq("id", jobId)
+      .single();
+    throwIfError(result.error);
+    if (!result.data) throw new Error("Staging supported-report job was not found.");
+    if (
+      result.data.status === "completed" &&
+      ["published", "doctor_review_required", "critical_review_required"].includes(
+        result.data.current_state
+      )
+    ) {
+      return;
+    }
+    if (result.data.status === "blocked" || result.data.status === "failed") {
+      throw new Error(
+        `Supported-report saga failed closed: ${result.data.error_code ?? result.data.error_message ?? result.data.status}`
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
+  }
+  throw new Error("Timed out waiting for the supported staging report saga.");
+}
+
+async function createConfirmedUser(
+  service: SupabaseClient,
+  email: string,
+  password: string,
+  fullName: string
+) {
+  const created = await service.auth.admin.createUser({
+    email,
+    email_confirm: true,
+    password,
+    user_metadata: { full_name: fullName }
+  });
+  throwIfError(created.error);
+  const userId = created.data.user?.id;
+  if (!userId) throw new Error(`Synthetic user ${email} was not created.`);
+  return userId;
+}
+
+async function loginHeaders(origin: string, email: string, password: string) {
+  const login = await postJson(`${origin}/api/auth/login`, { email, password });
+  expect(login.response.status, responseFailure(login)).toBe(200);
+  return { cookie: responseCookieHeader(login.response) };
+}
+
+async function grantTestRole(service: SupabaseClient, userId: string, role: "admin" | "doctor") {
+  const now = new Date().toISOString();
+  const revoked = await service
+    .from("user_roles")
+    .update({ revoked_at: now })
+    .eq("user_id", userId)
+    .is("revoked_at", null);
+  throwIfError(revoked.error);
+  const granted = await service.from("user_roles").insert({
+    granted_at: new Date(Date.now() + 1_000).toISOString(),
+    role,
+    user_id: userId
+  });
+  throwIfError(granted.error);
+}
+
+async function seedApprovedDoctor(
+  service: SupabaseClient,
+  input: { adminId: string; doctorId: string; suffix: string }
+) {
+  const profile = await service.from("doctor_profiles").insert({
+    full_name: "Synthetic Doctor",
+    languages: ["en"],
+    primary_degree: "MBBS",
+    registration_council: "Synthetic Council",
+    registration_number: `SYN-${input.suffix}`,
+    specialties: ["hematology"],
+    status: "approved",
+    user_id: input.doctorId,
+    verified_at: new Date().toISOString(),
+    verified_by: input.adminId,
+    years_experience: 10
+  });
+  throwIfError(profile.error);
+  const capacity = await service.from("doctor_capacity").insert({
+    doctor_user_id: input.doctorId,
+    is_accepting: true,
+    max_open_reviews: 10
+  });
+  throwIfError(capacity.error);
+}
+
 async function expectNoAiOutputs(service: SupabaseClient, userId: string, reportFileId: string) {
   const [models, insights, biomarkers] = await Promise.all([
     service.from("model_runs").select("id", { count: "exact", head: true }).eq("report_file_id", reportFileId),
@@ -327,6 +661,12 @@ async function postJson(
     headers: { "content-type": "application/json", ...headers },
     method: "POST"
   });
+  const responseBody = await response.json().catch(() => ({}));
+  return { body: responseBody as Record<string, unknown>, response };
+}
+
+async function getJson(url: string, headers: Record<string, string> = {}) {
+  const response = await fetch(url, { headers });
   const responseBody = await response.json().catch(() => ({}));
   return { body: responseBody as Record<string, unknown>, response };
 }
@@ -368,6 +708,11 @@ function stringRecord(value: unknown) {
   return Object.fromEntries(
     Object.entries(object).filter((entry): entry is [string, string] => typeof entry[1] === "string")
   );
+}
+
+function arrayField(value: unknown, field: string) {
+  const result = objectFieldOrNull(value)?.[field];
+  return Array.isArray(result) ? result : [];
 }
 
 async function cleanupSyntheticUser(service: SupabaseClient, email: string, knownUserId: string | null) {

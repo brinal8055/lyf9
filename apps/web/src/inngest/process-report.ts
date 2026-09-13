@@ -519,11 +519,12 @@ export const processReport = inngest.createFunction(
           reviewMarkers.length > 0 ||
           explanation.output.doctor_review_recommended;
 
-        const insightStatus = unsafeOutput
-          ? "admin_review_pending"
-          : doctorReviewNeeded
-            ? "doctor_review_pending"
-            : "ai_only_published";
+        const insightStatus =
+          unsafeOutput || doctorReviewNeeded ? "doctor_review_required" : "ai_only_ready";
+        const doctorReviewReason = unsafeOutput
+          ? "AI output safety filter requires manual review."
+          : explanation.output.doctor_review_reason ??
+            (doctorReviewNeeded ? "One or more biomarkers require manual review." : null);
 
         await insertHealthRiskFlags({
           flags: [
@@ -552,9 +553,17 @@ export const processReport = inngest.createFunction(
         const healthInsightId = await insertHealthInsight({
           aiModelRunId: explanation.modelRunId,
           disclaimer: explanation.output.disclaimer,
+          doctorReviewReason,
+          doctorReviewRequired: unsafeOutput || doctorReviewNeeded,
           labReportId,
           output: explanation.output,
+          reportFileId,
           safetyFlags: explanation.safety.matchedPhrases,
+          safetyStatus: unsafeOutput
+            ? "blocked"
+            : doctorReviewNeeded
+              ? "review_required"
+              : "passed",
           sourceBiomarkerIds: biomarkers.inserted.map((marker: { id: string }) => marker.id),
           status: insightStatus,
           userId

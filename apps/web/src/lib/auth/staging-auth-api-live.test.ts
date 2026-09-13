@@ -31,6 +31,9 @@ describeLive("live staging Auth and consent API verification", () => {
       if (signupCompletedThroughApp) {
         userId = stringField(signup.body.user, "id");
       } else {
+        if (process.env.REQUIRE_PUBLIC_SIGNUP_EMAIL_DELIVERY === "true") {
+          expect(signup.response.status, responseFailure(signup)).toBe(200);
+        }
         expect(signup.response.status, responseFailure(signup)).toBe(400);
         expect(signup.body).toMatchObject({
           errors: { email: "email rate limit exceeded" }

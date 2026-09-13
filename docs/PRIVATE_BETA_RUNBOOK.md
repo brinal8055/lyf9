@@ -127,18 +127,24 @@ Admin review:
 
 If upload quality, unsafe output, privacy, or storage issues appear:
 
-1. Set beta access mode to a restrictive state:
+1. Stop new upload initialization at the server boundary:
+
+```txt
+REPORT_UPLOADS_ENABLED=false
+```
+
+2. Redeploy and confirm `/api/health` reports `reportUploadsEnabled: false`.
+3. Set beta access mode to a restrictive state:
 
 ```txt
 LYF9_BETA_ACCESS_MODE=allowlist
 LYF9_BETA_ALLOWLIST_EMAILS=<internal-admin-emails-only>
 ```
 
-2. Remove active invite codes or stop issuing new ones.
-3. If needed, disable upload UI at the deployment layer or temporarily restrict authenticated routes.
-4. Notify active beta users manually.
-5. Keep existing report files private.
-6. Review audit logs before re-enabling uploads.
+4. Revoke active invite codes or stop issuing new ones.
+5. Notify active beta users manually.
+6. Keep existing result and doctor-review access available unless the incident requires a full shutdown.
+7. Review audit logs and resolve the incident before setting `REPORT_UPLOADS_ENABLED=true`.
 
 ## Daily Operator Checklist
 

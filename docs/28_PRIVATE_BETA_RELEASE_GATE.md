@@ -4,7 +4,7 @@
 
 Decision: **No-go for real PHI private beta**.
 
-Current readiness score including live staging evidence: **93/100**.
+Current readiness score including live staging evidence: **94/100 pending deployment verification**.
 
 Reason: synthetic golden QA, live staging Supabase/RLS, an exact checksum-locked migration ledger, private S3, GuardDuty clean/threat verification, atomic workflow concurrency/recovery, scanned-image Textract OCR, the deployed Inngest saga, and a live Gemini structured-output smoke pass. Provider-backed golden QA, doctor threshold review, retention governance, observability, signup email reliability, and legal review are still incomplete.
 
@@ -60,8 +60,8 @@ Interpretation: local deterministic QA is healthy, but it does not replace live 
 | Workflow concurrency | Ready for synthetic staging | Database claims/recovery and the deployed event-driven Inngest saga pass with synthetic cleanup; re-run after workflow, scanner, parser, or deployment changes. |
 | Observability | Partial | Sentry or equivalent with PHI scrubbing and alert routing. |
 | Admin QA UI | Partial | Operators can see golden failures, low confidence, unmapped markers, unsafe blocks, model failures. |
-| Broader E2E | Partial | Deployed staging E2E covers auth, consent, upload, admin, doctor assignment, audit. |
-| CI | Missing | CI runs typecheck, lint, tests, build, copy scan, and golden eval. |
+| Broader E2E | Implemented, verification pending | The synthetic supported-CBC harness covers auth, consent, S3, GuardDuty, Textract, AI, persisted results, admin correction, doctor approval, reminder, feedback, audit, and cleanup. Require a passing post-deploy artifact. |
+| CI | Implemented, first remote run pending | Deterministic CI runs typecheck, lint, copy scan, tests, API/worker checks, and the web build; the protected manual workflow runs the synthetic staging release gate. |
 
 ## Go Criteria
 

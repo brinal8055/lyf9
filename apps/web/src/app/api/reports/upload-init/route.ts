@@ -9,6 +9,7 @@ import {
   unauthorizedResponse
 } from "@/lib/auth/request";
 import { hasRequiredReportUploadConsent } from "@/lib/onboarding/server";
+import { reportUploadsEnabled } from "@/lib/operations/launch-controls";
 import { shouldUseSupabaseAuth } from "@/lib/auth/supabase-auth";
 import { auditReportUploadBlocked, auditReportUploadRejected, createUploadInit } from "@/lib/reports/repository";
 import {
@@ -22,6 +23,13 @@ export async function POST(request: NextRequest) {
 
   if (!user) {
     return unauthorizedResponse();
+  }
+
+  if (!reportUploadsEnabled()) {
+    return NextResponse.json(
+      { error: "Report uploads are temporarily paused. Please try again later." },
+      { status: 503 }
+    );
   }
 
   if (shouldUseSupabaseAuth() && !isInngestConfigured()) {

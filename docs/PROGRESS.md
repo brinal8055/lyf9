@@ -4,13 +4,55 @@
 
 Staging foundation reconciliation and release-gate hardening are in progress for a **production-shaped private beta MVP**.
 
-Supabase staging now has the current schema, an exact migration ledger protected by a repository checksum lock, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, live GuardDuty clean/threat enforcement, live-verified atomic workflow claims, scanned-image AWS Textract OCR, a live-verified deployed Inngest saga, and a live Gemini structured-output smoke. The product is not approved for real 30-50 user PHI until signup email delivery is reliable, provider-backed golden QA passes, and observability/privacy, retention, clinical-threshold, and legal reviews are completed.
+Supabase staging now has the current schema, an exact migration ledger protected by a repository checksum lock, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, live GuardDuty clean/threat enforcement, live-verified atomic workflow claims, scanned-image AWS Textract OCR, a live-verified deployed Inngest saga, a live Gemini structured-output smoke, and a backend-only durable beta invitation table. The product is not approved for real 30-50 user PHI until the new supported-report rollout gate passes after deployment, signup email delivery is reliable, provider-backed golden QA passes, and retention, clinical-threshold, and legal reviews are completed.
 
-Current private beta readiness score: **9.3/10**. The Supabase migration-history blocker is closed for staging, while the scanned-image OCR blocker remains closed for synthetic staging with **9.7/10 confidence**.
+Current private beta readiness score: **9.4/10 pending deployment verification**. Implementation confidence for the code-side rollout controls is **9.6/10**; the score does not override external clinical, legal, SMTP, or retention gates.
 
 No public launch, autonomous diagnosis, prescriptions, medicine-change advice, supplement protocols, pharmacy commerce, lab booking, full doctor marketplace, mobile app, wearables, ABDM/ABHA, genetics, employer, or insurance workflows have been added.
 
 ## Completed In This Pass
+
+### 2026-09-13 Private Beta Rollout Hardening
+
+- Fixed the Supabase-to-domain mapping boundary for health insights, feedback, reminders, risk flags, timeline entries, parser output, model runs, analytics, and audit records.
+- Persisted schema-first insights using canonical `ai_only_ready` and `doctor_review_required` states, `explanation_json`, report linkage, safety status, review reason, and publish timestamp.
+- Fixed doctor queue/action identity resolution so authenticated Supabase UUIDs work without being misread as email addresses.
+- Replaced empty Supabase admin queue placeholders with live persisted biomarkers, insights, risk flags, reviews, parser output, jobs, feedback, payments, reminders, analytics, and audit data.
+- Added immutable Supabase biomarker correction overlays and PHI-minimal correction audit events.
+- Added migration `202609130001_private_beta_operations.sql` for hashed, expiring, service-role-only beta invites. Applied it only to staging project `wjjwdakfyigwwohbntyv`; table/RLS/privilege sentinels are all true and the migration ledger reports 12 rows with one valid new entry.
+- Added Supabase-backed invite creation/redemption. Raw invite codes are returned once and are never stored. Admin-created beta invites cannot grant privileged roles.
+- Routed internal Supabase export/delete operations to persisted data; deletion now requires `superadmin`, removes private storage objects first, and audits completion without PHI payloads.
+- Added `REPORT_UPLOADS_ENABLED=false` as a server-side intake kill switch and exposed its state through `/api/health`.
+- Hardened structured logs and client analytics metadata against common PHI/token leakage; non-signup anonymous analytics are denied and authenticated events now persist the Supabase UUID rather than email.
+- Added deterministic CI and a protected manual staging release workflow.
+- Replaced the blocked E2E verifier with a cleanup-safe supported CBC launch harness covering Auth, consent, S3, GuardDuty, Textract, Gemini, Supabase output persistence, patient result/source traces, reminder, feedback, admin correction, doctor assignment/approval, and audit evidence.
+
+Verification completed locally:
+
+```txt
+npm test                  # 179 passed, 9 credential-gated live tests skipped
+npm run typecheck         # passed
+npm run lint              # passed
+npm run copy:scan         # passed
+npm run verify:migrations # 12 files match checksums and ordering
+npm run api:test          # 9 passed
+npm run api:health        # passed
+npm run worker:health     # passed in local configuration mode
+npm run build:web         # passed; 44 routes generated
+npm run verify:staging:marker # passed because Textract is selected and Marker is optional
+git diff --check          # passed
+```
+
+Pending verification:
+
+- Deploy the application commit to `dev` after the staging migration.
+- Run `npm run verify:staging:e2e` against the deployed commit and retain the synthetic artifact.
+- Configure Supabase custom SMTP and pass strict public signup without fixture fallback.
+- Complete provider-backed golden QA, retention/versioning approval, clinician threshold sign-off, and legal review.
+
+Next recommended prompt:
+
+> Deploy the rollout-hardening commit to `dev`, wait for the Vercel Preview deployment to become healthy, run the staging supported-CBC launch harness with synthetic data and cleanup, fix any failures without weakening safety gates, and update the release verdict from the resulting evidence.
 
 ### 2026-09-04 Supabase Staging Migration Reconciliation
 

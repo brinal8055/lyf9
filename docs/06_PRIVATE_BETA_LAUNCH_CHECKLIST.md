@@ -6,7 +6,7 @@ Use this checklist for the first 30-50 early users. This is a private beta gate,
 
 Current decision: **No-go for real PHI private beta**.
 
-Private beta readiness score including current live staging evidence: **93/100**.
+Private beta readiness score including current live staging evidence: **94/100 pending deployment verification**.
 
 This repo is ready for scaffold/operator rehearsal and now has live-tested staging Supabase Auth/Postgres/RLS, a reconciled and checksum-locked migration ledger, private S3, GuardDuty malware enforcement, atomic workflow concurrency/recovery, scanned-image Textract OCR, the deployed Inngest saga, and a schema-valid Gemini smoke. Real 30-50 user testing remains blocked by reliable signup email delivery, provider-backed golden QA capacity, expanded human-reviewed golden coverage, observability, retention governance, doctor threshold review, and legal review.
 
@@ -15,7 +15,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Area | Status | Owner | Next step |
 | --- | --- | --- | --- |
 | Auth/RBAC | Partially ready | Engineering/DevOps | Login/session and user/doctor/admin/superadmin JWT boundaries pass in staging; configure custom SMTP or an approved email quota before onboarding beta users. |
-| Database/RLS | Ready for synthetic staging | Backend/DevOps | All 11 migrations through `202609020001_workflow_rpc_hardening.sql` are represented exactly in the staging ledger, repository checksums are locked, and the post-reconciliation live RLS suite passes. Add staging `DATABASE_URL` to secure CI for automatic remote drift checks. |
+| Database/RLS | Ready for synthetic staging | Backend/DevOps | All 12 migrations through `202609130001_private_beta_operations.sql` are represented exactly in the staging ledger, repository checksums are locked, and the invite table denies anon/authenticated access while permitting service-role operations. Add staging `DATABASE_URL` to protected CI for automatic remote drift checks. |
 | Storage security | Ready for synthetic staging | Backend/DevOps | Guarded app-level upload/download/privacy/encryption/DB/audit/delete verification passed; approve retention/versioning and key-management policy before real PHI. |
 | Malware scanning | Ready for synthetic staging | Backend/Security/DevOps | GuardDuty is Active for staging `reports/`; least-privilege tag read and clean/EICAR verification pass. Re-run after scanner, IAM, bucket, or prefix changes. |
 | Upload flow | Ready for synthetic staging | Engineering | Deployed consent gate, private S3 upload/download/delete, and real GuardDuty clean/threat behavior pass with synthetic fixtures. |
@@ -24,14 +24,14 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | AI structured outputs | Ready for synthetic smoke | AI/Backend | `gemini-3.5-flash` passed live schema, source-trace, disclaimer, and unsafe-language checks; the 13-fixture live golden run stopped on exhausted provider quota. |
 | Safety rules | Partially ready | AI/Safety/Medical | Unsafe-language filter and routing exist; doctor-review critical thresholds with real report set. |
 | Unsupported report handling | Partially ready | AI/Safety | Unsupported reports are blocked from AI-only interpretation; expand internal fixture coverage. |
-| Admin correction | Partially ready | Ops/Engineering | Correction flow preserves originals and audits locally; migrate to Postgres. |
-| Doctor review | Partially ready | Medical/Ops/Engineering | Assigned versus unassigned doctor RLS passes with real staging JWTs; validate full approve/edit/reject UI and contracts. |
+| Admin correction | Implemented, live verification pending | Ops/Engineering | Supabase correction overlays preserve originals and write audit records; require the supported-report launch harness to pass after deployment. |
+| Doctor review | Implemented, live verification pending | Medical/Ops/Engineering | Assigned-report RLS passes; the synthetic launch harness now exercises queue access and edit-and-approve, pending post-deploy evidence. |
 | Audit logs | Partially ready | Engineering/Ops | Live staging writes and user insert/read restrictions pass for onboarding, consent, and blocked upload paths; append-only governance and admin review operations remain. |
 | Model runs | Partially ready | AI/Backend | Saga attempts log provider/model/status/hash/sanitized error/latency; normalize provider token usage and cost after live adapter verification. |
-| Data export/delete | Partially ready | Engineering/Legal | Internal flow exists; DPDP retention/deletion process needs legal review. |
+| Data export/delete | Partially ready | Engineering/Legal | Internal Supabase export exists and superadmin deletion removes storage before the Auth cascade; DPDP retention/deletion policy still needs legal review. |
 | Feedback capture | Ready for scaffold beta | Product/Ops | Feedback capture and admin view exist; triage daily. |
-| Analytics | Ready for scaffold beta | Product/Engineering | Local analytics events exist; pick PostHog or internal-only path after privacy review. |
-| Error monitoring | Partially ready | Engineering | Logging helper and env contract exist; wire Sentry with PHI scrubbing. |
+| Analytics | Ready for synthetic staging | Product/Engineering | Authenticated events persist to Supabase with event-specific non-PHI metadata allowlists; only `signup_started` is accepted anonymously. |
+| Error monitoring | Partially ready | Engineering | Central log scrubbing has regression tests; wire Sentry or equivalent with matching PHI/token scrubbing and alert routing. |
 | Payments sandbox | Ready for scaffold beta | Product/Legal | Razorpay placeholder/sandbox only; do not enable real public charges. |
 | Legal review | Blocked | Founders/Legal | Complete DPDP, doctor, disclaimer, payment/refund, and public claims review before public paid launch. |
 | Deployment | Ready for synthetic staging | DevOps | Supabase, S3, GuardDuty, Textract, and Inngest Staging are connected on Preview branch `dev`; health reports `ok`, unsigned `/api/inngest` access is denied, and the signed app sync succeeds. Production is unchanged. |
@@ -155,7 +155,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Staging environment contract | Ready | `docs/29_STAGING_ENVIRONMENT_CONTRACT.md` | Keep secrets scoped to Vercel Preview branch `dev` and out of source control. |
 | Deployed Supabase connectivity | Ready | `lyf9-dev.vercel.app/api/health` returns `status: ok` and `store.ok: true` | Monitor while running synthetic Auth/RLS tests. |
 | Live verification orchestrator | Ready | `npm run verify:staging` | Run only with `APP_ENV=staging`; it refuses production and missing env. |
-| Supabase migration check | Ready for staging | Exact-set SQL verification plus `npm run verify:migrations` | Staging has 11/11 exact history rows with statement payloads and the repository lock matches; wire `DATABASE_URL` into secure CI and run `npm run verify:staging:migrations` on every migration change. |
+| Supabase migration check | Ready for staging | Exact-set SQL verification plus `npm run verify:migrations` | Staging has 12/12 exact history rows with statement payloads and the repository lock matches; wire `DATABASE_URL` into protected CI and run `npm run verify:staging:migrations` on every migration change. |
 | RLS/JWT live check | Ready | `npm run verify:staging:rls` passed again after history reconciliation | Re-run after any RLS migration. |
 | Deployed Auth/API check | Partially ready | `npm run test:auth-live` passed login, sessions, persistence, route denial, and consent gating | Configure custom SMTP or approved email limits, then require public signup to pass without fixture fallback. |
 | Workflow concurrency check | Ready | `npm run verify:staging:workflow` | Self-seeding staging harness passed concurrent claims, retries, lease recovery, RPC denial, audit safety, and cleanup. Re-run after workflow migration/provider changes. |
@@ -164,6 +164,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Marker live check | Optional | `npm run verify:staging:marker` | Run before selecting Marker; Textract is the current verified parser. |
 | Textract live check | Ready for synthetic staging | `npm run verify:staging:textract` | Readable and blank synthetic PNG OCR, provenance, confidence gates, persistence, no-AI boundary, and independent cleanup pass. |
 | Selected AI live check | Ready for synthetic staging | `npm run verify:staging:ai` passed with `gemini-3.5-flash` in 72.84 seconds | Re-run after provider, model, prompt, or schema changes. |
+| Supported-report launch E2E | Implemented, deployment pending | `npm run verify:staging:e2e` | After deploying this commit, require the synthetic CBC flow to pass through S3, GuardDuty, Textract, Gemini, persistence, admin correction, doctor approval, feedback, reminder, audit, and cleanup. |
 | Live golden subset | Blocked by provider quota | `npm run eval:golden:live` stopped fail-closed on `ai_provider_quota_exhausted` after 109 seconds | Re-run with replenished/paid Gemini quota; do not weaken the gate. |
 | Live report | Ready as template | `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` | Replace blocked statuses with evidence only after commands pass. |
 
@@ -174,7 +175,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 - [ ] Admin can inspect failed extraction.
 - [ ] Admin can inspect low-confidence extraction.
 - [ ] Admin can manually correct biomarker data.
-- [ ] Manual corrections are audited.
+- [ ] Manual corrections are audited in the deployed supported-report launch harness.
 - [ ] Admin can view unsupported report queue.
 - [x] Admin can view feedback.
 
@@ -188,7 +189,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 - [ ] Doctor can reject.
 - [ ] Doctor can request more information.
 - [ ] Doctor-reviewed badge appears only after completed review.
-- [ ] Doctor actions are audited.
+- [ ] Doctor actions are audited in the deployed supported-report launch harness.
 
 ## Privacy And Audit Go/No-Go
 
@@ -197,10 +198,10 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 - [x] Audit logs exist for upload metadata and signed URL generation.
 - [x] Audit logs exist for report access metadata.
 - [x] Audit logs exist for AI/model runs in the local/test workflow.
-- [ ] Audit logs exist for admin corrections.
-- [ ] Audit logs exist for doctor review actions.
+- [ ] Audit logs for admin corrections pass the deployed supported-report launch harness.
+- [ ] Audit logs for doctor review actions pass the deployed supported-report launch harness.
 - [x] Private file URLs are short-lived in code; staging S3 verification pending.
-- [ ] Application logs do not include raw PHI.
+- [x] Structured application logs redact common PHI/token keys and values in regression tests.
 - [x] Data deletion/export workflow exists at least internally.
 
 ## Payment/Pricing Go/No-Go

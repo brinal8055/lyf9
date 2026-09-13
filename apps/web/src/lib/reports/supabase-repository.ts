@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 
@@ -9,11 +9,20 @@ import { getStorageProvider } from "./providers/storage";
 import { PROCESSING_VERSION, makeIdempotencyKey } from "./validation";
 import type {
   AnalyticsEventName,
+  AnalyticsEventRecord,
+  AuditLogRecord,
+  BetaInviteRecord,
+  BiomarkerFlag,
+  DataRightsRequestRecord,
   DoctorReviewAction,
   DoctorReviewRecord,
+  ExtractedDocumentRecord,
   FeedbackEventRecord,
   BiomarkerResultRecord,
+  HealthInsightRecord,
+  HealthRiskFlagRecord,
   LabReportRecord,
+  ModelRunRecord,
   ProcessingJobRecord,
   ProcessingStepName,
   ProcessingJobStepRecord,
@@ -22,6 +31,7 @@ import type {
   PaymentRecord,
   ReminderRecord,
   ReportFileRecord,
+  ReviewRouting,
   UserRole
 } from "./types";
 
@@ -352,14 +362,14 @@ export async function listSupabaseUserReports(userId: string) {
 
   const labReports = (reportsResult.data ?? []).map(toLabReport);
   const jobs = (jobsResult.data ?? []).map(toProcessingJob);
-  const insights = insightsResult.data ?? [];
+  const insights = (insightsResult.data ?? []).map(toHealthInsight);
 
   return (filesResult.data ?? []).map((row) => {
     const reportFile = toReportFile(row);
     const labReport = labReports.find((report) => report.reportFileId === reportFile.id) ?? null;
     return {
       healthInsight: labReport
-        ? insights.find((insight) => stringField(insight, "lab_report_id") === labReport.id) ?? null
+        ? insights.find((insight) => insight.labReportId === labReport.id) ?? null
         : null,
       job: jobs.find((job) => job.reportFileId === reportFile.id) ?? null,
       labReport,
@@ -401,27 +411,28 @@ export async function getSupabaseReportDetails(userId: string, reportFileId: str
         .filter((row) => stringField(row, "lab_report_id") === labReport.id)
         .map(toBiomarkerResult)
     : [];
-  const healthInsight = labReport
+  const healthInsightRow = labReport
     ? (insightResult.data ?? []).find((row) => stringField(row, "lab_report_id") === labReport.id) ?? null
     : null;
+  const healthInsight = healthInsightRow ? toHealthInsight(healthInsightRow) : null;
   const labReports = labReport ? [labReport] : [];
   const filesByLabReportId = reportFilesByLabReportId(labReports, [reportFile]);
 
   return {
     biomarkerResults,
-    feedbackEvents: feedbackResult.data ?? [],
+    feedbackEvents: (feedbackResult.data ?? []).map(toFeedbackEvent),
     healthInsight,
     job: jobResult.data ? toProcessingJob(jobResult.data) : null,
     labReport,
     markerCards: buildMarkerCards({
       currentMarkers: biomarkerResults,
-      insight: null,
-      previousMarkers: biomarkerResults,
+      insight: healthInsight,
+      previousMarkers: [],
       reportFilesByLabReportId: filesByLabReportId
     }),
-    reminders: reminderResult.data ?? [],
+    reminders: (reminderResult.data ?? []).map(toReminder),
     reportFile,
-    riskFlags: flagResult.data ?? [],
+    riskFlags: (flagResult.data ?? []).map(toHealthRiskFlag),
     unsupportedSections: labReport?.unsupportedSections ?? []
   };
 }
@@ -456,7 +467,7 @@ export async function listSupabaseHealthTimeline(userId: string) {
   const reportFiles = (filesResult.data ?? []).map(toReportFile);
   const labReports = (reportsResult.data ?? []).map(toLabReport);
   const jobs = (jobsResult.data ?? []).map(toProcessingJob);
-  const insights = insightsResult.data ?? [];
+  const insights = (insightsResult.data ?? []).map(toHealthInsight);
   const markers = (markerResult.data ?? []).map(toBiomarkerResult);
   const filesByLabReportId = reportFilesByLabReportId(labReports, reportFiles);
 
@@ -466,7 +477,7 @@ export async function listSupabaseHealthTimeline(userId: string) {
       const labReport = labReports.find((report) => report.reportFileId === reportFile.id) ?? null;
       return {
         insight: labReport
-          ? insights.find((row) => stringField(row, "lab_report_id") === labReport.id) ?? null
+          ? insights.find((insight) => insight.labReportId === labReport.id) ?? null
           : null,
         job: jobs.find((job) => job.reportFileId === reportFile.id) ?? null,
         labReport,
@@ -664,6 +675,13 @@ async function findSupabaseUserIdByEmail(email: string): Promise<string | null> 
   return data ? stringField(data as DbRow, "user_id") : null;
 }
 
+async function resolveSupabaseUserId(identity: string): Promise<string | null> {
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(identity)) {
+    return identity;
+  }
+  return findSupabaseUserIdByEmail(identity);
+}
+
 async function buildSupabaseDoctorReviewDetail(reviewRow: DbRow) {
   const serviceClient = createSupabaseServiceClient();
   const labReportId = stringField(reviewRow, "lab_report_id");
@@ -717,7 +735,7 @@ async function buildSupabaseDoctorReviewDetail(reviewRow: DbRow) {
 
   return {
     biomarkers: (markerResult.data ?? []).map(toBiomarkerResult),
-    healthInsight: insightResult.data ?? null,
+    healthInsight: insightResult.data ? toHealthInsight(insightResult.data as DbRow) : null,
     labReport: labResult.data ? toLabReport(labResult.data) : null,
     patient: {
       displayName: patientRow
@@ -731,12 +749,12 @@ async function buildSupabaseDoctorReviewDetail(reviewRow: DbRow) {
     },
     reportFile: fileResult.data ? toReportFile(fileResult.data) : null,
     review: toDoctorReview(reviewRow, assignedDoctorEmail),
-    riskFlags: flagResult.data ?? []
+    riskFlags: (flagResult.data ?? []).map(toHealthRiskFlag)
   };
 }
 
-export async function listSupabaseDoctorReviews(doctorEmail: string) {
-  const doctorId = await findSupabaseUserIdByEmail(doctorEmail);
+export async function listSupabaseDoctorReviews(doctorIdentity: string) {
+  const doctorId = await resolveSupabaseUserId(doctorIdentity);
 
   if (!doctorId) {
     return [];
@@ -754,8 +772,8 @@ export async function listSupabaseDoctorReviews(doctorEmail: string) {
   return Promise.all(((data ?? []) as DbRow[]).map(buildSupabaseDoctorReviewDetail));
 }
 
-export async function getSupabaseDoctorReviewDetail(doctorEmail: string, reviewId: string) {
-  const doctorId = await findSupabaseUserIdByEmail(doctorEmail);
+export async function getSupabaseDoctorReviewDetail(doctorIdentity: string, reviewId: string) {
+  const doctorId = await resolveSupabaseUserId(doctorIdentity);
 
   if (!doctorId) {
     return null;
@@ -895,7 +913,8 @@ export async function assignSupabaseDoctorReview(input: {
 
 export async function applySupabaseDoctorReviewAction(input: {
   action: DoctorReviewAction;
-  doctorEmail: string;
+  doctorEmail?: string;
+  doctorIdentity?: string;
   editedSummary: string | null;
   ipAddress: string | null;
   notes: string | null;
@@ -905,7 +924,7 @@ export async function applySupabaseDoctorReviewAction(input: {
   userAgent: string | null;
 }) {
   const serviceClient = createSupabaseServiceClient();
-  const doctorId = await findSupabaseUserIdByEmail(input.doctorEmail);
+  const doctorId = await resolveSupabaseUserId(input.doctorIdentity ?? input.doctorEmail ?? "");
 
   if (!doctorId) {
     throw new Error("doctor_review_not_found");
@@ -1333,60 +1352,379 @@ export async function createSupabaseFeedbackEvent(input: {
   } satisfies FeedbackEventRecord;
 }
 
+export async function createSupabaseBetaInvite(input: {
+  actorUserId: string;
+  email: string;
+  inviteCode: string;
+  role: BetaInviteRecord["role"];
+}) {
+  const serviceClient = createSupabaseServiceClient();
+  const now = new Date().toISOString();
+  const { data, error } = await serviceClient
+    .from("beta_invites")
+    .insert({
+      email: input.email.trim().toLowerCase(),
+      invite_code_hash: hashInviteCode(input.inviteCode),
+      invited_by: input.actorUserId,
+      role: input.role,
+      status: "created",
+      updated_at: now
+    })
+    .select("*")
+    .single();
+  throwIfSupabaseError(error);
+
+  const invite = toBetaInvite(data as DbRow, input.inviteCode);
+  await insertAuditLog({
+    action: "beta_invite_created",
+    actorRole: "admin",
+    actorUserId: input.actorUserId,
+    ipAddress: null,
+    metadata: { role: input.role },
+    requestId: null,
+    resourceId: invite.id,
+    resourceType: "beta_invite",
+    userAgent: null
+  });
+  return invite;
+}
+
+export async function redeemSupabaseBetaInvite(input: { email: string; inviteCode: string }) {
+  const serviceClient = createSupabaseServiceClient();
+  const now = new Date().toISOString();
+  const { data, error } = await serviceClient
+    .from("beta_invites")
+    .select("*")
+    .eq("email", input.email.trim().toLowerCase())
+    .eq("invite_code_hash", hashInviteCode(input.inviteCode))
+    .eq("status", "created")
+    .gt("expires_at", now)
+    .maybeSingle();
+  throwIfSupabaseError(error);
+  if (!data) return { ok: false, reason: "A valid private beta invite code is required." };
+
+  const redeemed = await serviceClient
+    .from("beta_invites")
+    .update({ redeemed_at: now, status: "redeemed", updated_at: now })
+    .eq("id", stringField(data as DbRow, "id"))
+    .eq("status", "created")
+    .select("id")
+    .maybeSingle();
+  throwIfSupabaseError(redeemed.error);
+  if (!redeemed.data) return { ok: false, reason: "This private beta invite was already used." };
+
+  await insertAuditLog({
+    action: "beta_invite_redeemed",
+    actorRole: null,
+    actorUserId: null,
+    ipAddress: null,
+    metadata: {},
+    requestId: null,
+    resourceId: stringField(data as DbRow, "id"),
+    resourceType: "beta_invite",
+    userAgent: null
+  });
+  return { ok: true, reason: null };
+}
+
+export async function createSupabaseDataExport(input: {
+  actorRole: "admin" | "superadmin";
+  actorUserId: string;
+  targetUserId: string;
+}) {
+  const serviceClient = createSupabaseServiceClient();
+  const userId = await resolveSupabaseUserId(input.targetUserId);
+  if (!userId) throw new Error("user_not_found");
+
+  const tables = [
+    "user_profiles",
+    "user_health_profiles",
+    "questionnaire_responses",
+    "user_consents",
+    "report_files",
+    "lab_reports",
+    "processing_jobs",
+    "biomarker_results",
+    "health_insights",
+    "health_risk_flags",
+    "doctor_reviews",
+    "reminders",
+    "feedback_events",
+    "analytics_events",
+    "payments"
+  ] as const;
+  const rows = await Promise.all(
+    tables.map(async (table) => {
+      const result = await serviceClient.from(table).select("*").eq("user_id", userId);
+      throwIfSupabaseError(result.error);
+      return [table, result.data ?? []] as const;
+    })
+  );
+  const now = new Date().toISOString();
+  const request: DataRightsRequestRecord = {
+    actorRole: input.actorRole,
+    actorUserId: input.actorUserId,
+    createdAt: now,
+    deletedRecordCounts: null,
+    exportJson: Object.fromEntries(rows),
+    id: randomUUID(),
+    requestType: "export",
+    status: "completed",
+    userId
+  };
+
+  await insertAuditLog({
+    action: "data_export_completed",
+    actorRole: input.actorRole,
+    actorUserId: input.actorUserId,
+    ipAddress: null,
+    metadata: { tableCount: tables.length },
+    requestId: null,
+    resourceId: request.id,
+    resourceType: "data_rights_request",
+    userAgent: null
+  });
+  return request;
+}
+
+export async function createSupabaseDataDeletion(input: {
+  actorRole: "superadmin";
+  actorUserId: string;
+  targetUserId: string;
+}) {
+  const serviceClient = createSupabaseServiceClient();
+  const userId = await resolveSupabaseUserId(input.targetUserId);
+  if (!userId) throw new Error("user_not_found");
+  if (userId === input.actorUserId) throw new Error("cannot_delete_current_operator");
+
+  const files = await serviceClient
+    .from("report_files")
+    .select("storage_key")
+    .eq("user_id", userId);
+  throwIfSupabaseError(files.error);
+  const storageProvider = getStorageProvider();
+  for (const row of files.data ?? []) {
+    const storageKey = stringField(row as DbRow, "storage_key");
+    if (storageKey) await storageProvider.deleteFile({ storageKey });
+  }
+
+  const deleted = await serviceClient.auth.admin.deleteUser(userId);
+  throwIfSupabaseError(deleted.error);
+  const request: DataRightsRequestRecord = {
+    actorRole: input.actorRole,
+    actorUserId: input.actorUserId,
+    createdAt: new Date().toISOString(),
+    deletedRecordCounts: { reportFiles: files.data?.length ?? 0, users: 1 },
+    exportJson: null,
+    id: randomUUID(),
+    requestType: "delete",
+    status: "completed",
+    userId
+  };
+
+  await insertAuditLog({
+    action: "data_delete_completed",
+    actorRole: input.actorRole,
+    actorUserId: input.actorUserId,
+    ipAddress: null,
+    metadata: { reportFileCount: files.data?.length ?? 0 },
+    requestId: null,
+    resourceId: request.id,
+    resourceType: "data_rights_request",
+    userAgent: null
+  });
+  return request;
+}
+
+export async function correctSupabaseBiomarker(input: {
+  actorUserId: string;
+  confidenceScore: number | null;
+  ipAddress: string | null;
+  biomarkerResultId: string;
+  canonicalName: string | null;
+  rawName: string | null;
+  reason: string | null;
+  referenceHigh: number | null;
+  referenceLow: number | null;
+  referenceRangeText: string | null;
+  requestId: string | null;
+  reviewRouting: ReviewRouting | null;
+  sourceText: string | null;
+  systemFlag: BiomarkerFlag | null;
+  unit: string | null;
+  userAgent: string | null;
+  valueNumeric: number | null;
+  valueText: string | null;
+}) {
+  const serviceClient = createSupabaseServiceClient();
+  const existing = await serviceClient
+    .from("biomarker_results")
+    .select("*")
+    .eq("id", input.biomarkerResultId)
+    .maybeSingle();
+  throwIfSupabaseError(existing.error);
+  if (!existing.data) throw new Error("biomarker_result_not_found");
+
+  const correctedValues = {
+    canonicalName: input.canonicalName,
+    confidenceScore: input.confidenceScore,
+    rawName: input.rawName,
+    referenceHigh: input.referenceHigh,
+    referenceLow: input.referenceLow,
+    referenceRangeText: input.referenceRangeText,
+    reviewRouting: input.reviewRouting,
+    sourceText: input.sourceText,
+    systemFlag: input.systemFlag,
+    unit: input.unit,
+    valueNumeric: input.valueNumeric,
+    valueText: input.valueText
+  };
+  const now = new Date().toISOString();
+  const updated = await serviceClient
+    .from("biomarker_results")
+    .update({
+      corrected_at: now,
+      corrected_by: input.actorUserId,
+      corrected_unit: input.unit,
+      corrected_value_numeric: input.valueNumeric,
+      corrected_value_text: input.valueText,
+      corrected_values: correctedValues,
+      correction_reason: input.reason,
+      is_manually_corrected: true,
+      updated_at: now
+    })
+    .eq("id", input.biomarkerResultId)
+    .select("*")
+    .single();
+  throwIfSupabaseError(updated.error);
+
+  await insertAuditLog({
+    action: "admin_biomarker_corrected",
+    actorRole: "admin",
+    actorUserId: input.actorUserId,
+    ipAddress: input.ipAddress,
+    metadata: {
+      correctedFields: Object.entries(correctedValues)
+        .filter(([, value]) => value !== null)
+        .map(([field]) => field),
+      reason: input.reason
+    },
+    requestId: input.requestId,
+    resourceId: input.biomarkerResultId,
+    resourceType: "biomarker_result",
+    userAgent: input.userAgent
+  });
+
+  return toBiomarkerResult(updated.data as DbRow);
+}
+
 export async function listSupabaseAdminReports() {
   const serviceClient = createSupabaseServiceClient();
   const [
+    analyticsEvents,
     auditLogs,
+    betaInvites,
+    biomarkerResults,
+    doctorReviews,
+    extractedDocuments,
     feedbackEvents,
+    healthInsights,
+    healthRiskFlags,
     jobs,
     labReports,
+    modelRuns,
+    payments,
     reportFiles,
+    reminders,
     steps
   ] = await Promise.all([
+    serviceClient.from("analytics_events").select("*").order("created_at", { ascending: false }).limit(500),
     serviceClient.from("audit_logs").select("*").order("created_at", { ascending: false }),
+    serviceClient.from("beta_invites").select("*").order("created_at", { ascending: false }),
+    serviceClient.from("biomarker_results").select("*").order("created_at", { ascending: false }),
+    serviceClient.from("doctor_reviews").select("*").order("created_at", { ascending: false }),
+    serviceClient.from("extracted_documents").select("*").order("created_at", { ascending: false }),
     serviceClient.from("feedback_events").select("*").order("created_at", { ascending: false }),
+    serviceClient.from("health_insights").select("*").order("created_at", { ascending: false }),
+    serviceClient.from("health_risk_flags").select("*").order("created_at", { ascending: false }),
     serviceClient.from("processing_jobs").select("*").order("created_at", { ascending: false }),
     serviceClient.from("lab_reports").select("*"),
+    serviceClient.from("model_runs").select("*").order("created_at", { ascending: false }),
+    serviceClient.from("payments").select("*").order("created_at", { ascending: false }),
     serviceClient.from("report_files").select("*").order("created_at", { ascending: false }),
+    serviceClient.from("reminders").select("*").order("created_at", { ascending: false }),
     serviceClient.from("processing_job_steps").select("*").order("created_at", { ascending: false })
   ]);
 
-  throwIfSupabaseError(auditLogs.error);
-  throwIfSupabaseError(feedbackEvents.error);
-  throwIfSupabaseError(jobs.error);
-  throwIfSupabaseError(labReports.error);
-  throwIfSupabaseError(reportFiles.error);
-  throwIfSupabaseError(steps.error);
+  [
+    analyticsEvents,
+    auditLogs,
+    betaInvites,
+    biomarkerResults,
+    doctorReviews,
+    extractedDocuments,
+    feedbackEvents,
+    healthInsights,
+    healthRiskFlags,
+    jobs,
+    labReports,
+    modelRuns,
+    payments,
+    reportFiles,
+    reminders,
+    steps
+  ].forEach((result) => throwIfSupabaseError(result.error));
+
+  const mappedJobs = (jobs.data ?? []).map(toProcessingJob);
+  const mappedFiles = (reportFiles.data ?? []).map(toReportFile);
+  const mappedMarkers = (biomarkerResults.data ?? []).map(toBiomarkerResult);
+  const mappedFlags = (healthRiskFlags.data ?? []).map(toHealthRiskFlag);
+  const mappedDocuments = (extractedDocuments.data ?? []).map(toExtractedDocument);
 
   return {
-    analyticsEvents: [],
-    auditLogs: auditLogs.data ?? [],
-    betaInvites: [],
+    analyticsEvents: (analyticsEvents.data ?? []).map(toAnalyticsEvent),
+    auditLogs: (auditLogs.data ?? []).map(toAuditLog),
+    betaInvites: (betaInvites.data ?? []).map((row) => toBetaInvite(row as DbRow, "")),
     biomarkerAliases: [],
     biomarkerCatalog: [],
-    biomarkerResults: [],
+    biomarkerResults: mappedMarkers,
     dataRightsRequests: [],
-    doctorReviews: [],
-    extractedDocuments: [],
-    feedbackEvents: feedbackEvents.data ?? [],
-    healthInsights: [],
-    healthRiskFlags: [],
-    jobs: (jobs.data ?? []).map(toProcessingJob),
+    doctorReviews: (doctorReviews.data ?? []).map((row) => toDoctorReview(row as DbRow)),
+    extractedDocuments: mappedDocuments,
+    feedbackEvents: (feedbackEvents.data ?? []).map(toFeedbackEvent),
+    healthInsights: (healthInsights.data ?? []).map(toHealthInsight),
+    healthRiskFlags: mappedFlags,
+    jobs: mappedJobs,
     labReports: (labReports.data ?? []).map(toLabReport),
-    modelRuns: [],
+    modelRuns: (modelRuns.data ?? []).map(toModelRun),
     notifications: [],
-    payments: [],
+    payments: (payments.data ?? []).map((row) =>
+      toPayment(row as DbRow, { legalReviewRequired: true, publicLaunchEnabled: false })
+    ),
     queues: {
-      blockedJobs: (jobs.data ?? []).map(toProcessingJob).filter((job) => job.status === "blocked"),
-      criticalFlaggedReports: [],
-      failedJobs: (jobs.data ?? []).map(toProcessingJob).filter((job) => job.status === "failed"),
-      failedExtraction: [],
-      lowConfidenceExtraction: [],
-      manualCorrectionNeeded: [],
-      unsupportedReports: []
+      blockedJobs: mappedJobs.filter((job) => job.status === "blocked"),
+      criticalFlaggedReports: mappedFlags.filter((flag) => flag.severity === "critical"),
+      failedJobs: mappedJobs.filter((job) => job.status === "failed"),
+      failedExtraction: mappedJobs.filter(
+        (job) => job.currentState === "extraction_failed" || job.errorCode?.includes("extraction")
+      ),
+      lowConfidenceExtraction: mappedMarkers.filter(
+        (marker) => marker.confidenceScore < 0.95 || marker.reviewRouting === "soft_review"
+      ),
+      manualCorrectionNeeded: mappedMarkers.filter(
+        (marker) =>
+          !marker.isManuallyCorrected &&
+          (marker.reviewRouting === "manual_review_required" ||
+            marker.reviewRouting === "critical_review_required")
+      ),
+      ocrRequiredReports: mappedDocuments.filter((document) => document.status === "ocr_required"),
+      unknownClassification: mappedJobs.filter(
+        (job) => job.errorCode === "report_classification_unknown"
+      ),
+      unsupportedReports: mappedFiles.filter((file) => file.status === "unsupported")
     },
-    reminders: [],
-    reportFiles: (reportFiles.data ?? []).map(toReportFile),
+    reminders: (reminders.data ?? []).map(toReminder),
+    reportFiles: mappedFiles,
     steps: (steps.data ?? []).map(toProcessingStep)
   };
 }
@@ -1550,6 +1888,21 @@ function toPayment(
   };
 }
 
+function toBetaInvite(row: DbRow, rawInviteCode: string): BetaInviteRecord {
+  return {
+    createdAt: stringField(row, "created_at"),
+    email: stringField(row, "email"),
+    id: stringField(row, "id"),
+    inviteCode: rawInviteCode,
+    invitedBy: stringField(row, "invited_by"),
+    redeemedAt: nullableString(row, "redeemed_at"),
+    redeemedBy: nullableString(row, "redeemed_by"),
+    role: stringField(row, "role") as BetaInviteRecord["role"],
+    status: stringField(row, "status") as BetaInviteRecord["status"],
+    updatedAt: stringField(row, "updated_at")
+  };
+}
+
 function toDoctorReview(row: DbRow, resolvedDoctorEmail?: string | null): DoctorReviewRecord {
   const snapshot = (row.ai_draft_snapshot ?? {}) as Record<string, unknown>;
   const editedOutput = (row.doctor_edited_output ?? null) as Record<string, unknown> | null;
@@ -1591,6 +1944,87 @@ function toDoctorReview(row: DbRow, resolvedDoctorEmail?: string | null): Doctor
   };
 }
 
+function toAuditLog(row: DbRow): AuditLogRecord {
+  return {
+    action: stringField(row, "action") as AuditLogRecord["action"],
+    actorRole: nullableString(row, "actor_role") as AuditLogRecord["actorRole"],
+    actorUserId: nullableString(row, "actor_user_id"),
+    createdAt: stringField(row, "created_at"),
+    entityId: nullableString(row, "entity_id", "resource_id"),
+    entityType: stringField(row, "entity_type", "resource_type") as AuditLogRecord["entityType"],
+    id: stringField(row, "id"),
+    ipAddress: nullableString(row, "ip_address"),
+    requestId: nullableString(row, "request_id"),
+    safeMetadata: objectField(row, "safe_metadata"),
+    userAgent: nullableString(row, "user_agent")
+  };
+}
+
+function toAnalyticsEvent(row: DbRow): AnalyticsEventRecord {
+  return {
+    createdAt: stringField(row, "created_at"),
+    eventName: stringField(row, "event_name") as AnalyticsEventName,
+    id: stringField(row, "id"),
+    labReportId: nullableString(row, "lab_report_id"),
+    metadata: objectField(row, "metadata"),
+    reportFileId: nullableString(row, "report_file_id"),
+    userId: nullableString(row, "user_id")
+  };
+}
+
+function toExtractedDocument(row: DbRow): ExtractedDocumentRecord {
+  return {
+    confidenceScore: nullableNumber(row, "confidence_score"),
+    createdAt: stringField(row, "created_at"),
+    error: nullableString(row, "error_message", "error"),
+    errorCode: nullableString(row, "error_code"),
+    extractedTablesJson: tableArrayField(row, "extracted_tables_json"),
+    extractedText: nullableString(row, "extracted_text"),
+    extractionVersion: 1,
+    id: stringField(row, "id"),
+    ocrProvider: nullableString(row, "ocr_provider"),
+    pageCount: nullableNumber(row, "page_count"),
+    pageMetadataJson: objectField(row, "page_metadata_json"),
+    parserName: stringField(row, "parser_name"),
+    parserProvider: stringField(row, "parser_provider"),
+    parserVersion: stringField(row, "parser_version"),
+    reportFileId: stringField(row, "report_file_id"),
+    reportId: stringField(row, "lab_report_id", "report_id"),
+    status: stringField(row, "status") as ExtractedDocumentRecord["status"],
+    updatedAt: stringField(row, "updated_at") || stringField(row, "created_at")
+  };
+}
+
+function toModelRun(row: DbRow): ModelRunRecord {
+  return {
+    costEstimate: nullableNumber(row, "cost_estimate"),
+    costEstimateMinorUnits: nullableNumber(row, "cost_estimate_minor_units"),
+    createdAt: stringField(row, "created_at"),
+    errorCode: nullableString(row, "error_code"),
+    errorMessage: nullableString(row, "error_message"),
+    extractedDocumentId: nullableString(row, "extracted_document_id"),
+    id: stringField(row, "id"),
+    inputHash: stringField(row, "input_hash"),
+    labReportId: nullableString(row, "lab_report_id"),
+    latencyMs: nullableNumber(row, "latency_ms"),
+    modelName: stringField(row, "model_name"),
+    outputHash: nullableString(row, "output_hash"),
+    outputJson: nullableObjectField(row, "output_json"),
+    processingJobId: nullableString(row, "processing_job_id"),
+    promptVersion: stringField(row, "prompt_version"),
+    provider: stringField(row, "provider"),
+    reportFileId: nullableString(row, "report_file_id"),
+    safetyFilterStatus: nullableString(row, "safety_filter_status") as ModelRunRecord["safetyFilterStatus"],
+    schemaVersion: stringField(row, "schema_version"),
+    status: stringField(row, "status") as ModelRunRecord["status"],
+    taskType: stringField(row, "task_type") as ModelRunRecord["taskType"],
+    tokenCount: nullableNumber(row, "token_count"),
+    tokenInputCount: nullableNumber(row, "token_input_count"),
+    tokenOutputCount: nullableNumber(row, "token_output_count"),
+    userId: nullableString(row, "user_id")
+  };
+}
+
 function toReminder(row: DbRow): ReminderRecord {
   return {
     canonicalBiomarkerKey: nullableString(row, "canonical_biomarker_key"),
@@ -1602,6 +2036,89 @@ function toReminder(row: DbRow): ReminderRecord {
     reportFileId: nullableString(row, "report_file_id"),
     status: stringField(row, "status") as ReminderRecord["status"],
     title: stringField(row, "title"),
+    updatedAt: stringField(row, "updated_at"),
+    userId: stringField(row, "user_id")
+  };
+}
+
+export function toFeedbackEvent(row: DbRow): FeedbackEventRecord {
+  return {
+    createdAt: stringField(row, "created_at"),
+    confusingText: nullableString(row, "confusing_text"),
+    doctorReviewId: nullableString(row, "doctor_review_id"),
+    feedbackSurface: stringField(row, "feedback_surface") as FeedbackEventRecord["feedbackSurface"],
+    freeText: nullableString(row, "free_text"),
+    helpful: stringField(row, "helpful") as FeedbackEventRecord["helpful"],
+    id: stringField(row, "id"),
+    labReportId: nullableString(row, "lab_report_id"),
+    reportFileId: nullableString(row, "report_file_id", "report_id"),
+    status: stringField(row, "status") as FeedbackEventRecord["status"],
+    userId: stringField(row, "user_id"),
+    wouldTrustDoctorReview: stringField(
+      row,
+      "would_trust_doctor_review"
+    ) as FeedbackEventRecord["wouldTrustDoctorReview"]
+  };
+}
+
+export function toHealthRiskFlag(row: DbRow): HealthRiskFlagRecord {
+  const rawFlagType = stringField(row, "flag_type");
+  const rawSeverity = stringField(row, "severity");
+
+  return {
+    biomarkerResultId: nullableString(row, "biomarker_result_id"),
+    createdAt: stringField(row, "created_at"),
+    flagType:
+      rawFlagType === "unsafe_ai_output" ? "unsafe_language" : (rawFlagType as HealthRiskFlagRecord["flagType"]),
+    id: stringField(row, "id"),
+    labReportId: stringField(row, "lab_report_id"),
+    reason: stringField(row, "reason"),
+    reportFileId: nullableString(row, "report_file_id"),
+    ruleVersion: nullableString(row, "rule_version"),
+    severity:
+      rawSeverity === "critical" || rawSeverity === "high" ? "critical" : "review",
+    source: stringField(row, "source") as HealthRiskFlagRecord["source"],
+    status: stringField(row, "status") as HealthRiskFlagRecord["status"],
+    updatedAt: nullableString(row, "updated_at") ?? undefined,
+    userId: stringField(row, "user_id")
+  };
+}
+
+export function toHealthInsight(row: DbRow): HealthInsightRecord {
+  const explanation = explanationPayload(row);
+  const rawStatus = stringField(row, "status");
+
+  return {
+    createdAt: stringField(row, "created_at"),
+    disclaimer: stringValue(explanation.disclaimer) || stringField(row, "disclaimer"),
+    doctorEditedSummary: nullableString(row, "doctor_edited_summary"),
+    doctorReviewId: nullableString(row, "doctor_review_id"),
+    doctorReviewReason:
+      nullableString(row, "doctor_review_reason") ?? nullableStringValue(explanation.doctor_review_reason),
+    doctorReviewRequired:
+      booleanField(row, "doctor_review_required") || rawStatus === "doctor_review_pending" || rawStatus === "admin_review_pending",
+    doctorReviewedAt: nullableString(row, "doctor_reviewed_at"),
+    doctorReviewedBy: nullableString(row, "doctor_reviewed_by"),
+    explanationJson: explanation,
+    id: stringField(row, "id"),
+    insightType: "patient_explanation",
+    labReportId: stringField(row, "lab_report_id"),
+    markersNeedingAttention: markerExplanations(explanation.markers_needing_attention),
+    modelRunId: nullableString(row, "ai_model_run_id", "model_run_id"),
+    normalMarkers: normalMarkerExplanations(explanation.normal_markers),
+    possibleRelevance: stringArray(explanation.possible_relevance),
+    publishedAt: nullableString(row, "published_at"),
+    questionsToAskDoctor: stringArray(explanation.questions_to_ask_doctor),
+    reportFileId: nullableString(row, "report_file_id"),
+    retestSuggestion: nullableStringValue(explanation.retest_suggestion),
+    safetyFlags: arrayField(row, "safety_flags"),
+    safetyStatus: normalizeSafetyStatus(stringField(row, "safety_status")),
+    sourceBiomarkerIds:
+      arrayField(row, "source_biomarker_ids").length > 0
+        ? arrayField(row, "source_biomarker_ids")
+        : stringArray(explanation.source_biomarker_ids),
+    status: normalizeInsightStatus(rawStatus),
+    summary: stringValue(explanation.summary) || stringField(row, "summary"),
     updatedAt: stringField(row, "updated_at"),
     userId: stringField(row, "user_id")
   };
@@ -1691,24 +2208,27 @@ function stepNameField(row: DbRow, primary = "current_step", fallback = "current
 }
 
 function toBiomarkerResult(row: DbRow): BiomarkerResultRecord {
+  const corrected = objectField(row, "corrected_values");
   return {
     canonicalBiomarkerKey: nullableString(row, "canonical_biomarker_key"),
     canonicalName: nullableString(row, "canonical_name"),
     confidenceScore: numberField(row, "confidence_score"),
     correctedAt: nullableString(row, "corrected_at"),
     correctedBy: nullableString(row, "corrected_by"),
-    correctedCanonicalName: null,
-    correctedConfidenceScore: null,
-    correctedRawName: null,
-    correctedReferenceHigh: null,
-    correctedReferenceLow: null,
-    correctedReferenceRangeText: null,
-    correctedReviewRouting: null,
-    correctedSourceText: null,
-    correctedSystemFlag: null,
-    correctedUnit: null,
-    correctedValueNumeric: null,
-    correctedValueText: null,
+    correctedCanonicalName: nullableStringValue(corrected.canonicalName),
+    correctedConfidenceScore: nullableNumberValue(corrected.confidenceScore),
+    correctedRawName: nullableStringValue(corrected.rawName),
+    correctedReferenceHigh: nullableNumberValue(corrected.referenceHigh),
+    correctedReferenceLow: nullableNumberValue(corrected.referenceLow),
+    correctedReferenceRangeText: nullableStringValue(corrected.referenceRangeText),
+    correctedReviewRouting: nullableStringValue(corrected.reviewRouting) as BiomarkerResultRecord["correctedReviewRouting"],
+    correctedSourceText: nullableStringValue(corrected.sourceText),
+    correctedSystemFlag: nullableStringValue(corrected.systemFlag) as BiomarkerResultRecord["correctedSystemFlag"],
+    correctedUnit: nullableString(row, "corrected_unit") ?? nullableStringValue(corrected.unit),
+    correctedValueNumeric:
+      nullableNumber(row, "corrected_value_numeric") ?? nullableNumberValue(corrected.valueNumeric),
+    correctedValueText:
+      nullableString(row, "corrected_value_text") ?? nullableStringValue(corrected.valueText),
     correctionReason: nullableString(row, "correction_reason"),
     createdAt: stringField(row, "created_at"),
     extractionVersion: 1,
@@ -1778,4 +2298,103 @@ function objectField(row: DbRow, primary: string) {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function nullableObjectField(row: DbRow, primary: string) {
+  const value = row[primary];
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function tableArrayField(row: DbRow, primary: string): string[][][] | null {
+  const value = row[primary];
+  return Array.isArray(value) ? (value as string[][][]) : null;
+}
+
+function explanationPayload(row: DbRow) {
+  const explanation = objectField(row, "explanation_json");
+  return Object.keys(explanation).length > 0 ? explanation : objectField(row, "output_json");
+}
+
+function normalizeInsightStatus(status: string): HealthInsightRecord["status"] {
+  if (status === "ai_only_published") return "ai_only_ready";
+  if (status === "doctor_review_pending" || status === "admin_review_pending") {
+    return "doctor_review_required";
+  }
+  if (
+    status === "draft" ||
+    status === "ai_only_ready" ||
+    status === "doctor_review_required" ||
+    status === "doctor_reviewed" ||
+    status === "rejected" ||
+    status === "archived"
+  ) {
+    return status;
+  }
+  return "draft";
+}
+
+function normalizeSafetyStatus(
+  status: string
+): HealthInsightRecord["safetyStatus"] {
+  if (status === "passed" || status === "blocked" || status === "review_required") {
+    return status;
+  }
+  return undefined;
+}
+
+function markerExplanations(value: unknown): HealthInsightRecord["markersNeedingAttention"] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isObject)
+    .map((item) => ({
+      biomarkerResultId: stringValue(item.biomarker_result_id),
+      explanation: stringValue(item.explanation),
+      title: stringValue(item.display_name) || stringValue(item.title),
+      valueLabel: stringValue(item.value_display) || stringValue(item.value_label)
+    }))
+    .filter((item) => item.biomarkerResultId.length > 0);
+}
+
+function normalMarkerExplanations(value: unknown): HealthInsightRecord["normalMarkers"] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isObject)
+    .map((item) => ({
+      biomarkerResultId: stringValue(item.biomarker_result_id),
+      title: stringValue(item.display_name) || stringValue(item.title),
+      valueLabel: stringValue(item.value_display) || stringValue(item.value_label)
+    }))
+    .filter((item) => item.biomarkerResultId.length > 0);
+}
+
+function stringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
+function nullableStringValue(value: unknown) {
+  return typeof value === "string" ? value : null;
+}
+
+function nullableNumberValue(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function booleanField(row: DbRow, field: string) {
+  return row[field] === true;
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function hashInviteCode(value: string) {
+  return createHash("sha256").update(value).digest("hex");
 }

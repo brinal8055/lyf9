@@ -53,6 +53,10 @@ import {
   assignSupabaseDoctorReview,
   completeSupabasePayment,
   completeSupabaseUpload,
+  correctSupabaseBiomarker,
+  createSupabaseBetaInvite,
+  createSupabaseDataDeletion,
+  createSupabaseDataExport,
   createSupabaseFeedbackEvent,
   createSupabaseRetestReminder,
   createSupabaseSignedDownloadUrl,
@@ -68,6 +72,7 @@ import {
   listSupabaseUserReports,
   startSupabasePayment,
   readAssignedSupabaseDoctorPrivateReport,
+  redeemSupabaseBetaInvite,
   readSupabasePrivateReport,
   trackSupabaseAnalyticsEvent
 } from "./supabase-repository";
@@ -186,6 +191,15 @@ export async function createBetaInvite(input: {
   email: string;
   role?: BetaInviteRecord["role"];
 }) {
+  if (shouldUseSupabaseAuth()) {
+    return createSupabaseBetaInvite({
+      actorUserId: input.actorUserId,
+      email: input.email,
+      inviteCode: makeInviteCode(),
+      role: input.role ?? "user"
+    });
+  }
+
   const store = await getStore();
   const now = new Date().toISOString();
   const invite: BetaInviteRecord = {
@@ -242,6 +256,10 @@ export async function validateAndRedeemBetaInvite(input: {
   const configuredCode = process.env.LYF9_BETA_INVITE_CODE?.trim();
   if (configuredCode && input.inviteCode === configuredCode) {
     return { ok: true, reason: null };
+  }
+
+  if (shouldUseSupabaseAuth() && input.inviteCode) {
+    return redeemSupabaseBetaInvite({ email, inviteCode: input.inviteCode });
   }
 
   const store = await getStore();
@@ -1171,6 +1189,10 @@ export async function createDataExport(input: {
   actorUserId: string;
   targetUserId: string;
 }) {
+  if (shouldUseSupabaseAuth()) {
+    return createSupabaseDataExport(input);
+  }
+
   const store = await getStore();
   const exportJson = userScopedExport(store, input.targetUserId);
   const request = createDataRightsRequestRecord({
@@ -1205,6 +1227,11 @@ export async function createDataDeletion(input: {
   actorUserId: string;
   targetUserId: string;
 }) {
+  if (shouldUseSupabaseAuth()) {
+    if (input.actorRole !== "superadmin") throw new Error("superadmin_required");
+    return createSupabaseDataDeletion({ ...input, actorRole: "superadmin" });
+  }
+
   const store = await getStore();
   const deletedRecordCounts = deleteUserScopedRecords(store, input.targetUserId);
   const request = createDataRightsRequestRecord({
@@ -1286,6 +1313,10 @@ export async function correctBiomarker(input: {
   valueNumeric: number | null;
   valueText: string | null;
 }) {
+  if (shouldUseSupabaseAuth()) {
+    return correctSupabaseBiomarker(input);
+  }
+
   const store = await getStore();
   const marker = mustFindBiomarkerResult(store, input.biomarkerResultId);
   const now = new Date().toISOString();
@@ -1461,7 +1492,8 @@ export async function getDoctorReviewDetail(doctorEmail: string, reviewId: strin
 
 export async function applyDoctorReviewAction(input: {
   action: DoctorReviewAction;
-  doctorEmail: string;
+  doctorEmail?: string;
+  doctorIdentity?: string;
   editedSummary: string | null;
   ipAddress: string | null;
   notes: string | null;
@@ -1475,7 +1507,7 @@ export async function applyDoctorReviewAction(input: {
   }
 
   const store = await getStore();
-  const normalizedDoctorEmail = input.doctorEmail.trim().toLowerCase();
+  const normalizedDoctorEmail = (input.doctorIdentity ?? input.doctorEmail ?? "").trim().toLowerCase();
   const review = store.doctorReviews.find(
     (candidate) =>
       candidate.id === input.reviewId && candidate.assignedDoctorEmail === normalizedDoctorEmail

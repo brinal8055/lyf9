@@ -55,6 +55,11 @@
       "version": "202609020001",
       "name": "workflow_rpc_hardening",
       "sha256": "d3d3691d1e89c501978eed461b6bbb814c714a1c558014fede60682589704b5a"
+    },
+    {
+      "version": "202609130001",
+      "name": "private_beta_operations",
+      "sha256": "fabe99938309acc253eab9e63f266c4079f4410b72446987b6a204699e47d8db"
     }
   ]
 }

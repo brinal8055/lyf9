@@ -14,7 +14,7 @@ Security/privacy score: **8.0/10** for real private beta readiness.
 | P1 | Signup email delivery is rate-limited in staging | Live `npm run test:auth-live` evidence | Login/session and authorization pass, but repeated invite signup cannot rely on Supabase's default sender quota. | Configure custom SMTP or an approved Auth email quota and rerun public signup without fixture fallback. |
 | P2 | Local scaffold fallback remains but is now fail-closed outside local/development | `apps/web/src/lib/auth/providers/supabase.ts`, `apps/web/src/lib/auth/request.ts` | Safe for local development only; staging/production now return setup/configuration errors instead of silently using local cookies when Supabase env is missing. | Keep `ENABLE_LOCAL_AUTH_FALLBACK` out of staging/production and verify deploy env. |
 | P1 | Provider-backed golden verification is incomplete | `artifacts/staging-verification/ai.json`, `artifacts/staging-verification/golden-live.json` | Auth/RLS, consent, private S3, GuardDuty, workflow concurrency, scanned-image Textract OCR, and a live Gemini smoke pass; the complete golden run remains quota-blocked. | Obtain sufficient provider quota and rerun the complete synthetic golden gate without weakening thresholds. |
-| P1 | Analytics endpoint accepts unauthenticated events | `apps/web/src/app/api/analytics/route.ts` | Event spam and possible metadata misuse. | Require auth for app events or constrain anonymous public events. |
+| Closed | Analytics endpoint access and metadata | `apps/web/src/app/api/analytics/route.ts`, `apps/web/src/lib/analytics/metadata.ts` | Only `signup_started` is anonymous; all other client events require Auth, use the Supabase UUID, and accept event-specific non-PHI metadata. | Keep allowlists narrow as events are added. |
 | P1 | Health checks are config-only | `apps/api/app/main.py`, `apps/worker/app/worker.py` | False confidence in deployment. | Real connectivity probes. |
 
 ## Privacy And Compliance
@@ -45,7 +45,7 @@ Gaps:
 - Workflow RPC lease/retry behavior and the deployed Inngest saga are verified against staging with synthetic cleanup; re-run after workflow or runner changes.
 - Textract execution and `extracted_documents` persistence pass on readable and blank synthetic staging PNG scans with page/line provenance, confidence gates, zero blocked-input AI output, and independent cleanup. Broader extracted-document RLS boundary verification remains.
 - Marker remains optional while Textract is the explicitly selected beta parser.
-- Data export/delete is local scaffold only.
+- Data export/delete now uses Supabase in deployed mode; deletion is `superadmin`-only, removes private objects first, and audits only counts/identifiers. Legal retention exceptions still need approval.
 - No grievance/contact support workflow.
 - No retention policy implementation.
 - Legal review remains a public and paid-flow blocker.
@@ -105,9 +105,9 @@ Good:
 
 Gaps:
 
-- No central PHI scrubber.
-- No Sentry scrubbing.
-- Analytics metadata accepts arbitrary object payloads.
+- The central structured logger now drops common PHI-bearing keys and scrubs email/token-like values, with regression coverage.
+- Sentry or an equivalent external sink is not connected yet; its server-side `beforeSend` policy must reuse or exceed the local scrubber.
+- Provider SDK exceptions still require ongoing review to ensure callers pass error codes/sanitized messages rather than raw report content.
 
 ## Public Launch Blockers
 
