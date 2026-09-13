@@ -2,7 +2,21 @@
 
 ## Run Summary
 
-### 2026-09-13 Supported-Report Launch Gate: Fail-Closed AI Credential
+### 2026-09-13 Supported-Report Launch Gate: Passed
+
+Environment: Vercel Preview branch `dev`, Inngest Staging, Supabase `lyf9-staging` (`wjjwdakfyigwwohbntyv`), and `lyf9-reports-storage-staging`. Production was not accessed or changed, and every run used the synthetic CBC fixture.
+
+- Rotated the Gemini credential and stored the replacement as a Secret scoped only to Vercel Preview branch `dev`. `npm run verify:staging:ai` passed in 15.01 seconds.
+- The first post-rotation run proved live Gemini extraction was succeeding and exposed the missing `validated` Postgres workflow enum value. Added and applied checksum-locked migration `202609130002_processing_validated_state.sql` only to staging; SQL verification returned `validated_state_exists=true` and `migration_count=13`.
+- Corrected the safety-step state mapping so successful deterministic rules advance to `insight_generated`.
+- The next run completed doctor approval and exposed that the patient API preferred the original AI summary over the persisted doctor edit. The mapper now publishes the doctor-reviewed summary while preserving the original AI draft in `explanation_json`, with regression coverage.
+- Deployed commit `f7e4630`; the stable staging health endpoint returned HTTP 200 with healthy Supabase Postgres/private S3 state, Inngest configured, Gemini capabilities enabled, and uploads enabled.
+- `npm run verify:staging:e2e` passed in 107.65 seconds. It verified Auth, required consent, private signed upload, GuardDuty, Textract OCR, supported CBC classification, Gemini biomarker extraction and patient explanation, source-linked Supabase persistence, patient result, reminder, feedback, admin queue and immutable correction, doctor assignment and edit-and-approve, PHI-minimal audit evidence, and guaranteed cleanup.
+- Local regressions passed: 180 tests, web build with 44 routes, serial typecheck, lint, copy scan, 13-file migration checksum verification, 9 API tests, API health, and worker health.
+
+Verdict: the supported synthetic CBC launch path is **ready for controlled staging rehearsal with 9.6/10 engineering confidence**. Real PHI remains **no-go** until custom signup email delivery, provider-backed golden QA at sufficient quota, expanded doctor-reviewed samples, PHI-safe external observability, retention/versioning and key-management approval, clinician threshold sign-off, and legal review are complete.
+
+### 2026-09-13 Initial Supported-Report Launch Gate: Fail-Closed AI Credential
 
 Environment: Vercel Preview branch `dev`, Inngest Staging, Supabase `lyf9-staging` (`wjjwdakfyigwwohbntyv`), and `lyf9-reports-storage-staging`. Production was not accessed or changed, and the run used only the synthetic CBC fixture.
 
@@ -13,7 +27,7 @@ Environment: Vercel Preview branch `dev`, Inngest Staging, Supabase `lyf9-stagin
 - A direct local staging adapter run authenticated successfully but initially caught a safety false positive on the benign phrase `stop bleeding`. The rule was narrowed with regression coverage, and `npm run verify:staging:ai` then passed.
 - Pipeline failures now preserve provider-specific codes, and the launch harness captures PHI-free processing-step/model diagnostics before cleanup.
 
-Verdict: **No-go for real PHI**. Rotate the staging Gemini key in Google AI Studio, store the replacement as a Vercel Secret scoped only to Preview branch `dev`, redeploy, and rerun `npm run verify:staging:e2e`.
+Historical verdict: this run correctly failed closed. The credential, workflow enum, and doctor-summary publication issues were subsequently resolved, and the passing run above supersedes this blocker. The separate real-PHI no-go decision remains in force for the outstanding operational, clinical, governance, and legal gates.
 
 ### 2026-09-04 Supabase Migration Ledger And RLS Recheck
 

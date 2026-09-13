@@ -2,10 +2,10 @@
 
 ## Overall Safety Verdict
 
-Medical safety: **partially safe for scaffold rehearsal, not safe for real PHI beta**.
+Medical safety: **ready for controlled synthetic staging rehearsal, not approved for real PHI beta**.
 
-Safety score: **7.0/10** for local scaffold behavior.  
-Security/privacy score: **8.0/10** for real private beta readiness.
+Safety implementation confidence: **8.5/10** with a passing supported synthetic CBC E2E.
+Security/privacy implementation confidence: **9.0/10** for verified synthetic staging boundaries.
 
 ## Security Findings
 
@@ -13,7 +13,7 @@ Security/privacy score: **8.0/10** for real private beta readiness.
 | --- | --- | --- | --- | --- |
 | P1 | Signup email delivery is rate-limited in staging | Live `npm run test:auth-live` evidence | Login/session and authorization pass, but repeated invite signup cannot rely on Supabase's default sender quota. | Configure custom SMTP or an approved Auth email quota and rerun public signup without fixture fallback. |
 | P2 | Local scaffold fallback remains but is now fail-closed outside local/development | `apps/web/src/lib/auth/providers/supabase.ts`, `apps/web/src/lib/auth/request.ts` | Safe for local development only; staging/production now return setup/configuration errors instead of silently using local cookies when Supabase env is missing. | Keep `ENABLE_LOCAL_AUTH_FALLBACK` out of staging/production and verify deploy env. |
-| P1 | Provider-backed golden verification is incomplete | `artifacts/staging-verification/ai.json`, `artifacts/staging-verification/golden-live.json` | Auth/RLS, consent, private S3, GuardDuty, workflow concurrency, scanned-image Textract OCR, and a live Gemini smoke pass; the complete golden run remains quota-blocked. | Obtain sufficient provider quota and rerun the complete synthetic golden gate without weakening thresholds. |
+| P1 | Provider-backed golden verification is incomplete | `artifacts/staging-verification/ai.json`, `artifacts/staging-verification/e2e.json`, `artifacts/staging-verification/golden-live.json` | Auth/RLS, consent, private S3, GuardDuty, workflow concurrency, scanned-image Textract OCR, the Gemini smoke, and the supported CBC E2E pass; the complete golden run remains quota-blocked. | Obtain sufficient provider quota and rerun the complete synthetic golden gate without weakening thresholds. |
 | Closed | Analytics endpoint access and metadata | `apps/web/src/app/api/analytics/route.ts`, `apps/web/src/lib/analytics/metadata.ts` | Only `signup_started` is anonymous; all other client events require Auth, use the Supabase UUID, and accept event-specific non-PHI metadata. | Keep allowlists narrow as events are added. |
 | P1 | Health checks are config-only | `apps/api/app/main.py`, `apps/worker/app/worker.py` | False confidence in deployment. | Real connectivity probes. |
 
@@ -36,6 +36,7 @@ Partially implemented:
 - Document extraction now uses provider contracts, persists extracted text/tables, and audits only provider/status/count metadata. Full extracted text is not written to audit logs.
 - Unsupported/unknown report classification blocks automated interpretation and does not proceed to biomarker AI extraction.
 - Schema-first AI now runs through a provider-neutral gateway, logs attempts with hashes/sanitized metadata, validates output/source traces before persistence, blocks incomplete selected-provider config in deployed environments, and prevents unsupported reports from entering AI interpretation.
+- The deployed supported CBC E2E verifies source-linked AI persistence, immutable admin correction, assigned-doctor edit-and-approve, patient publication of the doctor-edited summary, audit evidence, and synthetic cleanup.
 
 Gaps:
 
@@ -66,7 +67,7 @@ Gaps:
 
 - Critical thresholds are placeholders and not doctor-reviewed.
 - Gemini, OpenAI, and mock adapters share one explicit provider contract; unknown providers and incomplete deployed configuration fail closed.
-- A synthetic live Gemini extraction/explanation passed schema, source-trace, disclaimer, and deterministic unsafe-language checks. The broader live golden run remains fail-closed because provider quota was exhausted mid-run.
+- A synthetic live Gemini extraction/explanation and the supported CBC deployed E2E passed schema, source-trace, disclaimer, deterministic unsafe-language, review, and publication checks. The broader live golden run remains fail-closed because provider quota was exhausted mid-run.
 - Synthetic golden dataset validation exists locally; expanded human-reviewed sample coverage is still required.
 - Live staging verification artifacts are generated under `artifacts/staging-verification/`; these artifacts must not contain secrets or full extracted report text.
 - No public proof that every generated output was reviewed for unsafe copy across real reports.
@@ -75,7 +76,7 @@ Gaps:
 
 Migrations include RLS enablement and policies for user-owned data, backend-controlled writes, admin reads, and assigned doctor reviews. The hardening migrations add a caller-scoped required-consent RPC and stricter report/job write boundaries.
 
-On 2026-09-04, staging migration history was reconciled only after read-only sentinels proved all 11 repository migrations were already represented in the application schema. The internal `supabase_migrations` ledger intentionally has no RLS because it is outside the exposed public Data API schema and contains migration metadata rather than user data. Production was not accessed or changed.
+On 2026-09-04, staging migration history was reconciled only after read-only sentinels proved all 11 repository migrations were already represented in the application schema. Additive migrations 12 and 13 were subsequently applied and recorded with passing table/privilege and workflow-enum sentinels. The internal `supabase_migrations` ledger intentionally has no RLS because it is outside the exposed public Data API schema and contains migration metadata rather than user data. Production was not accessed or changed.
 
 - Policies are applied in the dedicated staging Supabase project.
 - The live RLS harness passed with two users, two doctors, one admin, and one superadmin using real Supabase Auth JWTs.

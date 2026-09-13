@@ -6,26 +6,26 @@ Use this checklist for the first 30-50 early users. This is a private beta gate,
 
 Current decision: **No-go for real PHI private beta**.
 
-Private beta readiness score including current live staging evidence: **94/100 with the supported pipeline blocked at deployed AI authentication**.
+Engineering readiness score including current live staging evidence: **96/100 with the supported synthetic pipeline passing end to end**.
 
-This repo is ready for scaffold/operator rehearsal and now has live-tested staging Supabase Auth/Postgres/RLS, a reconciled and checksum-locked migration ledger, private S3, GuardDuty malware enforcement, atomic workflow concurrency/recovery, scanned-image Textract OCR, the deployed Inngest saga, and a schema-valid Gemini smoke. Real 30-50 user testing remains blocked by reliable signup email delivery, provider-backed golden QA capacity, expanded human-reviewed golden coverage, observability, retention governance, doctor threshold review, and legal review.
+This repo is ready for controlled synthetic operator rehearsal and now has live-tested staging Supabase Auth/Postgres/RLS, a 13-entry checksum-locked migration ledger, private S3, GuardDuty malware enforcement, atomic workflow concurrency/recovery, scanned-image Textract OCR, the deployed Inngest saga, schema-valid Gemini output, and a passing supported CBC launch E2E. Real 30-50 user PHI testing remains blocked by reliable signup email delivery, provider-backed golden QA capacity, expanded human-reviewed coverage, observability, retention governance, doctor threshold review, and legal review.
 
 ## Current Readiness Matrix
 
 | Area | Status | Owner | Next step |
 | --- | --- | --- | --- |
 | Auth/RBAC | Partially ready | Engineering/DevOps | Login/session and user/doctor/admin/superadmin JWT boundaries pass in staging; configure custom SMTP or an approved email quota before onboarding beta users. |
-| Database/RLS | Ready for synthetic staging | Backend/DevOps | All 12 migrations through `202609130001_private_beta_operations.sql` are represented exactly in the staging ledger, repository checksums are locked, and the invite table denies anon/authenticated access while permitting service-role operations. Add staging `DATABASE_URL` to protected CI for automatic remote drift checks. |
+| Database/RLS | Ready for synthetic staging | Backend/DevOps | All 13 migrations through `202609130002_processing_validated_state.sql` are represented in the staging ledger, repository checksums are locked, and the new state sentinel passed. Add staging `DATABASE_URL` to protected CI for automatic remote drift checks. |
 | Storage security | Ready for synthetic staging | Backend/DevOps | Guarded app-level upload/download/privacy/encryption/DB/audit/delete verification passed; approve retention/versioning and key-management policy before real PHI. |
 | Malware scanning | Ready for synthetic staging | Backend/Security/DevOps | GuardDuty is Active for staging `reports/`; least-privilege tag read and clean/EICAR verification pass. Re-run after scanner, IAM, bucket, or prefix changes. |
 | Upload flow | Ready for synthetic staging | Engineering | Deployed consent gate, private S3 upload/download/delete, and real GuardDuty clean/threat behavior pass with synthetic fixtures. |
 | Processing pipeline | Ready for synthetic staging | Backend/Platform | The deployed Inngest saga passed authenticated PNG upload, GuardDuty, Textract OCR, Postgres transitions, unsupported classification, zero AI output, and cleanup. Provider-backed golden QA remains blocked. |
 | Document extraction/OCR | Ready for synthetic staging | AI/Backend | Textract passed readable and blank synthetic PNG scans with page/line provenance, confidence quality gates, fail-closed blank handling, zero AI output, and independent cleanup. Marker remains optional while Textract is selected. |
-| AI structured outputs | Blocked in deployed pipeline | AI/Backend/DevOps | The direct staging adapter passes schema, source-trace, disclaimer, and unsafe-language checks, but the deployed supported-report run failed closed with `ai_provider_auth_failed`. Rotate the Gemini key and store it as a Vercel Secret before redeploying. |
+| AI structured outputs | Ready for supported synthetic staging | AI/Backend/DevOps | The rotated Preview-only Gemini Secret passes direct schema/source/safety checks and the deployed supported CBC E2E. Provider-backed golden QA remains blocked by request quota and sample coverage. |
 | Safety rules | Partially ready | AI/Safety/Medical | Unsafe-language filter and routing exist; doctor-review critical thresholds with real report set. |
 | Unsupported report handling | Partially ready | AI/Safety | Unsupported reports are blocked from AI-only interpretation; expand internal fixture coverage. |
-| Admin correction | Implemented, live verification pending | Ops/Engineering | Supabase correction overlays preserve originals and write audit records; require the supported-report launch harness to pass after deployment. |
-| Doctor review | Implemented, live verification pending | Medical/Ops/Engineering | Assigned-report RLS passes; the synthetic launch harness now exercises queue access and edit-and-approve, pending post-deploy evidence. |
+| Admin correction | Ready for supported synthetic staging | Ops/Engineering | The deployed E2E verified admin queue access, immutable correction overlays, and correction audit evidence. |
+| Doctor review | Ready for supported synthetic staging | Medical/Ops/Engineering | Assigned-report RLS and the deployed queue, assignment, edit-and-approve, patient status, and audit path pass. Other doctor actions remain locally tested and need broader live rehearsal. |
 | Audit logs | Partially ready | Engineering/Ops | Live staging writes and user insert/read restrictions pass for onboarding, consent, and blocked upload paths; append-only governance and admin review operations remain. |
 | Model runs | Partially ready | AI/Backend | Saga attempts log provider/model/status/hash/sanitized error/latency; normalize provider token usage and cost after live adapter verification. |
 | Data export/delete | Partially ready | Engineering/Legal | Internal Supabase export exists and superadmin deletion removes storage before the Auth cascade; DPDP retention/deletion policy still needs legal review. |
@@ -97,10 +97,10 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 - [x] Unsupported file types are blocked server-side.
 - [x] Uploaded files are stored privately in verified staging S3.
 - [x] User can view report processing status.
-- [ ] User can view AI-assisted explanation for supported reports.
-- [ ] User can see source biomarker values for insights.
+- [x] User can view AI-assisted explanation for the supported synthetic CBC path.
+- [x] User can see source biomarker values for insights in the deployed E2E.
 - [ ] User can see report history/health timeline.
-- [ ] User can create or accept a retest reminder.
+- [x] User can create a retest reminder in the deployed E2E.
 - [x] User can submit feedback.
 
 ## Report Scope Go/No-Go
@@ -155,7 +155,7 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Staging environment contract | Ready | `docs/29_STAGING_ENVIRONMENT_CONTRACT.md` | Keep secrets scoped to Vercel Preview branch `dev` and out of source control. |
 | Deployed Supabase connectivity | Ready | `lyf9-dev.vercel.app/api/health` returns `status: ok` and `store.ok: true` | Monitor while running synthetic Auth/RLS tests. |
 | Live verification orchestrator | Ready | `npm run verify:staging` | Run only with `APP_ENV=staging`; it refuses production and missing env. |
-| Supabase migration check | Ready for staging | Exact-set SQL verification plus `npm run verify:migrations` | Staging has 12/12 exact history rows with statement payloads and the repository lock matches; wire `DATABASE_URL` into protected CI and run `npm run verify:staging:migrations` on every migration change. |
+| Supabase migration check | Ready for staging | Exact-set SQL verification plus `npm run verify:migrations` | Staging has 13 history rows, the `validated` enum sentinel is true, and the repository lock matches; wire `DATABASE_URL` into protected CI and run `npm run verify:staging:migrations` on every migration change. |
 | RLS/JWT live check | Ready | `npm run verify:staging:rls` passed again after history reconciliation | Re-run after any RLS migration. |
 | Deployed Auth/API check | Partially ready | `npm run test:auth-live` passed login, sessions, persistence, route denial, and consent gating | Configure custom SMTP or approved email limits, then require public signup to pass without fixture fallback. |
 | Workflow concurrency check | Ready | `npm run verify:staging:workflow` | Self-seeding staging harness passed concurrent claims, retries, lease recovery, RPC denial, audit safety, and cleanup. Re-run after workflow migration/provider changes. |
@@ -163,19 +163,19 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 | Malware scanner live check | Ready | `npm run verify:staging:malware` | GuardDuty is Active on staging `reports/`; tag-read IAM and clean/EICAR outcomes pass with synthetic cleanup. |
 | Marker live check | Optional | `npm run verify:staging:marker` | Run before selecting Marker; Textract is the current verified parser. |
 | Textract live check | Ready for synthetic staging | `npm run verify:staging:textract` | Readable and blank synthetic PNG OCR, provenance, confidence gates, persistence, no-AI boundary, and independent cleanup pass. |
-| Selected AI live check | Ready for synthetic staging | `npm run verify:staging:ai` passed with `gemini-3.5-flash` in 72.84 seconds | Re-run after provider, model, prompt, or schema changes. |
-| Supported-report launch E2E | Blocked at deployed AI authentication | `npm run verify:staging:e2e` | Commit `4f36fd1` is deployed and healthy; GuardDuty, Textract, and CBC classification passed before `extract-biomarkers` failed closed with `ai_provider_auth_failed`. Rotate the Gemini key, redeploy, and rerun. |
+| Selected AI live check | Ready for synthetic staging | `npm run verify:staging:ai` passed with the rotated Preview-only Gemini Secret in 15.01 seconds | Re-run after provider, model, prompt, schema, or credential changes. |
+| Supported-report launch E2E | Ready for supported synthetic CBC | `npm run verify:staging:e2e` passed in 107.65 seconds on commit `f7e4630` | Expand to multiple supported categories and reviewed samples before real PHI. |
 | Live golden subset | Blocked by provider quota | `npm run eval:golden:live` stopped fail-closed on `ai_provider_quota_exhausted` after 109 seconds | Re-run with replenished/paid Gemini quota; do not weaken the gate. |
 | Live report | Ready as template | `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md` | Replace blocked statuses with evidence only after commands pass. |
 
 ## Admin Go/No-Go
 
-- [ ] Admin can view uploaded reports.
-- [ ] Admin can view processing jobs.
+- [x] Admin can access the deployed report queue with persisted biomarker and insight data.
+- [ ] Admin processing-job visibility exists but was not asserted by the supported CBC E2E.
 - [ ] Admin can inspect failed extraction.
 - [ ] Admin can inspect low-confidence extraction.
-- [ ] Admin can manually correct biomarker data.
-- [ ] Manual corrections are audited in the deployed supported-report launch harness.
+- [x] Admin can manually correct biomarker data while preserving original values.
+- [x] Manual corrections are audited in the deployed supported-report launch harness.
 - [ ] Admin can view unsupported report queue.
 - [x] Admin can view feedback.
 
@@ -183,13 +183,13 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 
 - [x] Doctor role exists in the Supabase role model and route guards.
 - [x] Doctor can see assigned reports only in live staging RLS/JWT tests.
-- [ ] Doctor can view report, user context, biomarkers, and AI draft.
-- [ ] Doctor can approve.
-- [ ] Doctor can edit and approve.
+- [ ] The deployed E2E proves assigned queue visibility; a separate live detail-page rehearsal must still verify every patient-context field.
+- [x] Doctor approval publication is implemented and locally tested.
+- [x] Doctor can edit and approve in the deployed supported-report launch harness.
 - [ ] Doctor can reject.
 - [ ] Doctor can request more information.
-- [ ] Doctor-reviewed badge appears only after completed review.
-- [ ] Doctor actions are audited in the deployed supported-report launch harness.
+- [x] Doctor-reviewed status appears only after completed approval in the deployed E2E.
+- [x] Doctor actions are audited in the deployed supported-report launch harness.
 
 ## Privacy And Audit Go/No-Go
 
@@ -198,9 +198,9 @@ This repo is ready for scaffold/operator rehearsal and now has live-tested stagi
 - [x] Audit logs exist for upload metadata and signed URL generation.
 - [x] Audit logs exist for report access metadata.
 - [x] Audit logs exist for AI/model runs in the local/test workflow.
-- [ ] Audit logs for admin corrections pass the deployed supported-report launch harness.
-- [ ] Audit logs for doctor review actions pass the deployed supported-report launch harness.
-- [x] Private file URLs are short-lived in code; staging S3 verification pending.
+- [x] Audit logs for admin corrections pass the deployed supported-report launch harness.
+- [x] Audit logs for doctor review actions pass the deployed supported-report launch harness.
+- [x] Private file URLs and access controls pass staging S3 and deployed E2E verification.
 - [x] Structured application logs redact common PHI/token keys and values in regression tests.
 - [x] Data deletion/export workflow exists at least internally.
 
@@ -230,7 +230,7 @@ Before inviting 30-50 users:
 - [ ] Upload to result page works end to end.
 - [ ] 0 known AI-only diagnosis/prescription outputs in reviewed samples.
 - [ ] 100% source traceability for published insights in tested reports.
-- [ ] Admin correction works.
+- [x] Admin correction works for the supported synthetic CBC launch path.
 - [ ] Doctor approve/edit/reject/request-more-info works.
 
 Before expanding beyond private beta:

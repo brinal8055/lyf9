@@ -1,22 +1,22 @@
 {
-  "generatedAt": "2026-09-13T18:08:13.718Z",
+  "generatedAt": "2026-09-13T18:13:12.836Z",
   "environment": "staging",
-  "releaseVerdict": "no_go",
+  "releaseVerdict": "section_passed",
   "scope": "selected_sections",
   "syntheticOnly": true,
   "results": [
     {
       "checks": [
         {
-          "detail": "> @lyf9/web@0.1.0 test:launch-live\n> vitest run src/inngest/staging-inngest-live.test.ts -t \"supported CBC\"\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ❯ src/inngest/staging-inngest-live.test.ts (5 tests | 1 failed | 4 skipped) 102947ms\n   × live staging Inngest saga > runs a supported CBC through result, correction, doctor review, reminder, and feedback 102946ms\n     → expected { …(27) } to match object { status: 'doctor_reviewed', …(1) }\n(35 matching properties omitted from actual)\n\n Test Files  1 failed (1)\n      Tests  1 failed | 4 skipped (5)\n   Start at  23:36:26\n   Duration  107.02s (transform 403ms, setup 0ms, collect 778ms, tests 102.95s, environment 0ms, prepare 354ms)\n\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/inngest/staging-inngest-live.test.ts > live staging Inngest saga > runs a supported CBC through result, correction, doctor review, reminder, and feedback\nAssertionError: expected { …(27) } to match object { status: 'doctor_reviewed', …(1) }\n(35 matching properties omitted from actual)\n\n- Expected\n+ Received\n\n  Object {\n    \"status\": \"doctor_reviewed\",\n-   \"summary\": \"Doctor-reviewed synthetic CBC verification summary.\",\n+   \"summary\": \"All your primary blood parameters—including Hemoglobin, White Blood Cells, Platelets, and Red Blood Cells—are within the normal reference ranges. This suggests healthy blood production, normal oxygen-carrying capacity, and a stable immune system.\",\n  }\n\n ❯ src/inngest/staging-inngest-live.test.ts:436:88\n    434|       );\n    435|       expect(reviewedResult.response.status, responseFailure(reviewedR…\n    436|       expect(objectField(objectField(reviewedResult.body, \"report\"), \"…\n       |                                                                                        ^\n    437|         status: \"doctor_reviewed\",\n    438|         summary: reviewedSummary\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\nnpm error Lifecycle script `test:launch-live` failed with error:\nnpm error code 1\nnpm error path [workspace]/apps/web\nnpm error workspace @lyf9/web@0.1.0\nnpm error location [workspace]/apps/web\nnpm error command failed\nnpm error command sh -c vitest run src/inngest/staging-inngest-live.test.ts -t \"supported CBC\"",
+          "detail": "> @lyf9/web@0.1.0 test:launch-live\n> vitest run src/inngest/staging-inngest-live.test.ts -t \"supported CBC\"\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ✓ src/inngest/staging-inngest-live.test.ts (5 tests | 4 skipped) 107652ms\n   ✓ live staging Inngest saga > runs a supported CBC through result, correction, doctor review, reminder, and feedback 107650ms\n\n Test Files  1 passed (1)\n      Tests  1 passed | 4 skipped (5)\n   Start at  23:41:24\n   Duration  108.29s (transform 94ms, setup 0ms, collect 208ms, tests 107.65s, environment 0ms, prepare 77ms)",
           "name": "supported_report_launch_harness_passed",
-          "passed": false
+          "passed": true
         }
       ],
-      "endedAt": "2026-09-13T18:08:13.716Z",
+      "endedAt": "2026-09-13T18:13:12.834Z",
       "section": "e2e",
-      "startedAt": "2026-09-13T18:06:25.769Z",
-      "status": "failed",
+      "startedAt": "2026-09-13T18:11:23.587Z",
+      "status": "passed",
       "syntheticOnly": true
     }
   ]

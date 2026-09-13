@@ -4,13 +4,13 @@
 
 **Not ready for a 30-50 user private beta with real PHI.**
 
-The product can be used for internal scaffold rehearsal. The end-to-end user journey exists, but core PHI safety infrastructure is not production-ready.
+The product can be used for controlled synthetic staging rehearsal. The supported CBC end-to-end user journey now passes, but operational, clinical, and legal PHI controls are not complete.
 
-Private beta readiness score including current live staging evidence: **94/100 with the supported pipeline blocked at deployed AI authentication**
+Engineering readiness score including current live staging evidence: **96/100 with the supported synthetic pipeline passing end to end**
 
 ## P0 Blockers Before Any Real PHI
 
-The GuardDuty malware blocker is resolved for synthetic staging. The remaining no-go items are tracked below because the complete upload-to-reviewed-result path is not yet live-verified.
+The GuardDuty, parser/OCR, AI credential, workflow-state, and supported CBC upload-to-reviewed-result blockers are resolved for synthetic staging. The remaining no-go items are operational, provider-capacity, clinical, governance, and legal requirements for real PHI.
 
 ## P1 Blockers Before 30-50 Users
 
@@ -21,15 +21,15 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 | Golden dataset too small for PHI beta | `tests/golden/`, `docs/26_GOLDEN_DATASET_EVALUATION_REPORT.md` | Expand beyond synthetic smoke coverage to at least 25 internally reviewed samples and retain 100% safety gate pass. |
 | External observability not production-ready | `apps/web/src/lib/observability/logger.ts` | Central PHI/token scrubbing now has tests; connect Sentry or equivalent with the same deny rules and alert routing. |
 | Health checks shallow | `apps/web/src/app/api/health/route.ts`, `apps/api/app/main.py`, `apps/worker/app/worker.py` | Real database/storage/queue connectivity probes. |
-| Supported processing workflow E2E is blocked at deployed AI authentication | `artifacts/staging-verification/e2e.json`, Inngest Staging run `01M2D7SV9PYG16VSFCFVV3B5K0` | Commit `4f36fd1` is healthy and the run passed GuardDuty, Textract, and CBC classification before `extract-biomarkers` failed closed with `ai_provider_auth_failed`. Rotate the provider key, store it as a Vercel Secret, redeploy, and rerun. |
-| CI | `.github/workflows/ci.yml`, `.github/workflows/staging-release-gate.yml` | Implemented locally; verify the first remote run and configure protected staging secrets/variables. |
+| CI release credentials | `.github/workflows/ci.yml`, `.github/workflows/staging-release-gate.yml` | Push and PR CI pass; configure protected staging secrets/variables, including `DATABASE_URL`, for unattended remote release-gate checks. |
 
 ## Fixed Or Improved In The Staging Verification Pass
 
 - Reconciled the previously absent Supabase migration ledger in staging after all 11 repository migration sentinels passed. Exact-set verification reports 11 expected rows, no missing or unexpected versions/names, and non-empty statements.
 - Applied the additive durable beta-invite migration to staging and registered it as ledger entry 12/12 after RLS and privilege sentinels passed.
+- Applied additive migration `202609130002_processing_validated_state.sql` only to staging, registered it as ledger entry 13/13, and verified the missing `validated` state exists.
 - Fixed persisted insight/result mappings, Supabase admin queues, immutable correction overlays, doctor UUID routing, constrained analytics, PHI-safe logging, and Supabase data-rights routing.
-- Added a server-side upload kill switch, deterministic CI, and a full supported-report synthetic launch harness. The first deployed run safely exposed the staging Gemini credential blocker after GuardDuty/Textract/classification passed.
+- Added a server-side upload kill switch, deterministic CI, and a full supported-report synthetic launch harness. Successive fail-closed runs exposed and resolved the staging Gemini credential, workflow enum, and doctor-summary publication defects.
 - Added a SHA-256 migration lock, local/remote drift verifiers, a staging-target guard, and a guarded history-repair generator. Production was not accessed or changed.
 - Re-ran the live staging RLS harness after reconciliation; synthetic user, doctor, admin, consent, service-role, and audit boundaries all passed.
 - Live private S3 verification passed upload, encryption/metadata, public denial, download, DB/audit evidence, deletion, and cleanup against the staging-only bucket.
@@ -51,8 +51,8 @@ The GuardDuty malware blocker is resolved for synthetic staging. The remaining n
 - `scripts/verify-staging.mjs` adds synthetic-only staging verification commands and writes artifacts under `artifacts/staging-verification/`.
 - Root scripts now include `npm run verify:staging:*` for Supabase, RLS, workflow, S3, malware, Marker, Textract, the selected AI provider, E2E, and live golden subset checks.
 - Existing live RLS and workflow harnesses are routed through the staging verifier.
-- S3 direct signed PUT/GET/delete smoke harness exists, but full app audit-row verification still requires deployed app E2E.
-- GuardDuty, Textract, and the selected Gemini adapter now pass with live synthetic staging evidence; the live golden subset stopped fail-closed on exhausted provider quota, and full supported-report E2E still lacks live evidence.
+- S3 direct signed PUT/GET/delete smoke and the deployed app E2E both verify private storage and audit-row behavior with synthetic cleanup.
+- GuardDuty, Textract, and the selected Gemini adapter now pass with live synthetic staging evidence; the supported CBC E2E passes, while the live golden subset remains fail-closed on exhausted provider quota.
 - Textract asynchronous document extraction now passes against a synthetic staging PDF, including private S3 input, expected text, page count, confidence, `extracted_documents` provenance, and guaranteed cleanup. Marker remains optional while Textract is the selected parser.
 - The deployed Inngest saga now passes the guarded synthetic upload path through GuardDuty, Textract, deterministic unsupported classification, Postgres state transitions, zero AI outputs, and cleanup. Its keys are encrypted Vercel secrets scoped only to Preview branch `dev`; Production is unchanged.
 - Scanned-image OCR now passes with deterministic PNG fixtures, page/line provenance, confidence quality gates, blank-scan fail-closed behavior, zero AI output for blocked inputs, and independently verified staging cleanup.

@@ -4,13 +4,49 @@
 
 Staging foundation reconciliation and release-gate hardening are in progress for a **production-shaped private beta MVP**.
 
-Supabase staging now has the current schema, an exact migration ledger protected by a repository checksum lock, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, live GuardDuty clean/threat enforcement, live-verified atomic workflow claims, scanned-image AWS Textract OCR, a live-verified deployed Inngest saga, a live Gemini structured-output smoke, and a backend-only durable beta invitation table. Commit `4f36fd1` is deployed and healthy on `dev`; the first supported-report launch run reached GuardDuty, Textract, and deterministic CBC classification but failed closed at Gemini authentication. The product is not approved for real 30-50 user PHI until the deployed Gemini secret is rotated, the supported-report rollout gate passes, signup email delivery is reliable, provider-backed golden QA passes, and retention, clinical-threshold, and legal reviews are completed.
+Supabase staging now has the current schema, a 13-entry migration ledger protected by a repository checksum lock, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, live GuardDuty clean/threat enforcement, live-verified atomic workflow claims, scanned-image AWS Textract OCR, a live-verified deployed Inngest saga, a live Gemini structured-output smoke, and a backend-only durable beta invitation table. Commits `e30a7bd` and `f7e4630` are deployed and healthy on `dev`; the supported CBC launch harness now passes the complete synthetic upload-to-doctor-reviewed-result path. The product is not approved for real 30-50 user PHI until signup email delivery is reliable, provider-backed golden QA and expanded human review pass, and retention, observability, clinical-threshold, and legal reviews are completed.
 
-Current private beta readiness score: **9.4/10 with the supported pipeline blocked at deployed AI authentication**. Implementation confidence for the code-side rollout controls is **9.6/10**; the score does not override external clinical, legal, SMTP, or retention gates.
+Current engineering readiness score: **9.6/10 with the supported synthetic staging pipeline passing end to end**. The real-PHI release decision remains no-go; this score does not override external clinical, legal, SMTP, observability, provider-capacity, or retention gates.
 
 No public launch, autonomous diagnosis, prescriptions, medicine-change advice, supplement protocols, pharmacy commerce, lab booking, full doctor marketplace, mobile app, wearables, ABDM/ABHA, genetics, employer, or insurance workflows have been added.
 
 ## Completed In This Pass
+
+### 2026-09-13 Supported Report Launch Gate Pass
+
+- Rotated the staging Gemini credential and stored it as a Vercel Secret scoped to Preview branch `dev`; the direct synthetic structured-output smoke passed in 15.01 seconds.
+- The first post-rotation E2E run proved Gemini extraction was succeeding, then exposed a database contract mismatch: application state `validated` was absent from `public.processing_job_state`.
+- Added checksum-locked migration `202609130002_processing_validated_state.sql`, applied it only to Supabase staging project `wjjwdakfyigwwohbntyv`, and verified `validated_state_exists=true` with a 13-row migration ledger. Production was not accessed or changed.
+- Corrected `run_safety_rules` workflow state mapping from terminal `validation_failed` to `insight_generated`.
+- The next deployed run completed processing and doctor approval, then caught a publication bug where the patient API preferred the original AI summary over the persisted doctor-edited summary.
+- Fixed the Supabase mapper to publish the doctor-reviewed summary while retaining the original AI draft in `explanation_json` for traceability; added regression coverage.
+- Deployed commit `f7e4630` and passed `npm run verify:staging:e2e` in 107.65 seconds. The synthetic harness covered Auth, required consent, private S3 upload, GuardDuty, Textract, Gemini extraction and explanation, source-linked Supabase persistence, patient result, reminder, feedback, admin queue and immutable correction, doctor assignment and edit-and-approve, audit evidence, and cleanup.
+
+Verification:
+
+```txt
+npm run verify:staging:e2e # passed, synthetic data only
+npm test                   # 180 passed, 9 credential-gated live tests skipped
+npm run build:web          # passed; 44 routes generated
+npm run typecheck          # passed after the build, serially
+npm run lint               # passed
+npm run copy:scan          # passed
+npm run verify:migrations  # 13 files match checksums and ordering
+npm run api:test           # 9 passed
+npm run api:health         # passed
+npm run worker:health      # passed in local configuration mode
+git diff --check           # passed
+```
+
+Known risks:
+
+- The shell does not currently have a staging `DATABASE_URL`, so `npm run verify:staging:migrations` could not run locally. The guarded staging SQL query independently confirmed migration 13 and the new enum label; protected CI still needs the direct database URL for automatic drift verification.
+- The complete 13-fixture provider-backed Gemini golden gate does not fit the current free-tier request allowance. A single live synthetic smoke and one passing E2E do not replace expanded doctor-reviewed QA.
+- Custom SMTP, external PHI-safe observability, retention/versioning and key-management approval, clinician threshold sign-off, and legal review remain launch blockers for real PHI.
+
+Next recommended prompt:
+
+> Configure staging-only custom SMTP for Supabase Auth, verify invite signup and email delivery through the public beta flow without service-role fixture fallback, preserve the durable invite gate and cleanup, and keep Production unchanged.
 
 ### 2026-09-13 Private Beta Rollout Hardening
 
@@ -51,14 +87,12 @@ git diff --check          # passed
 
 Pending verification:
 
-- Rotate the exposed/stale Gemini key in Google AI Studio, save the replacement as a Vercel Secret scoped to Preview branch `dev`, and redeploy.
-- Re-run `npm run verify:staging:e2e` against the redeployed commit and retain the synthetic artifact.
 - Configure Supabase custom SMTP and pass strict public signup without fixture fallback.
 - Complete provider-backed golden QA, retention/versioning approval, clinician threshold sign-off, and legal review.
 
 Next recommended prompt:
 
-> Rotate the staging Gemini key at the provider, store it as a Vercel Secret scoped only to Preview branch `dev`, redeploy, run the supported-CBC launch harness with synthetic data and cleanup, and fix any remaining failures without weakening safety gates.
+> Configure staging-only custom SMTP for Supabase Auth, verify invite signup and email delivery through the public beta flow without service-role fixture fallback, preserve the durable invite gate and cleanup, and keep Production unchanged.
 
 ### 2026-09-04 Supabase Staging Migration Reconciliation
 
