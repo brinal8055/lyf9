@@ -61,7 +61,7 @@ Interpretation: local deterministic QA is healthy, but it does not replace live 
 | Observability | Partial | Sentry or equivalent with PHI scrubbing and alert routing. |
 | Admin QA UI | Partial | Operators can see golden failures, low confidence, unmapped markers, unsafe blocks, model failures. |
 | Broader E2E | Blocked at deployed AI authentication | The synthetic CBC run passed upload, GuardDuty, Textract, and classification, then failed closed at `extract-biomarkers`. Rotate the staging Gemini key, redeploy, and rerun the complete path. |
-| CI | Implemented, first remote run pending | Deterministic CI runs typecheck, lint, copy scan, tests, API/worker checks, and the web build; the protected manual workflow runs the synthetic staging release gate. |
+| CI | Ready | Push and pull-request runs pass typecheck, lint, copy scan, tests, API/worker checks, and the web build; the protected manual workflow runs the synthetic staging release gate. |
 
 ## Go Criteria
 

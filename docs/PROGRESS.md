@@ -30,7 +30,7 @@ No public launch, autonomous diagnosis, prescriptions, medicine-change advice, s
 - Ran the supported-report launch harness. GuardDuty, Textract, and classification completed, then the deployed `extract-biomarkers` step failed closed with `ai_provider_auth_failed`; synthetic users, rows, and S3 data were cleaned up.
 - Fixed the safety-filter false positive for the benign phrase `stop bleeding`, added regression coverage, and re-ran the direct Gemini adapter successfully.
 - Preserved provider-specific pipeline failure codes and added PHI-free step/model diagnostics to future launch artifacts instead of collapsing every failure into `processing_blocked`.
-- The first GitHub Actions run proved the Python API/worker job green and exposed a missing `rg` dependency in the web job; CI now installs ripgrep explicitly before running the copy scanner.
+- The first GitHub Actions run proved the Python API/worker job green and exposed a missing `rg` dependency in the web job; CI now installs ripgrep explicitly before running the copy scanner. Follow-up push and pull-request runs both passed, and Vercel marked commit `2e57fde` Ready on the `dev` Preview deployment.
 
 Verification completed locally:
 
@@ -53,7 +53,6 @@ Pending verification:
 
 - Rotate the exposed/stale Gemini key in Google AI Studio, save the replacement as a Vercel Secret scoped to Preview branch `dev`, and redeploy.
 - Re-run `npm run verify:staging:e2e` against the redeployed commit and retain the synthetic artifact.
-- Confirm the next GitHub Actions run is green after the ripgrep dependency fix.
 - Configure Supabase custom SMTP and pass strict public signup without fixture fallback.
 - Complete provider-backed golden QA, retention/versioning approval, clinician threshold sign-off, and legal review.
 
