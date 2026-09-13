@@ -26,6 +26,8 @@ jobs:
         with:
           cache: npm
           node-version: 22
+      - name: Install copy-scan dependency
+        run: sudo apt-get update && sudo apt-get install --yes ripgrep
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
