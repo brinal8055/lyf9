@@ -196,6 +196,7 @@ Passed evidence:
 Known limitation:
 
 - Supabase's default staging sender previously reached its quota. On 2026-09-14, staging-only Resend SMTP delivered a synthetic public-signup confirmation; signup returned confirmation-required, issued no session, used a durable one-time invite, and did not use fixture provisioning. Verify an owned sender domain and external inbox click-through before onboarding beta users.
+- Vercel Config `SUPABASE_CUSTOM_SMTP_ENABLED=true` is scoped only to Preview branch `dev`; deployment `d6b24f1` and the stable staging health endpoint both report the flag as enabled. Production was not changed.
 
 ### 2026-09-01 Staging Foundation Reconciliation
 

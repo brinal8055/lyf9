@@ -21,7 +21,7 @@ No public launch, autonomous diagnosis, prescriptions, medicine-change advice, s
 - The signup returned HTTP 200 with `emailConfirmationRequired: true`, issued no session cookie before confirmation, and did not use service-role fixture signup.
 - Resend independently recorded the confirmation email as `delivered`. The synthetic Auth user, invite, audit rows, and analytics rows were removed after verification.
 - Replaced the generic confirmation template with Lyf9 AI subject/body copy and confirmed a second synthetic message was delivered with subject `Confirm your Lyf9 AI email`.
-- Added `SUPABASE_CUSTOM_SMTP_ENABLED=true` as a non-secret Vercel Config variable scoped only to Preview branch `dev`. The next `dev` deployment will expose this operator assertion through `/api/health`.
+- Added `SUPABASE_CUSTOM_SMTP_ENABLED=true` as a non-secret Vercel Config variable scoped only to Preview branch `dev`. Deployment `d6b24f1` is healthy, and both its immutable Preview URL and `https://lyf9-dev.vercel.app/api/health` report `supabaseCustomSmtpEnabled: true`.
 - `lyf9.ai` is not registered, so Resend's temporary sender can deliver only to the Resend account address and Resend test recipients. Register `lyf9.ai` or verify another owned domain before inviting external beta users.
 
 Verification:
@@ -31,6 +31,7 @@ public staging signup       # HTTP 200; confirmation required; no session cookie
 Resend delivery log         # delivered; subject "Confirm your Lyf9 AI email"
 synthetic fixture cleanup   # completed
 Production changes          # none
+deployed staging health     # status ok; supabaseCustomSmtpEnabled true
 ```
 
 Known risks:
