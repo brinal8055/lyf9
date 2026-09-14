@@ -40,6 +40,7 @@ export async function GET() {
           process.env.STORAGE_PROVIDER === "mock"
       ),
       supabaseAnonConfigured: Boolean(supabase.url && supabase.anonKey),
+      supabaseCustomSmtpEnabled: process.env.SUPABASE_CUSTOM_SMTP_ENABLED === "true",
       supabaseServerKeyType: getSupabaseServerKeyType(),
       supabaseServiceRoleConfigured: supabase.serviceRoleKeyConfigured,
       store

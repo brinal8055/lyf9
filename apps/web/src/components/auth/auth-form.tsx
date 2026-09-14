@@ -17,6 +17,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/app";
   const [error, setError] = useState("");
+  const [emailConfirmationSent, setEmailConfirmationSent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -65,6 +66,12 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       return;
     }
 
+    const body = (await response.json()) as { emailConfirmationRequired?: boolean };
+    if (mode === "signup" && body.emailConfirmationRequired) {
+      setEmailConfirmationSent(true);
+      return;
+    }
+
     window.location.assign(next);
   }
 
@@ -80,6 +87,19 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
             : `Log in to continue your ${PRODUCT_NAME} health dashboard.`}
         </p>
       </div>
+      {emailConfirmationSent ? (
+        <div className="grid gap-5">
+          <Alert variant="success" className="border-forest-glow/30 bg-forest-glow/10 text-forest">
+            We sent a confirmation link to your email. Confirm your address, then log in to continue.
+          </Alert>
+          <Link
+            className="flex h-[52px] w-full items-center justify-center rounded-full bg-terracotta text-[15.5px] font-bold text-[#0C332C] transition-colors hover:bg-[#E0A93F]"
+            href="/login"
+          >
+            Go to login
+          </Link>
+        </div>
+      ) : (
       <form className="grid gap-5" onSubmit={onSubmit}>
         {isSignup ? (
           <label className="grid gap-2 text-[13.5px] font-bold text-forest">
@@ -130,6 +150,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           {isSignup ? "Create account" : "Log in"}
         </Button>
       </form>
+      )}
       <div className="mt-7 text-center">
         <p className="text-[14px] font-medium text-sage">
           {isSignup ? "Already have an account?" : `New to ${PRODUCT_NAME}?`}{" "}

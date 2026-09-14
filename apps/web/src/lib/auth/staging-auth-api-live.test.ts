@@ -13,7 +13,10 @@ describeLive("live staging Auth and consent API verification", () => {
       auth: { autoRefreshToken: false, persistSession: false }
     });
     const suffix = `${Date.now()}-${randomUUID().slice(0, 8)}`;
-    const email = `lyf9-staging-auth-${suffix}@lyf9.ai`;
+    const strictEmailDelivery = process.env.REQUIRE_PUBLIC_SIGNUP_EMAIL_DELIVERY === "true";
+    const email = strictEmailDelivery
+      ? stagingTestEmail(env.testEmail, suffix)
+      : `lyf9-staging-auth-${suffix}@lyf9.ai`;
     const password = `Lyf9-Staging-${suffix}!`;
     let userId: string | null = null;
 
@@ -30,8 +33,12 @@ describeLive("live staging Auth and consent API verification", () => {
       const signupCompletedThroughApp = signup.response.status === 200;
       if (signupCompletedThroughApp) {
         userId = stringField(signup.body.user, "id");
+        if (strictEmailDelivery) {
+          expect(signup.body).toMatchObject({ emailConfirmationRequired: true });
+          expect(responseCookieHeader(signup.response)).toBe("");
+        }
       } else {
-        if (process.env.REQUIRE_PUBLIC_SIGNUP_EMAIL_DELIVERY === "true") {
+        if (strictEmailDelivery) {
           expect(signup.response.status, responseFailure(signup)).toBe(200);
         }
         expect(signup.response.status, responseFailure(signup)).toBe(400);
@@ -50,6 +57,14 @@ describeLive("live staging Auth and consent API verification", () => {
       }
 
       if (!userId) throw new Error("Synthetic staging user was not created.");
+
+      if (strictEmailDelivery) {
+        const loginBeforeConfirmation = await postJson(`${env.appOrigin}/api/auth/login`, {
+          email,
+          password
+        });
+        expect(loginBeforeConfirmation.response.status).toBe(401);
+      }
 
       const confirm = await service.auth.admin.updateUserById(userId, { email_confirm: true });
       throwIfError(confirm.error);
@@ -302,6 +317,8 @@ function getLiveEnv() {
   const projectRef = process.env.STAGING_SUPABASE_PROJECT_REF;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const strictEmailDelivery = process.env.REQUIRE_PUBLIC_SIGNUP_EMAIL_DELIVERY === "true";
+  const testEmail = process.env.STAGING_AUTH_TEST_EMAIL?.trim().toLowerCase() ?? "";
 
   if (!appOrigin || !expectedAppOrigin || !inviteCode || !projectRef || !serviceRoleKey || !supabaseUrl) {
     throw new Error("Live Auth API verification environment is incomplete.");
@@ -315,12 +332,23 @@ function getLiveEnv() {
     throw new Error("Refusing live Auth API verification because Supabase URL does not match STAGING_SUPABASE_PROJECT_REF.");
   }
 
+  if (strictEmailDelivery && !testEmail) {
+    throw new Error("STAGING_AUTH_TEST_EMAIL is required for strict signup email verification.");
+  }
+
   return {
     appOrigin: new URL(appOrigin).origin,
     inviteCode,
     serviceRoleKey,
-    supabaseUrl
+    supabaseUrl,
+    testEmail
   };
+}
+
+function stagingTestEmail(email: string, suffix: string) {
+  const [local, domain] = email.split("@");
+  if (!local || !domain) throw new Error("STAGING_AUTH_TEST_EMAIL must be a valid email address.");
+  return `${local.split("+", 1)[0]}+lyf9-staging-${suffix}@${domain}`;
 }
 
 function throwIfError(error: { message: string } | null) {
