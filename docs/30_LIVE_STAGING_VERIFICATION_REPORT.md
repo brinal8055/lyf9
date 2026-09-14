@@ -14,7 +14,7 @@ Environment: Vercel Preview branch `dev`, Inngest Staging, Supabase `lyf9-stagin
 - `npm run verify:staging:e2e` passed in 107.65 seconds. It verified Auth, required consent, private signed upload, GuardDuty, Textract OCR, supported CBC classification, Gemini biomarker extraction and patient explanation, source-linked Supabase persistence, patient result, reminder, feedback, admin queue and immutable correction, doctor assignment and edit-and-approve, PHI-minimal audit evidence, and guaranteed cleanup.
 - Local regressions passed: 180 tests, web build with 44 routes, serial typecheck, lint, copy scan, 13-file migration checksum verification, 9 API tests, API health, and worker health.
 
-Verdict: the supported synthetic CBC launch path is **ready for controlled staging rehearsal with 9.6/10 engineering confidence**. Real PHI remains **no-go** until custom signup email delivery, provider-backed golden QA at sufficient quota, expanded doctor-reviewed samples, PHI-safe external observability, retention/versioning and key-management approval, clinician threshold sign-off, and legal review are complete.
+Verdict: the supported synthetic CBC launch path is **ready for controlled staging rehearsal with 9.6/10 engineering confidence**. Staging custom SMTP now delivers branded synthetic signup confirmations. Real PHI remains **no-go** until an owned verified sender domain passes external inbox confirmation, provider-backed golden QA at sufficient quota, expanded doctor-reviewed samples, PHI-safe external observability, retention/versioning and key-management approval, clinician threshold sign-off, and legal review are complete.
 
 ### 2026-09-13 Initial Supported-Report Launch Gate: Fail-Closed AI Credential
 
@@ -195,7 +195,7 @@ Passed evidence:
 
 Known limitation:
 
-- Supabase's default staging email sender reached its rate limit during repeated signup diagnostics. The deployed test permits service-role fixture provisioning only for that exact error so authorization testing can continue. Configure custom SMTP or an approved email quota, then require public signup to pass without fallback before onboarding beta users.
+- Supabase's default staging sender previously reached its quota. On 2026-09-14, staging-only Resend SMTP delivered a synthetic public-signup confirmation; signup returned confirmation-required, issued no session, used a durable one-time invite, and did not use fixture provisioning. Verify an owned sender domain and external inbox click-through before onboarding beta users.
 
 ### 2026-09-01 Staging Foundation Reconciliation
 
@@ -279,9 +279,9 @@ npm run eval:golden:live
 | Area | Status | Evidence | Next step |
 | --- | --- | --- | --- |
 | Deployed Supabase connectivity | Ready | `lyf9-dev.vercel.app/api/health` reports `store.ok: true` against Supabase Postgres | Keep the server key in Vercel Preview `dev` only and monitor health. |
-| Supabase migrations | Ready for staging | Exact history is 11/11 through `202609020001_workflow_rpc_hardening.sql`, statement payloads are present, and all repository checksums match | Wire secure staging `DATABASE_URL` into CI and run `npm run verify:staging:migrations` on migration changes. |
+| Supabase migrations | Ready for staging | Exact history is 13/13 through `202609130002_processing_validated_state.sql`, statement payloads are present, and all repository checksums match | Wire secure staging `DATABASE_URL` into CI and run `npm run verify:staging:migrations` on migration changes. |
 | RLS/JWT | Ready for core boundaries | Six-identity live JWT harness passed again after ledger reconciliation with synthetic cleanup | Re-run after every RLS migration. |
-| Deployed Auth/API | Partially ready | Login/session, persistence, route denial, consent transitions, and backend upload gate passed | Configure custom SMTP/approved email quota and rerun public signup without fixture fallback. |
+| Deployed Auth/API | Partially ready | Login/session, persistence, route denial, consent transitions, backend upload gate, confirmation-required signup, and Resend synthetic delivery passed | Verify an owned sender domain and pass external inbox confirmation-link return. |
 | Workflow concurrency | Ready for synthetic staging | Self-seeding claims/recovery and the deployed Inngest saga both pass with safe audits and cleanup | Re-run after workflow, scanner, parser, or deployment changes. |
 | S3 private storage | Ready for synthetic staging | Guarded app-level harness passed against the staging-only bucket | Re-run after IAM, bucket-policy, or signing changes; approve retention policy before PHI. |
 | Signed upload/download/delete | Ready for synthetic staging | App routes, S3 privacy/encryption, DB metadata, audit rows, delete, and cleanup passed | Keep production unchanged until remaining release gates pass. |
@@ -337,7 +337,7 @@ The 2026-09-02 live run created one synthetic user and report object and deleted
 
 P0 risks remain:
 
-- Supabase live RLS and deployed core Auth/API consent checks have passed; public signup email delivery remains quota-limited.
+- Supabase live RLS and deployed core Auth/API consent checks have passed; staging Resend SMTP delivers branded synthetic confirmations, while external recipients remain blocked pending an owned verified sender domain.
 - Private S3 app and audit verification passes against the staging-only bucket; retention/versioning policy remains open.
 - GuardDuty malware scanning and scanned-image Textract OCR pass with synthetic staging evidence, including quality gates and no-AI blocking.
 - Marker remains optional; Gemini smoke verification passes, while provider-backed golden QA remains quota-blocked.

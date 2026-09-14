@@ -4,13 +4,44 @@
 
 Staging foundation reconciliation and release-gate hardening are in progress for a **production-shaped private beta MVP**.
 
-Supabase staging now has the current schema, a 13-entry migration ledger protected by a repository checksum lock, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, live GuardDuty clean/threat enforcement, live-verified atomic workflow claims, scanned-image AWS Textract OCR, a live-verified deployed Inngest saga, a live Gemini structured-output smoke, and a backend-only durable beta invitation table. Commits `e30a7bd` and `f7e4630` are deployed and healthy on `dev`; the supported CBC launch harness now passes the complete synthetic upload-to-doctor-reviewed-result path. The product is not approved for real 30-50 user PHI until signup email delivery is reliable, provider-backed golden QA and expanded human review pass, and retention, observability, clinical-threshold, and legal reviews are completed.
+Supabase staging now has the current schema, a 13-entry migration ledger protected by a repository checksum lock, live JWT-backed RLS verification, deployed Auth/session persistence checks, a backend-enforced consent gate, live-verified private S3 report storage, live GuardDuty clean/threat enforcement, live-verified atomic workflow claims, scanned-image AWS Textract OCR, a live-verified deployed Inngest saga, a live Gemini structured-output smoke, a backend-only durable beta invitation table, and a staging-only Resend SMTP test path. A public invite signup now returns confirmation-required without a session and Resend records the synthetic confirmation message as delivered. The product is not approved for real 30-50 user PHI until an owned sender domain is verified for external recipients, provider-backed golden QA and expanded human review pass, and retention, observability, clinical-threshold, and legal reviews are completed.
 
 Current engineering readiness score: **9.6/10 with the supported synthetic staging pipeline passing end to end**. The real-PHI release decision remains no-go; this score does not override external clinical, legal, SMTP, observability, provider-capacity, or retention gates.
 
 No public launch, autonomous diagnosis, prescriptions, medicine-change advice, supplement protocols, pharmacy commerce, lab booking, full doctor marketplace, mobile app, wearables, ABDM/ABHA, genetics, employer, or insurance workflows have been added.
 
 ## Completed In This Pass
+
+### 2026-09-14 Staging SMTP Test Delivery Pass
+
+- Enabled custom SMTP only on Supabase staging project `wjjwdakfyigwwohbntyv`; Production was not accessed or changed.
+- Created a sending-only Resend credential and configured Supabase with the temporary Resend test sender `Lyf9 AI <onboarding@resend.dev>`.
+- Corrected the staging Supabase Site URL from localhost to `https://lyf9-dev.vercel.app`; email confirmation remains enabled.
+- Ran a disposable public signup through `https://lyf9-dev.vercel.app/api/auth/signup` using a hashed, one-time durable beta invite and a Resend synthetic delivery address.
+- The signup returned HTTP 200 with `emailConfirmationRequired: true`, issued no session cookie before confirmation, and did not use service-role fixture signup.
+- Resend independently recorded the confirmation email as `delivered`. The synthetic Auth user, invite, audit rows, and analytics rows were removed after verification.
+- Replaced the generic confirmation template with Lyf9 AI subject/body copy and confirmed a second synthetic message was delivered with subject `Confirm your Lyf9 AI email`.
+- Added `SUPABASE_CUSTOM_SMTP_ENABLED=true` as a non-secret Vercel Config variable scoped only to Preview branch `dev`. The next `dev` deployment will expose this operator assertion through `/api/health`.
+- `lyf9.ai` is not registered, so Resend's temporary sender can deliver only to the Resend account address and Resend test recipients. Register `lyf9.ai` or verify another owned domain before inviting external beta users.
+
+Verification:
+
+```txt
+public staging signup       # HTTP 200; confirmation required; no session cookie
+Resend delivery log         # delivered; subject "Confirm your Lyf9 AI email"
+synthetic fixture cleanup   # completed
+Production changes          # none
+```
+
+Known risks:
+
+- The temporary `resend.dev` sender is an engineering-verification path only and cannot send to the 30-50 beta cohort.
+- A real external-inbox delivery/click-through check remains pending an owned verified sender domain.
+- One immediate post-template signup attempt encountered an upstream `Gateway Timeout`; staging health remained green and the next cleanup-safe retry passed. Monitor recurrence before onboarding.
+
+Next recommended prompt:
+
+> Register `lyf9.ai` or select another owned domain, verify a dedicated auth sender subdomain in Resend, replace the temporary staging sender, test external inbox delivery and confirmation-link return to `lyf9-dev.vercel.app`, and keep Production unchanged.
 
 ### 2026-09-13 Supported Report Launch Gate Pass
 
@@ -42,11 +73,11 @@ Known risks:
 
 - The shell does not currently have a staging `DATABASE_URL`, so `npm run verify:staging:migrations` could not run locally. The guarded staging SQL query independently confirmed migration 13 and the new enum label; protected CI still needs the direct database URL for automatic drift verification.
 - The complete 13-fixture provider-backed Gemini golden gate does not fit the current free-tier request allowance. A single live synthetic smoke and one passing E2E do not replace expanded doctor-reviewed QA.
-- Custom SMTP, external PHI-safe observability, retention/versioning and key-management approval, clinician threshold sign-off, and legal review remain launch blockers for real PHI.
+- An owned verified SMTP sender domain, external PHI-safe observability, retention/versioning and key-management approval, clinician threshold sign-off, and legal review remain launch blockers for real PHI.
 
 Next recommended prompt:
 
-> Configure staging-only custom SMTP for Supabase Auth, verify invite signup and email delivery through the public beta flow without service-role fixture fallback, preserve the durable invite gate and cleanup, and keep Production unchanged.
+> Register `lyf9.ai` or select another owned domain, verify a dedicated auth sender subdomain in Resend, replace the temporary staging sender, test external inbox delivery and confirmation-link return to `lyf9-dev.vercel.app`, and keep Production unchanged.
 
 ### 2026-09-13 Private Beta Rollout Hardening
 

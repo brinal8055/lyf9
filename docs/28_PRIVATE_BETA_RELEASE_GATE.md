@@ -6,7 +6,7 @@ Decision: **No-go for real PHI private beta**.
 
 Current engineering readiness score including live staging evidence: **96/100 with the supported synthetic pipeline passing end to end**.
 
-Reason: synthetic golden QA, live staging Supabase/RLS, a 13-entry checksum-locked migration ledger, private S3, GuardDuty clean/threat verification, atomic workflow concurrency/recovery, scanned-image Textract OCR, the deployed Inngest saga, live Gemini structured outputs, and the complete supported CBC launch harness pass. Provider-backed golden QA at release volume, doctor threshold review, retention governance, observability, signup email reliability, and legal review are still incomplete.
+Reason: synthetic golden QA, live staging Supabase/RLS, a 13-entry checksum-locked migration ledger, private S3, GuardDuty clean/threat verification, atomic workflow concurrency/recovery, scanned-image Textract OCR, the deployed Inngest saga, live Gemini structured outputs, the complete supported CBC launch harness, and staging Resend SMTP delivery pass. Provider-backed golden QA at release volume, an owned verified sender domain with external inbox confirmation, doctor threshold review, retention governance, observability, and legal review are still incomplete.
 
 Live staging evidence:
 
@@ -92,7 +92,7 @@ Any of these keep the release blocked:
 
 ## Exact Next Actions
 
-1. Configure custom SMTP or an approved Supabase Auth email quota and rerun public invite signup without fixture provisioning.
+1. Register `lyf9.ai` or verify another owned sender domain in Resend, replace the temporary staging sender, and pass external inbox delivery plus confirmation-link return without fixture provisioning.
 2. Replenish Gemini quota, rerun the 13-fixture live golden gate, then expand to at least 25 internally reviewed synthetic or consented internal samples.
 3. Add PHI-safe observability and approve retention/versioning governance.
 4. Get doctor review of critical thresholds.

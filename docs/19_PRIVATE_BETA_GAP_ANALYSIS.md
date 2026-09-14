@@ -16,7 +16,7 @@ The GuardDuty, parser/OCR, AI credential, workflow-state, and supported CBC uplo
 
 | Blocker | Evidence | Required Fix |
 | --- | --- | --- |
-| Signup email delivery is rate-limited | Live `npm run test:auth-live` staging run | Configure custom SMTP or an approved Supabase Auth email quota, then require public invite signup to pass without service-role fixture provisioning. |
+| External signup email delivery lacks a verified sender domain | Staging public signup returned confirmation-required with no session; Resend recorded the synthetic message as delivered | Register `lyf9.ai` or verify another owned domain, replace `onboarding@resend.dev`, and pass an external inbox confirmation-link test. |
 | Provider-backed golden QA is quota-blocked | `artifacts/staging-verification/ai.json`, `artifacts/staging-verification/golden-live.json` | The Gemini smoke passes; replenish/upgrade Gemini quota and rerun the 13-fixture live golden gate. |
 | Golden dataset too small for PHI beta | `tests/golden/`, `docs/26_GOLDEN_DATASET_EVALUATION_REPORT.md` | Expand beyond synthetic smoke coverage to at least 25 internally reviewed samples and retain 100% safety gate pass. |
 | External observability not production-ready | `apps/web/src/lib/observability/logger.ts` | Central PHI/token scrubbing now has tests; connect Sentry or equivalent with the same deny rules and alert routing. |
@@ -45,6 +45,7 @@ The GuardDuty, parser/OCR, AI credential, workflow-state, and supported CBC uplo
 - Migrations through `202609020001_workflow_rpc_hardening.sql` are applied and represented in the exact staging migration ledger.
 - Live RLS passed with two users, two doctors, one admin, and one superadmin using real Supabase JWTs.
 - Deployed login/session, profile, health profile, questionnaire, consent, audit, analytics, route denial, and backend upload consent-gate checks passed.
+- Staging-only Resend SMTP delivered a synthetic public-signup confirmation without service-role fixture provisioning or a pre-confirmation session. The remaining email gate is an owned verified domain for external recipients.
 - The required-consent RPC is caller-scoped and no longer exposes cross-user consent state to `anon` or unrelated authenticated callers.
 - Synthetic Auth users and profiles were independently confirmed at zero after cleanup.
 - `docs/29_STAGING_ENVIRONMENT_CONTRACT.md` lists every required staging env var and fail-closed rule.

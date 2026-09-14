@@ -43,8 +43,8 @@ Rules:
 
 - Staging must fail closed if Supabase or service-role env is missing.
 - Local cookie fallback is not allowed in staging.
-- All staging test users must use synthetic addresses under the Lyf9 test pattern, such as `lyf9-staging-auth-<timestamp>@lyf9.ai`; Supabase rejects reserved `example.com` addresses.
-- Configure custom SMTP or an approved Supabase Auth email quota before relying on signup email delivery for beta invitations.
+- Staging verification must use disposable synthetic recipients. Resend delivery tests may use labeled `delivered+<fixture>@resend.dev` addresses; real inbox tests must use an explicitly approved operator address.
+- Staging custom SMTP currently uses Resend's test sender. Verify an owned sender domain before relying on signup email delivery for beta invitations outside the Resend account/test recipients.
 
 ## Storage And S3
 

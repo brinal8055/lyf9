@@ -4,7 +4,7 @@
 
 Current status: **core Auth/RLS and staging migration-history verification passed; remaining release gates blocked**.
 
-The Lyf9 AI Supabase Auth/Postgres/RLS foundation is applied to the dedicated staging project. The staging migration ledger now exactly represents all 11 repository migrations, the historical SQL files are checksum-locked, and the live JWT-backed RLS harness passes after reconciliation. The deployed Auth/API consent smoke test also passes with synthetic fixtures and cleanup. Signup email delivery still needs custom SMTP or an approved Supabase Auth rate-limit configuration.
+The Lyf9 AI Supabase Auth/Postgres/RLS foundation is applied to the dedicated staging project. The staging migration ledger exactly represents all 13 repository migrations, the historical SQL files are checksum-locked, and the live JWT-backed RLS harness passes after reconciliation. The deployed Auth/API consent smoke test also passes with synthetic fixtures and cleanup. Staging-only Resend SMTP delivered a synthetic public-signup confirmation without issuing a pre-confirmation session; an owned verified sender domain is still required for external beta recipients.
 
 ## 1. Project Setup
 
@@ -262,7 +262,7 @@ Important review notes:
 - Live staging Supabase is configured for the Vercel Preview `dev` branch only; Production was not changed.
 - Normal local runs skip the RLS/Auth harnesses unless their explicit live flags and exact staging project reference are present.
 - The current developer shell does not store `DATABASE_URL`; automated remote history verification must receive it from a secure CI/runtime secret. The exact staging ledger was independently verified in the SQL editor during reconciliation.
-- Supabase's default staging email sender reached its rate limit during repeated diagnostics; configure custom SMTP or an approved quota before beta invitation onboarding.
+- Staging custom SMTP is enabled through Resend and synthetic delivery passes. The temporary `resend.dev` sender is restricted to test/account recipients, so verify an owned sender domain before beta invitation onboarding.
 - Admin operational access currently depends on backend/server service-role routes rather than broad direct client RLS reads.
 - Private S3 and GuardDuty are verified separately in `docs/30_LIVE_STAGING_VERIFICATION_REPORT.md`.
 - Atomic workflow claim/recovery is verified separately; OCR/Marker, the deployable worker runner, and production AI paths remain out of scope for this Auth/RLS report.
@@ -272,7 +272,7 @@ Important review notes:
 
 | Area | Status | Evidence | Next Step |
 | --- | --- | --- | --- |
-| Migrations apply cleanly | Ready for staging | Exact ledger verification is 11/11 with no missing/unexpected rows and all statement payloads present; repository lock verifies all 11 files | Add staging `DATABASE_URL` to secure CI and run `npm run verify:staging:migrations` before promotion. |
+| Migrations apply cleanly | Ready for staging | Exact ledger verification is 13/13 with no missing/unexpected rows and all statement payloads present; repository lock verifies all 13 files | Add staging `DATABASE_URL` to secure CI and run `npm run verify:staging:migrations` before promotion. |
 | Schema exists | Ready | Staging SQL inventory and deployed Postgres health pass | Recheck after migrations. |
 | RLS enabled | Ready for checked core tables | RLS inventory plus live JWT harness passed | Re-run after policy changes. |
 | Cross-user RLS | Ready | User A cannot read/update User B profile/report/job metadata | Keep synthetic harness in release gate. |
@@ -282,5 +282,5 @@ Important review notes:
 | Backend service-role isolation | Ready for current deployment | Secret is Vercel Preview `dev` only; service-role paths verified | Keep Production unchanged until promotion review. |
 | Consent gate | Ready for upload entry | Missing/partial/revoked consent returns 403; both required consents reach MIME validation | Repeat once real storage is configured. |
 | Audit logs | Partially ready | Live audit writes and user denial passed | Define append-only/operator review procedure. |
-| Signup email delivery | Partially ready | Invite gate reaches Supabase Auth, but default sender quota was exhausted | Configure custom SMTP or approved quota and rerun public signup. |
+| Signup email delivery | Partially ready | Staging-only Resend SMTP delivered a synthetic confirmation; signup required confirmation and issued no session | Verify an owned sender domain and pass an external inbox confirmation-link test. |
 | Local fallback hardening | Ready in code | Fallback requires local/development plus explicit flag | Keep staging/prod env without fallback flag. |

@@ -8,13 +8,13 @@ Current decision: **No-go for real PHI private beta**.
 
 Engineering readiness score including current live staging evidence: **96/100 with the supported synthetic pipeline passing end to end**.
 
-This repo is ready for controlled synthetic operator rehearsal and now has live-tested staging Supabase Auth/Postgres/RLS, a 13-entry checksum-locked migration ledger, private S3, GuardDuty malware enforcement, atomic workflow concurrency/recovery, scanned-image Textract OCR, the deployed Inngest saga, schema-valid Gemini output, and a passing supported CBC launch E2E. Real 30-50 user PHI testing remains blocked by reliable signup email delivery, provider-backed golden QA capacity, expanded human-reviewed coverage, observability, retention governance, doctor threshold review, and legal review.
+This repo is ready for controlled synthetic operator rehearsal and now has live-tested staging Supabase Auth/Postgres/RLS, a 13-entry checksum-locked migration ledger, private S3, GuardDuty malware enforcement, atomic workflow concurrency/recovery, scanned-image Textract OCR, the deployed Inngest saga, schema-valid Gemini output, a passing supported CBC launch E2E, and a delivered Resend SMTP signup test. Real 30-50 user PHI testing remains blocked by an owned verified sender domain for external recipients, provider-backed golden QA capacity, expanded human-reviewed coverage, observability, retention governance, doctor threshold review, and legal review.
 
 ## Current Readiness Matrix
 
 | Area | Status | Owner | Next step |
 | --- | --- | --- | --- |
-| Auth/RBAC | Partially ready | Engineering/DevOps | Login/session and user/doctor/admin/superadmin JWT boundaries pass in staging; configure custom SMTP or an approved email quota before onboarding beta users. |
+| Auth/RBAC | Partially ready | Engineering/DevOps | Login/session and role boundaries pass; staging custom SMTP delivered a synthetic confirmation message without issuing a pre-confirmation session. Verify an owned sender domain and external inbox before onboarding beta users. |
 | Database/RLS | Ready for synthetic staging | Backend/DevOps | All 13 migrations through `202609130002_processing_validated_state.sql` are represented in the staging ledger, repository checksums are locked, and the new state sentinel passed. Add staging `DATABASE_URL` to protected CI for automatic remote drift checks. |
 | Storage security | Ready for synthetic staging | Backend/DevOps | Guarded app-level upload/download/privacy/encryption/DB/audit/delete verification passed; approve retention/versioning and key-management policy before real PHI. |
 | Malware scanning | Ready for synthetic staging | Backend/Security/DevOps | GuardDuty is Active for staging `reports/`; least-privilege tag read and clean/EICAR verification pass. Re-run after scanner, IAM, bucket, or prefix changes. |
@@ -41,7 +41,7 @@ This repo is ready for controlled synthetic operator rehearsal and now has live-
 
 | Item | Status | Next step |
 | --- | --- | --- |
-| Supabase Auth | Partially ready | Deployed login/session and `/api/auth/me` pass; public signup reached the default Supabase email quota, so custom SMTP or an approved quota is required for dependable invitations. |
+| Supabase Auth | Partially ready | Deployed login/session and `/api/auth/me` pass. Public signup now uses staging-only Resend SMTP and delivered a synthetic confirmation message; the temporary `resend.dev` sender cannot serve external beta recipients. |
 | Postgres persistence | Ready for verified core paths | Synthetic profile, health profile, questionnaire, consent, audit, analytics, report metadata, and job metadata checks pass in staging. |
 | RLS policies | Ready for verified core paths | Live user/user, doctor assignment, admin, superadmin, audit, consent, feedback, analytics, report, job, and service-role boundaries pass. |
 | RLS tests | Ready | `npm run test:rls` passed against staging with six synthetic JWT identities and cleanup. |
@@ -157,7 +157,7 @@ This repo is ready for controlled synthetic operator rehearsal and now has live-
 | Live verification orchestrator | Ready | `npm run verify:staging` | Run only with `APP_ENV=staging`; it refuses production and missing env. |
 | Supabase migration check | Ready for staging | Exact-set SQL verification plus `npm run verify:migrations` | Staging has 13 history rows, the `validated` enum sentinel is true, and the repository lock matches; wire `DATABASE_URL` into protected CI and run `npm run verify:staging:migrations` on every migration change. |
 | RLS/JWT live check | Ready | `npm run verify:staging:rls` passed again after history reconciliation | Re-run after any RLS migration. |
-| Deployed Auth/API check | Partially ready | `npm run test:auth-live` passed login, sessions, persistence, route denial, and consent gating | Configure custom SMTP or approved email limits, then require public signup to pass without fixture fallback. |
+| Deployed Auth/API check | Partially ready | Login, sessions, persistence, route denial, consent gating, confirmation-required signup, no pre-confirmation cookie, and Resend synthetic delivery passed | Verify an owned sender domain, then pass an external inbox confirmation-link test. |
 | Workflow concurrency check | Ready | `npm run verify:staging:workflow` | Self-seeding staging harness passed concurrent claims, retries, lease recovery, RPC denial, audit safety, and cleanup. Re-run after workflow migration/provider changes. |
 | S3 private smoke check | Ready for synthetic staging | `npm run verify:staging:s3` passed app routes, S3 privacy/metadata/encryption/delete, DB metadata, audit events, and cleanup | Re-run after storage/IAM/signing changes; approve retention/versioning policy before PHI. |
 | Malware scanner live check | Ready | `npm run verify:staging:malware` | GuardDuty is Active on staging `reports/`; tag-read IAM and clean/EICAR outcomes pass with synthetic cleanup. |

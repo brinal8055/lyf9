@@ -210,7 +210,7 @@ npm run dev:web                # terminal 2
 
 Production and staging are separate Supabase projects. Staging (`wjjwdakfyigwwohbntyv`) now has the private-beta schema applied; do not point `dev` tooling or Vercel variables at production.
 
-Supabase Auth email confirmation is **disabled** for beta testing (free tier rate-limits signup emails to ~2-4/hour). Re-enable before real users.
+Supabase Auth email confirmation is **enabled** in staging. Staging-only Resend SMTP delivered a synthetic confirmation on 2026-09-14, but the temporary `resend.dev` sender cannot serve external beta recipients. Verify an owned sender domain before real-user onboarding.
 
 ---
 
