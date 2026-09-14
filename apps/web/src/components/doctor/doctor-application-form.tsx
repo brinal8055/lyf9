@@ -68,10 +68,18 @@ export function DoctorApplicationForm({ email, token }: { email: string; token: 
       specialties,
       yearsExperience: String(formData.get("yearsExperience") ?? "")
     };
+    const password = String(formData.get("password") ?? "");
+    const passwordConfirmation = String(formData.get("passwordConfirmation") ?? "");
+
+    if (password !== passwordConfirmation) {
+      setErrors({ passwordConfirmation: "Passwords do not match." });
+      setSubmitting(false);
+      return;
+    }
 
     try {
       const response = await fetch("/api/doctors/apply", {
-        body: JSON.stringify({ application, token }),
+        body: JSON.stringify({ application, password, passwordConfirmation, token }),
         headers: { "Content-Type": "application/json" },
         method: "POST"
       });
@@ -103,8 +111,9 @@ export function DoctorApplicationForm({ email, token }: { email: string; token: 
         </CardHeader>
         <CardContent className="space-y-3 text-muted">
           <p>
-            Thanks. Our team will verify your registration details and email you at{" "}
-            <span className="text-ivory">{email}</span> once your account is approved.
+            Thanks. Our team will verify your registration details for{" "}
+            <span className="text-ivory">{email}</span>. Your Lyf9 admin contact will let you know
+            when your account is approved.
           </p>
           <p>Verification usually takes 1-2 working days.</p>
         </CardContent>
@@ -213,6 +222,39 @@ export function DoctorApplicationForm({ email, token }: { email: string; token: 
           <FormField error={errors.bio} label="Short bio">
             <Textarea name="bio" />
           </FormField>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <FormField
+              error={errors.password}
+              hint="Use 12-128 characters. You will use this after approval."
+              label="Create password"
+              required
+            >
+              <Input
+                autoComplete="new-password"
+                maxLength={128}
+                minLength={12}
+                name="password"
+                required
+                type="password"
+              />
+            </FormField>
+
+            <FormField
+              error={errors.passwordConfirmation}
+              label="Confirm password"
+              required
+            >
+              <Input
+                autoComplete="new-password"
+                maxLength={128}
+                minLength={12}
+                name="passwordConfirmation"
+                required
+                type="password"
+              />
+            </FormField>
+          </div>
 
           {formError ? (
             <p className="text-sm text-danger" role="alert">

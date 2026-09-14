@@ -9,7 +9,10 @@ import {
   releaseInvite
 } from "@/lib/doctors/invites";
 import { createDoctorApplication } from "@/lib/doctors/profiles";
-import { parseDoctorApplication } from "@/lib/doctors/validation";
+import {
+  parseDoctorAccountPassword,
+  parseDoctorApplication
+} from "@/lib/doctors/validation";
 import { logError } from "@/lib/observability/logger";
 
 const INVITE_FAILURE_MESSAGES: Record<string, string> = {
@@ -56,12 +59,14 @@ export async function GET(request: NextRequest) {
  * Deliberately does NOT grant the doctor role -- that happens only in the
  * admin approval endpoint after a human verifies the registration details.
  * A self-service form that granted its own role would be an open privilege
- * escalation, so the account created here has no elevated access and no
- * password until approval.
+ * escalation. The invite holder sets a Supabase Auth password here, but has
+ * no doctor access until the application is approved.
  */
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as {
     application?: unknown;
+    password?: unknown;
+    passwordConfirmation?: unknown;
     token?: string;
   } | null;
 
@@ -75,6 +80,15 @@ export async function POST(request: NextRequest) {
 
   if (!parsed.ok) {
     return NextResponse.json({ errors: parsed.errors }, { status: 400 });
+  }
+
+  const accountPassword = parseDoctorAccountPassword(
+    body?.password,
+    body?.passwordConfirmation
+  );
+
+  if (!accountPassword.ok) {
+    return NextResponse.json({ errors: accountPassword.errors }, { status: 400 });
   }
 
   try {
@@ -96,12 +110,13 @@ export async function POST(request: NextRequest) {
     await claimInvite(invite.id);
 
     let doctor;
-    let doctorUserId: string;
+    let doctorUserId: string | null = null;
 
     try {
       const created = await serviceClient.auth.admin.createUser({
         email: invite.email,
         email_confirm: true,
+        password: accountPassword.data,
         user_metadata: { full_name: parsed.data.fullName }
       });
 
@@ -130,9 +145,16 @@ export async function POST(request: NextRequest) {
         userId: doctorUserId
       });
     } catch (setupError) {
+      if (doctorUserId) {
+        await serviceClient.auth.admin.deleteUser(doctorUserId);
+      }
       // Give the invite back rather than burning it on a transient failure.
       await releaseInvite(invite.id);
       throw setupError;
+    }
+
+    if (!doctorUserId) {
+      throw new Error("doctor_user_creation_failed");
     }
 
     await attachInviteConsumer({ consumedBy: doctorUserId, inviteId: invite.id });

@@ -46,6 +46,7 @@ The GuardDuty, parser/OCR, AI credential, workflow-state, and supported CBC uplo
 - Live RLS passed with two users, two doctors, one admin, and one superadmin using real Supabase JWTs.
 - Deployed login/session, profile, health profile, questionnaire, consent, audit, analytics, route denial, and backend upload consent-gate checks passed.
 - Staging-only Resend SMTP delivered a synthetic public-signup confirmation without service-role fixture provisioning or a pre-confirmation session. The remaining email gate is an owned verified domain for external recipients.
+- Doctor onboarding is invite-only and privilege-safe: the applicant now creates Supabase Auth credentials through the one-time token-gated form, while the doctor role remains restricted to the audited admin approval path. A live external-inbox staging rehearsal remains pending.
 - The required-consent RPC is caller-scoped and no longer exposes cross-user consent state to `anon` or unrelated authenticated callers.
 - Synthetic Auth users and profiles were independently confirmed at zero after cleanup.
 - `docs/29_STAGING_ENVIRONMENT_CONTRACT.md` lists every required staging env var and fail-closed rule.

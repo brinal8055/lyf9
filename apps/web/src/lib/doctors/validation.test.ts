@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseDoctorApplication } from "./validation";
+import { parseDoctorAccountPassword, parseDoctorApplication } from "./validation";
 
 const validApplication = {
   additionalQualifications: ["MD General Medicine"],
@@ -118,5 +118,23 @@ describe("doctor application parsing", () => {
     expect(result.errors.fullName).toBeDefined();
     expect(result.errors.primaryDegree).toBeDefined();
     expect(result.errors.registrationNumber).toBeDefined();
+  });
+});
+
+describe("doctor account password parsing", () => {
+  it("accepts a matching password within the allowed length", () => {
+    expect(parseDoctorAccountPassword("correct horse battery staple", "correct horse battery staple"))
+      .toEqual({ data: "correct horse battery staple", ok: true });
+  });
+
+  it("rejects short, overlong, and mismatched passwords", () => {
+    expect(parseDoctorAccountPassword("too-short", "too-short").ok).toBe(false);
+    expect(parseDoctorAccountPassword("x".repeat(129), "x".repeat(129)).ok).toBe(false);
+
+    const mismatch = parseDoctorAccountPassword("long-enough-password", "different-password");
+    expect(mismatch.ok).toBe(false);
+    if (!mismatch.ok) {
+      expect(mismatch.errors.passwordConfirmation).toBe("Passwords do not match.");
+    }
   });
 });

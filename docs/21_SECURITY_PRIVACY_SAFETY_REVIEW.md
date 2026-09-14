@@ -37,6 +37,7 @@ Partially implemented:
 - Unsupported/unknown report classification blocks automated interpretation and does not proceed to biomarker AI extraction.
 - Schema-first AI now runs through a provider-neutral gateway, logs attempts with hashes/sanitized metadata, validates output/source traces before persistence, blocks incomplete selected-provider config in deployed environments, and prevents unsupported reports from entering AI interpretation.
 - The deployed supported CBC E2E verifies source-linked AI persistence, immutable admin correction, assigned-doctor edit-and-approve, patient publication of the doctor-edited summary, audit evidence, and synthetic cleanup.
+- Doctor applicants can set a 12-128 character Supabase Auth password only through a usable one-time invite; failed profile setup deletes the partial Auth user and releases the invite. No doctor role is granted until an authenticated admin approves the application.
 
 Gaps:
 

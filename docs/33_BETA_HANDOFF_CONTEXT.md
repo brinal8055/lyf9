@@ -160,7 +160,7 @@ Legal review is still required before enabling real payments — code can't enfo
 **Code work, no blockers:**
 - Data-rights request persistence still on local store
 - Onboarding task cards always show "Start task" — no visual done state
-- No doctor onboarding UI (manual SQL is the accepted beta approach)
+- Doctor onboarding UI and one-time invite flow now exist; complete a live staging application, admin approval, login, and assigned-report-only rehearsal.
 - `scripts/copy-scan.mjs` crashes when `rg` is not installed — needs a `command -v rg` guard
 
 **Org decisions, not engineering:**

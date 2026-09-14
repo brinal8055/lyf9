@@ -9,9 +9,15 @@ export type DoctorApplicationParseResult =
   | { data: DoctorApplicationInput; ok: true }
   | { errors: DoctorApplicationErrors; ok: false };
 
+export type DoctorAccountPasswordParseResult =
+  | { data: string; ok: true }
+  | { errors: { password?: string; passwordConfirmation?: string }; ok: false };
+
 const MAX_NAME_LENGTH = 120;
 const MAX_BIO_LENGTH = 1000;
 const MIN_REGISTRATION_YEAR = 1940;
+const MIN_DOCTOR_PASSWORD_LENGTH = 12;
+const MAX_DOCTOR_PASSWORD_LENGTH = 128;
 
 /**
  * Registration numbers vary by council (NMC and state councils use different
@@ -44,6 +50,30 @@ function parseOptionalInt(value: unknown): number | null {
 
   const parsed = typeof value === "number" ? value : Number.parseInt(String(value), 10);
   return Number.isInteger(parsed) ? parsed : null;
+}
+
+export function parseDoctorAccountPassword(
+  passwordInput: unknown,
+  confirmationInput: unknown
+): DoctorAccountPasswordParseResult {
+  const password = typeof passwordInput === "string" ? passwordInput : "";
+  const confirmation = typeof confirmationInput === "string" ? confirmationInput : "";
+  const errors: { password?: string; passwordConfirmation?: string } = {};
+
+  if (
+    password.length < MIN_DOCTOR_PASSWORD_LENGTH ||
+    password.length > MAX_DOCTOR_PASSWORD_LENGTH
+  ) {
+    errors.password = `Use ${MIN_DOCTOR_PASSWORD_LENGTH}-${MAX_DOCTOR_PASSWORD_LENGTH} characters.`;
+  }
+
+  if (confirmation !== password) {
+    errors.passwordConfirmation = "Passwords do not match.";
+  }
+
+  return Object.keys(errors).length > 0
+    ? { errors, ok: false }
+    : { data: password, ok: true };
 }
 
 export function parseDoctorApplication(input: unknown): DoctorApplicationParseResult {

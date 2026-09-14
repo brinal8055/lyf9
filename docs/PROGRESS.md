@@ -12,6 +12,36 @@ No public launch, autonomous diagnosis, prescriptions, medicine-change advice, s
 
 ## Completed In This Pass
 
+### 2026-09-14 Doctor Account Activation Hardening
+
+- Confirmed that the current doctor lifecycle is invite-only: admin creates a one-time hashed-token invite, the applicant submits registration details, and only a later admin approval grants the `doctor` role and assignment capacity.
+- Added password creation to the token-gated doctor application so an approved doctor has usable Supabase Auth credentials without depending on an unimplemented approval email or password-reset control.
+- Password validation runs server-side before the invite is claimed; passwords must match and contain 12-128 characters. Passwords are sent only to Supabase Auth and are not stored in application tables, logs, or audit metadata.
+- Added compensating cleanup so a Supabase Auth user created during a failed application setup is deleted before the one-time invite is released for retry.
+- Kept the designated staging doctor inbox out of source code and environment files. It must be entered through the staging admin invite UI, and the resulting raw invite URL must be shared privately because it is displayed only once.
+
+Verification:
+
+```txt
+doctor validation/onboarding tests # 15 passed
+npm test                            # 185 passed, 9 credential-gated live tests skipped
+npm run typecheck                   # passed
+npm run lint                        # passed
+npm run copy:scan                   # passed
+npm run verify:migrations           # 13 files match the checksum lock
+npm run build:web                   # passed; 44 routes generated
+git diff --check                    # passed
+```
+
+Pending live rehearsal:
+
+- Deploy the verified `dev` commit, create one staging doctor invite from `/admin/doctors`, complete the application in a separate browser session, verify credentials manually, approve it as admin, log in as the doctor, and confirm only assigned reports are visible.
+- Automated invitation/approval email to external Gmail remains unavailable until an owned sender domain is verified; the one-time application URL can be shared manually for this staging rehearsal.
+
+Next recommended prompt:
+
+> Deploy the doctor activation hardening to staging, create a one-time invite through the staging admin UI for the designated doctor inbox, complete application and approval with non-PHI test data, and verify login plus assigned-report-only access without changing Production.
+
 ### 2026-09-14 Staging SMTP Test Delivery Pass
 
 - Enabled custom SMTP only on Supabase staging project `wjjwdakfyigwwohbntyv`; Production was not accessed or changed.

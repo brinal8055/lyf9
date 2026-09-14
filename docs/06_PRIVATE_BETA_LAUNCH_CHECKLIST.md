@@ -182,6 +182,8 @@ This repo is ready for controlled synthetic operator rehearsal and now has live-
 ## Doctor Review Go/No-Go
 
 - [x] Doctor role exists in the Supabase role model and route guards.
+- [x] Invite-only doctor onboarding creates login-capable Supabase Auth credentials without granting the doctor role before admin approval.
+- [ ] Complete a live staging invite, application, approval, login, and assigned-report-only rehearsal with the designated doctor inbox and non-PHI data.
 - [x] Doctor can see assigned reports only in live staging RLS/JWT tests.
 - [ ] The deployed E2E proves assigned queue visibility; a separate live detail-page rehearsal must still verify every patient-context field.
 - [x] Doctor approval publication is implemented and locally tested.
