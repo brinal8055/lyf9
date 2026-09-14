@@ -11,7 +11,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import {
   expiresAt,
-  safeFilename,
+  reportExtensionForMimeType,
   secondsFromEnv,
   validateReportFileSize,
   validateReportMimeType,
@@ -23,7 +23,7 @@ export const s3StorageProvider: StorageProvider = {
   async createUploadUrl(params) {
     const bucket = getBucket();
     const expiresIn = secondsFromEnv("S3_UPLOAD_URL_EXPIRY_SECONDS", 900);
-    const storageKey = `reports/${params.userId}/${params.reportFileId}/${randomUUID()}-${safeFilename(params.filename)}`;
+    const storageKey = `reports/${params.userId}/${params.reportFileId}/${randomUUID()}${reportExtensionForMimeType(params.mimeType)}`;
     const command = new PutObjectCommand({
       Bucket: bucket,
       ContentLength: params.sizeBytes,
@@ -31,18 +31,30 @@ export const s3StorageProvider: StorageProvider = {
       Key: storageKey,
       Metadata: {
         checksum_sha256: params.checksum ?? "",
-        report_file_id: params.reportFileId,
-        user_id: params.userId
-      }
+        report_file_id: params.reportFileId
+      },
+      ServerSideEncryption: "AES256"
     });
 
     return {
       expiresAt: expiresAt(expiresIn),
       requiredHeaders: {
-        "content-type": params.mimeType
+        "content-type": params.mimeType,
+        "x-amz-meta-checksum_sha256": params.checksum ?? "",
+        "x-amz-meta-report_file_id": params.reportFileId,
+        "x-amz-server-side-encryption": "AES256"
       },
+      storageBucket: bucket,
       storageKey,
-      uploadUrl: await getSignedUrl(getS3Client(), command, { expiresIn })
+      uploadUrl: await getSignedUrl(getS3Client(), command, {
+        expiresIn,
+        signableHeaders: new Set(["content-type"]),
+        unhoistableHeaders: new Set([
+          "x-amz-meta-checksum_sha256",
+          "x-amz-meta-report_file_id",
+          "x-amz-server-side-encryption"
+        ])
+      })
     };
   },
   async createDownloadUrl(params) {

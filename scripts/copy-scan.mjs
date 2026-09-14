@@ -46,6 +46,20 @@ const result = spawnSync(
   { encoding: "utf8" }
 );
 
+// spawnSync reports a missing binary via result.error, not a exit status, so
+// without this the script exits 1 with an empty stderr and no explanation.
+if (result.error) {
+  const missingBinary = result.error.code === "ENOENT";
+
+  process.stderr.write(
+    missingBinary
+      ? "copy-scan requires ripgrep (rg), which is not installed.\n" +
+          "Install it with: brew install ripgrep | apt-get install ripgrep\n"
+      : `copy-scan could not run ripgrep: ${result.error.message}\n`
+  );
+  process.exit(1);
+}
+
 if (result.status === 0) {
   process.stdout.write(result.stdout);
   process.exit(1);
@@ -55,7 +69,7 @@ if (result.status === 1) {
   process.exit(0);
 }
 
-process.stderr.write(result.stderr);
+process.stderr.write(result.stderr ?? "");
 process.exit(result.status ?? 1);
 
 function escapeRegex(value) {

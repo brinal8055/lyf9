@@ -6,7 +6,7 @@ import {
   type PatientExplanationOutput,
   type SafetyCheckResult
 } from "./ai-schemas";
-import type { AiProvider } from "./ai-provider";
+import { isLocalLikeAiEnv, type AiProvider, type AiTask } from "./ai-provider";
 import { normalizeAlias } from "../reports/catalog";
 import type { BiomarkerFlag } from "../reports/types";
 import type { NormalizedBiomarker } from "../biomarkers";
@@ -79,6 +79,26 @@ const fixtureAliases = new Map([
 
 export class MockAiProvider implements AiProvider {
   name = "mock_ai_provider";
+  providerId = "mock" as const;
+
+  getModelName(task: AiTask) {
+    return `mock_${task}_v1`;
+  }
+
+  getConfigurationStatus() {
+    const configured = isLocalLikeAiEnv();
+    const capability = (task: AiTask) => ({ configured, model: this.getModelName(task) });
+    return {
+      capabilities: {
+        biomarker_extraction: capability("biomarker_extraction"),
+        doctor_summary: capability("doctor_summary"),
+        patient_explanation: capability("patient_explanation")
+      },
+      providerId: this.providerId,
+      providerName: this.name,
+      readyForReportPipeline: configured
+    };
+  }
 
   async extractBiomarkers(params: Parameters<AiProvider["extractBiomarkers"]>[0]): Promise<BiomarkerExtractionOutput> {
     const biomarkers = extractFixtureBiomarkers(params.extractedText);
@@ -92,11 +112,16 @@ export class MockAiProvider implements AiProvider {
   }
 
   async generatePatientExplanation(params: Parameters<AiProvider["generatePatientExplanation"]>[0]): Promise<PatientExplanationOutput> {
-    const critical = params.biomarkers.filter((marker) => marker.reviewStatus === "critical_review_required");
-    const review = params.biomarkers.filter(
-      (marker) => marker.reviewStatus === "manual_review_required" || marker.reviewStatus === "soft_review"
+    const critical = params.biomarkers.filter(
+      (marker) => (marker.reviewStatus ?? marker.reviewRouting) === "critical_review_required"
     );
-    const attention = params.biomarkers.filter((marker) => marker.systemFlag !== "normal" && marker.systemFlag !== "unknown");
+    const review = params.biomarkers.filter(
+      (marker) => {
+        const routing = marker.reviewStatus ?? marker.reviewRouting;
+        return routing === "manual_review_required" || routing === "soft_review";
+      }
+    );
+    const attention = params.biomarkers.filter((marker) => marker.systemFlag !== "normal");
     const normal = params.biomarkers.filter((marker) => marker.systemFlag === "normal");
 
     return {
@@ -132,7 +157,7 @@ export class MockAiProvider implements AiProvider {
       ai_limitations: ["AI output is schema constrained and must not be used as diagnosis or prescription."],
       concise_summary: "Supported biomarkers were extracted and routed for review where needed.",
       critical_flags: params.biomarkers
-        .filter((marker) => marker.reviewStatus === "critical_review_required")
+        .filter((marker) => (marker.reviewStatus ?? marker.reviewRouting) === "critical_review_required")
         .map((marker) => marker.canonicalName ?? marker.rawName),
       source_biomarker_ids: params.biomarkers.map((marker) => marker.id),
       suggested_review_focus: ["Confirm extracted values against the source report before clinical use."]

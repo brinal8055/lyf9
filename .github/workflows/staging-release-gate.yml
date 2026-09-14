@@ -1,0 +1,47 @@
+name: Staging release gate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Synthetic staging verification
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          cache: npm
+          node-version: 22
+      - run: npm ci
+      - name: Run supported-report launch path
+        run: npm run verify:staging:e2e
+        env:
+          APP_ENV: staging
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_TEXTRACT_REGION: ${{ vars.AWS_TEXTRACT_REGION }}
+          DOCUMENT_PARSER_PROVIDER: textract
+          MALWARE_SCANNER_PROVIDER: guardduty-s3
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          OCR_PROVIDER: textract
+          PRODUCTION_S3_BUCKET: ${{ vars.PRODUCTION_S3_BUCKET }}
+          S3_REPORT_BUCKET: ${{ vars.STAGING_S3_BUCKET }}
+          STAGING_APP_ORIGIN: https://lyf9-dev.vercel.app
+          STAGING_S3_BUCKET: ${{ vars.STAGING_S3_BUCKET }}
+          STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - name: Upload verification artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-verification
+          path: artifacts/staging-verification/
+          retention-days: 30
+

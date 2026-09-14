@@ -1,14 +1,14 @@
 {
   "checks": [
     {
-      "detail": "Missing required env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, LIVE_SUPABASE_WORKFLOW_JOB_ID",
-      "name": "required_env_present",
-      "passed": false
+      "detail": "> @lyf9/web@0.1.0 test:workflow-live\n> vitest run src/lib/workflow/supabase-live-workflow.test.ts\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ✓ src/lib/workflow/supabase-live-workflow.test.ts (3 tests) 10779ms\n   ✓ live Supabase workflow concurrency and recovery > claims atomically, respects retry timing, recovers leases, and audits safely 10777ms\n\n Test Files  1 passed (1)\n      Tests  3 passed (3)\n   Start at  15:09:06\n   Duration  11.72s (transform 141ms, setup 0ms, collect 176ms, tests 10.78s, environment 0ms, prepare 150ms)",
+      "name": "live_workflow_harness_passed",
+      "passed": true
     }
   ],
-  "endedAt": "2026-06-12T16:18:58.010Z",
+  "endedAt": "2026-09-02T09:39:18.303Z",
   "section": "workflow",
-  "startedAt": "2026-06-12T16:18:58.010Z",
-  "status": "blocked",
+  "startedAt": "2026-09-02T09:39:05.907Z",
+  "status": "passed",
   "syntheticOnly": true
 }

@@ -87,6 +87,7 @@ export function AdminReports() {
     }
   });
   const [status, setStatus] = useState("");
+  const [newInviteCode, setNewInviteCode] = useState<string | null>(null);
 
   function refresh() {
     fetch("/api/admin/reports")
@@ -161,12 +162,13 @@ export function AdminReports() {
     const form = new FormData(event.currentTarget);
     const response = await fetch("/api/admin/invites", {
       body: JSON.stringify({
-        email: form.get("email"),
-        role: form.get("role")
+        email: form.get("email")
       }),
       headers: { "Content-Type": "application/json" },
       method: "POST"
     });
+    const body = (await response.json()) as { invite?: BetaInviteRecord };
+    setNewInviteCode(response.ok ? body.invite?.inviteCode ?? null : null);
     setStatus(response.ok ? "Private beta invite created." : "Invite could not be created.");
     if (response.ok) refresh();
   }
@@ -208,21 +210,21 @@ export function AdminReports() {
           <CardTitle>Private beta invites</CardTitle>
           <CardContent>Create invite codes for the first 30-50 early users.</CardContent>
         </CardHeader>
-        <form className="grid gap-3 md:grid-cols-[1fr_auto_auto]" onSubmit={createInvite}>
+        <form className="grid gap-3 md:grid-cols-[1fr_auto]" onSubmit={createInvite}>
           <Input name="email" placeholder="early-user@example.com" required type="email" />
-          <Select defaultValue="user" name="role">
-            <option value="user">user</option>
-            <option value="doctor">doctor</option>
-            <option value="admin">admin</option>
-          </Select>
           <Button type="submit" variant="secondary">Create invite</Button>
         </form>
+        {newInviteCode ? (
+          <p className="mt-3 rounded-ui border border-yellow/20 bg-yellow/10 p-3 text-sm text-ivory">
+            One-time invite code: <strong>{newInviteCode}</strong>
+          </p>
+        ) : null}
         <div className="mt-4 grid gap-3">
           {data.betaInvites.slice(0, 10).map((invite) => (
             <div className="rounded-ui border border-white/10 bg-white/[0.04] p-4" key={invite.id}>
               <p className="font-medium text-ivory">{invite.email}</p>
               <p className="text-sm text-muted">
-                {invite.inviteCode} · {invite.role} · {invite.status}
+                {invite.role} · {invite.status}
               </p>
             </div>
           ))}

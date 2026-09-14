@@ -1,14 +1,14 @@
 {
   "checks": [
     {
-      "detail": "Missing required env: APP_BASE_URL, NEXT_PUBLIC_APP_BASE_URL",
-      "name": "required_env_present",
-      "passed": false
+      "detail": "> @lyf9/web@0.1.0 test:launch-live\n> vitest run src/inngest/staging-inngest-live.test.ts -t \"supported CBC\"\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ✓ src/inngest/staging-inngest-live.test.ts (5 tests | 4 skipped) 107652ms\n   ✓ live staging Inngest saga > runs a supported CBC through result, correction, doctor review, reminder, and feedback 107650ms\n\n Test Files  1 passed (1)\n      Tests  1 passed | 4 skipped (5)\n   Start at  23:41:24\n   Duration  108.29s (transform 94ms, setup 0ms, collect 208ms, tests 107.65s, environment 0ms, prepare 77ms)",
+      "name": "supported_report_launch_harness_passed",
+      "passed": true
     }
   ],
-  "endedAt": "2026-06-12T16:18:58.011Z",
+  "endedAt": "2026-09-13T18:13:12.834Z",
   "section": "e2e",
-  "startedAt": "2026-06-12T16:18:58.011Z",
-  "status": "blocked",
+  "startedAt": "2026-09-13T18:11:23.587Z",
+  "status": "passed",
   "syntheticOnly": true
 }

@@ -9,6 +9,7 @@ export {
   ALLOWED_REPORT_MIME_TYPES,
   getMaxReportFileSizeBytes,
   isLocalLikeAppEnv,
+  reportExtensionForMimeType,
   validateReportFileSize,
   validateReportMimeType
 } from "./storage-provider";

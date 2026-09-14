@@ -28,7 +28,7 @@ const unsafePatterns = [
   /\bstop this medicine\b/i,
   /\btake\s+[a-z][a-z0-9-]+\b/i,
   /\bstart\s+[a-z][a-z0-9-]+\b/i,
-  /\bstop\s+[a-z][a-z0-9-]+\b/i,
+  /\bstop\s+(?!bleeding\b)[a-z][a-z0-9-]+\b/i,
   /\byou need\s+[a-z0-9,\s-]+(tablet|tablets|capsule|capsules|medicine|supplement|supplements)\b/i,
   /\bincrease\s+dose\b/i,
   /\bincrease your dose\b/i,

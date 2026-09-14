@@ -1,14 +1,14 @@
 {
   "checks": [
     {
-      "detail": "Missing required env: RUN_LIVE_OPENAI_EVAL, AI_PROVIDER, OPENAI_API_KEY, OPENAI_MODEL_EXTRACTION",
-      "name": "required_env_present",
+      "detail": "> @lyf9/web@0.1.0 eval:golden\n> vitest run src/lib/evaluation/golden-eval.test.ts\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ❯ src/lib/evaluation/golden-eval.test.ts (1 test | 1 failed) 109182ms\n   × golden dataset evaluation > writes machine and human-readable golden evaluation reports 109181ms\n     → ai_provider_quota_exhausted\n\n Test Files  1 failed (1)\n      Tests  1 failed (1)\n   Start at  22:30:14\n   Duration  110.70s (transform 271ms, setup 0ms, collect 353ms, tests 109.18s, environment 1ms, prepare 342ms)\n\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/lib/evaluation/golden-eval.test.ts > golden dataset evaluation > writes machine and human-readable golden evaluation reports\nAiGatewayError: ai_provider_quota_exhausted\n ❯ ClinicalAiGateway.invoke src/lib/ai/clinical-ai-gateway.ts:109:17\n    107|         const retryInline = failure.code === \"ai_provider_unavailable\"…\n    108|         if (!retryInline) {\n    109|           throw new AiGatewayError(failure.code, metadata(), failure.r…\n       |                 ^\n    110|         }\n    111|         await wait(providerRetryBaseMs() * (2 ** (attempt - 1)));\n ❯ ClinicalAiGateway.generatePatientExplanation src/lib/ai/clinical-ai-gateway.ts:68:20\n ❯ Module.runGoldenEvaluation src/lib/evaluation/golden-eval.ts:192:26\n ❯ src/lib/evaluation/golden-eval.test.ts:7:20\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\nnpm error Lifecycle script `eval:golden` failed with error:\nnpm error code 1\nnpm error path [workspace]/apps/web\nnpm error workspace @lyf9/web@0.1.0\nnpm error location [workspace]/apps/web\nnpm error command failed\nnpm error command sh -c vitest run src/lib/evaluation/golden-eval.test.ts",
+      "name": "live_ai_golden_harness_passed",
       "passed": false
     }
   ],
-  "endedAt": "2026-06-12T16:18:58.011Z",
+  "endedAt": "2026-09-02T17:02:05.683Z",
   "section": "golden-live",
-  "startedAt": "2026-06-12T16:18:58.011Z",
-  "status": "blocked",
+  "startedAt": "2026-09-02T17:00:14.299Z",
+  "status": "failed",
   "syntheticOnly": true
 }

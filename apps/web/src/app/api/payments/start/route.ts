@@ -32,10 +32,13 @@ export async function POST(request: NextRequest) {
       reportFileId: body.reportFileId ?? null,
       userId: user.id
     });
+    const sandbox = !payment.publicLaunchEnabled;
     return NextResponse.json({
       payment,
-      sandbox: true,
-      message: "Razorpay sandbox placeholder created. No real public paid launch is enabled."
+      sandbox,
+      message: sandbox
+        ? "Razorpay sandbox placeholder created. No real public paid launch is enabled."
+        : "Razorpay order created."
     }, { status: 201 });
   } catch (caught) {
     logError("payment_start_failed", {

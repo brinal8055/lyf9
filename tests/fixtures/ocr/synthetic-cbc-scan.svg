@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1800" viewBox="0 0 1400 1800">
+  <rect width="1400" height="1800" fill="#ffffff"/>
+  <g fill="#111111" font-family="Arial, Helvetica, sans-serif">
+    <text x="110" y="150" font-size="48" font-weight="700">Lyf9 AI Synthetic CBC Report</text>
+    <text x="110" y="220" font-size="24">Synthetic staging verification only - no real patient data</text>
+    <line x1="110" y1="275" x2="1290" y2="275" stroke="#333333" stroke-width="3"/>
+    <text x="110" y="355" font-size="30" font-weight="700">Test</text>
+    <text x="610" y="355" font-size="30" font-weight="700">Result</text>
+    <text x="850" y="355" font-size="30" font-weight="700">Unit</text>
+    <text x="1040" y="355" font-size="30" font-weight="700">Reference range</text>
+    <text x="110" y="455" font-size="34">Hemoglobin</text>
+    <text x="610" y="455" font-size="34">13.4</text>
+    <text x="850" y="455" font-size="34">g/dL</text>
+    <text x="1040" y="455" font-size="34">12.0 - 16.0</text>
+    <text x="110" y="555" font-size="34">WBC</text>
+    <text x="610" y="555" font-size="34">7200</text>
+    <text x="850" y="555" font-size="34">/cumm</text>
+    <text x="1040" y="555" font-size="34">4000 - 11000</text>
+    <text x="110" y="655" font-size="34">Platelets</text>
+    <text x="610" y="655" font-size="34">250000</text>
+    <text x="850" y="655" font-size="34">/cumm</text>
+    <text x="1040" y="655" font-size="34">150000 - 450000</text>
+    <text x="110" y="755" font-size="34">RBC</text>
+    <text x="610" y="755" font-size="34">4.8</text>
+    <text x="850" y="755" font-size="30">10^6/cumm</text>
+    <text x="1040" y="755" font-size="34">4.0 - 5.5</text>
+    <line x1="110" y1="825" x2="1290" y2="825" stroke="#555555" stroke-width="2"/>
+    <text x="110" y="910" font-size="25">Generated fixture: OCR-CBC-V1</text>
+  </g>
+</svg>

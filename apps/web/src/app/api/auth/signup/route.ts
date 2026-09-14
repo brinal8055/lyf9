@@ -60,7 +60,10 @@ export async function POST(request: NextRequest) {
         name: result.value.name,
         password: body.password ?? ""
       });
-      const response = NextResponse.json({ user: signup.user });
+      const response = NextResponse.json({
+        emailConfirmationRequired: !signup.accessToken,
+        user: signup.user
+      });
 
       if (signup.accessToken) {
         setSupabaseAuthCookies(response, signup.accessToken, signup.refreshToken);

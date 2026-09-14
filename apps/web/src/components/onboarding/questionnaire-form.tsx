@@ -83,7 +83,31 @@ export function QuestionnaireForm() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    setResponse(loadQuestionnaire() ?? emptyResponse);
+    let cancelled = false;
+
+    async function loadExistingResponse() {
+      try {
+        const saved = await fetch("/api/questionnaire");
+        if (saved.ok) {
+          const body = (await saved.json()) as { response: QuestionnaireResponse | null };
+          if (!cancelled && body.response) {
+            setResponse(body.response);
+            return;
+          }
+        }
+      } catch {
+        // Fall through to the local scaffold store below.
+      }
+
+      if (!cancelled) {
+        setResponse(loadQuestionnaire() ?? emptyResponse);
+      }
+    }
+
+    void loadExistingResponse();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   function update(key: keyof QuestionnaireResponse, value: string) {

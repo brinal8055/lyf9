@@ -4,7 +4,7 @@
 
 Lyf9 AI now has a durable workflow foundation in code. `processing_jobs` and `processing_job_steps` are the source of truth for report processing, with idempotency, leases, retry scheduling, blocked states, and PHI-safe job audit events.
 
-Real PHI remains blocked until this is verified against staging Supabase/Postgres and connected to a real malware scanner plus live Marker/Textract/OpenAI providers.
+Atomic claim, lease recovery, retry timing, service-role-only RPC access, and Textract document extraction pass against staging with synthetic records. Real PHI remains blocked until the Inngest staging runner and live structured AI provider are verified and the remaining release gates pass.
 
 ## WorkflowProvider Architecture
 
@@ -33,7 +33,7 @@ Provider methods:
 - `releaseExpiredLocks`
 - `getJobStatus`
 
-The current implementation is a database/store workflow provider. It is production-shaped but still needs Supabase/Postgres staging verification.
+The deployed orchestration path is the Inngest saga in `apps/web/src/inngest/process-report.ts`. Its Supabase atomic claim/recovery path and Textract provider pass independently in staging; the Inngest staging endpoint still needs event/signing keys and registration. The Python worker command remains a health/status compatibility stub.
 
 ## Job Statuses
 
@@ -116,6 +116,7 @@ Expired locks are released and audited with `processing_job_lock_expired`.
 Migration:
 
 - `supabase/migrations/202606060005_atomic_processing_job_claim.sql`
+- `supabase/migrations/202609020001_workflow_rpc_hardening.sql`
 
 RPC functions:
 
@@ -134,18 +135,21 @@ It excludes blocked, failed, completed, cancelled, and future-scheduled jobs.
 
 - attempts remaining: `retry_scheduled`, `next_run_at=p_now`
 - attempts exhausted: `failed`, `error_code=lock_expired_max_attempts`
+- the matching running step has its stale lock cleared and follows the job into retry or failure
+
+Both security-definer RPCs revoke default execution from `PUBLIC`, `anon`, and `authenticated`. Only `service_role` may claim jobs or recover expired locks.
 
 The TypeScript Supabase workflow provider calls these RPCs and writes PHI-minimal audit rows for claim, lock expiry, retry scheduling, and max-attempt failure. The local store provider remains a deterministic best-effort fallback for local/development/test only; staging/production local claiming throws `atomic_workflow_claim_required` unless explicitly overridden for a targeted test.
 
 Live verification command:
 
 ```bash
-RUN_LIVE_SUPABASE_WORKFLOW=true \
-LIVE_SUPABASE_WORKFLOW_JOB_ID=<seeded queued processing job id> \
-npm run test:workflow-live
+npm run verify:staging:workflow
 ```
 
-Current limitation: the RPC exists in code and has a skipped live test harness, but it has not yet been run against a real Lyf9 AI staging Supabase project.
+The live harness creates its own synthetic Auth user, report metadata, queued/future/expired jobs, and running steps. It proves concurrent claims, lease recovery, max-attempt failure, retry timing, service-role-only RPC access, PHI-minimal audit rows, and guaranteed cleanup. It requires no pre-seeded job ID.
+
+The 2026-09-02 staging run passed all three harness tests. Two jobs were uniquely claimed across three concurrent workers, future retries stayed unavailable, expired jobs and steps recovered consistently, max-attempt failure was terminal, and the synthetic fixture was deleted.
 
 ## Idempotency
 
@@ -345,8 +349,8 @@ Audit metadata must stay PHI-minimal.
 
 ## Current Limitations
 
-- Supabase/Postgres atomic claim RPC is implemented but not yet verified with live concurrent staging workers.
+- Supabase/Postgres atomic claim and recovery RPCs are verified with concurrent synthetic staging requests.
 - Python worker command remains a status/process-once stub; TypeScript provider is the tested implementation.
-- Real malware scanner is not wired.
+- GuardDuty scan gating passes against the staging S3 prefix.
 - Marker and Textract contracts are implemented but not live-verified.
 - OpenAI production execution is not live-wired; schema-first local/test AI path is implemented and production config gaps block safely.
