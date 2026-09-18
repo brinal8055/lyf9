@@ -14,18 +14,16 @@ export default async function DoctorReviewDetailPage({
   const { reviewId } = await params;
 
   return (
-    <main className="min-h-screen bg-ink px-5 py-10 text-ivory sm:px-8">
-      <div className="mx-auto max-w-shell space-y-6">
-        <div>
-          <p className="text-sm text-orange">Doctor review</p>
-          <h1 className="mt-2 text-[36px] font-semibold">Review report</h1>
-          <p className="mt-3 max-w-2xl text-muted">
-            Approve, edit and approve, reject, request more information, or mark urgent.
-            Doctor-reviewed output appears to the user only after approval.
-          </p>
-        </div>
-        <DoctorReviewDetail reviewId={reviewId} />
-      </div>
-    </main>
+    <div className="grid gap-7 sm:gap-8">
+      <header className="border-b border-white/10 pb-6">
+        <p className="text-sm font-medium text-green">Doctor workspace</p>
+        <h1 className="mt-2 text-3xl font-semibold text-ivory sm:text-4xl">Review report</h1>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-muted sm:text-base">
+          Compare the report source, extracted biomarkers, safety flags, and AI-assisted draft
+          before recording a decision.
+        </p>
+      </header>
+      <DoctorReviewDetail reviewId={reviewId} />
+    </div>
   );
 }

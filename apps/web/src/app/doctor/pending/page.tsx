@@ -18,11 +18,11 @@ const STATUS_COPY: Record<DoctorStatus, { body: string; title: string }> = {
     title: "You're verified"
   },
   details_submitted: {
-    body: "Thanks for applying. Our team is verifying your registration details and will email you once your account is approved. This usually takes 1-2 working days.",
+    body: "Thanks for applying. Our team is verifying your registration details. This usually takes 1-2 working days.",
     title: "Verification in progress"
   },
   invited: {
-    body: "Your invite has not been completed yet. Use the link from your invite email to submit your details.",
+    body: "Your invite has not been completed yet. Use your invitation link to submit your details.",
     title: "Application incomplete"
   },
   rejected: {
@@ -34,7 +34,7 @@ const STATUS_COPY: Record<DoctorStatus, { body: string; title: string }> = {
     title: "Account paused"
   },
   under_review: {
-    body: "Our team is reviewing your credentials and will email you once a decision is made.",
+    body: "Our team is reviewing your credentials. Return here to check your verification status.",
     title: "Verification in progress"
   }
 };
@@ -62,7 +62,7 @@ export default async function DoctorPendingPage() {
   const copy = STATUS_COPY[status];
 
   return (
-    <div className="mx-auto max-w-shell px-5 py-16 sm:px-8">
+    <div className="mx-auto max-w-2xl py-8 sm:py-16">
       <Card className="mx-auto max-w-xl">
         <CardHeader>
           <CardTitle>{copy.title}</CardTitle>

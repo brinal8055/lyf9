@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { FormEvent, ReactNode, useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, PencilLine, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  ClipboardList,
+  FileText,
+  PencilLine,
+  ShieldAlert,
+  XCircle
+} from "lucide-react";
 
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +42,7 @@ type DoctorReviewDetailPayload = {
 export function DoctorReviewQueue() {
   const [reviews, setReviews] = useState<DoctorReviewDetailPayload[]>([]);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/doctor/reviews")
@@ -40,35 +50,109 @@ export function DoctorReviewQueue() {
       .then((body: { error?: string; reviews?: DoctorReviewDetailPayload[] }) => {
         if (body.error) setError(body.error);
         setReviews(body.reviews ?? []);
-      });
+      })
+      .catch(() => setError("The review queue could not be loaded."))
+      .finally(() => setLoading(false));
   }, []);
 
   if (error) {
     return <Alert className="border-danger/30 bg-danger/10">{error}</Alert>;
   }
 
+  if (loading) {
+    return <Alert>Loading assigned reports.</Alert>;
+  }
+
+  const urgentCount = reviews.filter((item) => item.review.priority === "urgent").length;
+  const flaggedCount = reviews.filter((item) => item.riskFlags.length > 0).length;
+
   return (
-    <div className="grid gap-4">
-      {reviews.map((item) => (
-        <Card key={item.review.id}>
-          <CardHeader>
-            <div className="flex flex-wrap gap-2">
-              <Badge>{item.review.status.replaceAll("_", " ")}</Badge>
-              <Badge>{item.review.priority}</Badge>
-              <Badge>{item.labReport.reportType ?? "unclassified"}</Badge>
+    <div className="grid gap-6">
+      <section className="grid gap-3 sm:grid-cols-3" aria-label="Review queue summary">
+        <QueueStat icon={<ClipboardList className="size-4" aria-hidden />} label="Assigned" value={reviews.length} />
+        <QueueStat icon={<ShieldAlert className="size-4" aria-hidden />} label="With flags" tone="yellow" value={flaggedCount} />
+        <QueueStat icon={<AlertTriangle className="size-4" aria-hidden />} label="Urgent" tone="danger" value={urgentCount} />
+      </section>
+
+      <section className="grid gap-4">
+        <div>
+          <h2 className="text-xl font-semibold text-ivory">Review queue</h2>
+          <p className="mt-1 text-sm text-muted">Open a report to inspect source evidence and record a decision.</p>
+        </div>
+
+        {reviews.map((item) => (
+          <Card className="overflow-hidden p-0 shadow-[0_18px_55px_rgba(0,0,0,0.22)]" key={item.review.id}>
+            <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+              <div className="min-w-0">
+                <div className="flex flex-wrap gap-2">
+                  <Badge>{item.review.status.replaceAll("_", " ")}</Badge>
+                  <Badge className={item.review.priority === "urgent" ? "border-danger/30 bg-danger/10 text-danger" : undefined}>
+                    {item.review.priority}
+                  </Badge>
+                  <Badge>{item.labReport.reportType ?? "unclassified"}</Badge>
+                </div>
+                <div className="mt-4 flex items-start gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-ui border border-white/10 bg-white/5 text-muted">
+                    <FileText className="size-5" aria-hidden />
+                  </span>
+                  <div className="min-w-0">
+                    <CardTitle className="truncate text-lg">{item.reportFile.originalFilename}</CardTitle>
+                    <CardContent className="mt-1 text-sm leading-6">
+                      {item.patient.displayName} · {item.biomarkers.length} biomarkers ·{" "}
+                      {item.riskFlags.length} review flags
+                    </CardContent>
+                  </div>
+                </div>
+              </div>
+              <Link
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-orange px-4 text-sm font-medium text-ink transition hover:scale-[1.02]"
+                href={`/doctor/reviews/${item.review.id}`}
+              >
+                Open review
+                <ArrowRight className="size-4" aria-hidden />
+              </Link>
             </div>
-            <CardTitle className="mt-4">{item.reportFile.originalFilename}</CardTitle>
-            <CardContent>
-              {item.patient.displayName} · {item.biomarkers.length} biomarkers ·{" "}
-              {item.riskFlags.length} review flags
-            </CardContent>
-          </CardHeader>
-          <Link className="text-sm font-medium text-orange" href={`/doctor/reviews/${item.review.id}`}>
-            Open review
-          </Link>
-        </Card>
-      ))}
-      {reviews.length === 0 ? <Alert>No reports assigned to this doctor account.</Alert> : null}
+          </Card>
+        ))}
+
+        {reviews.length === 0 ? (
+          <div className="rounded-ui border border-dashed border-white/15 px-5 py-10 text-center text-sm text-muted">
+            No reports are assigned to this doctor account.
+          </div>
+        ) : null}
+      </section>
+    </div>
+  );
+}
+
+function QueueStat({
+  icon,
+  label,
+  tone = "muted",
+  value
+}: {
+  icon: ReactNode;
+  label: string;
+  tone?: "danger" | "muted" | "yellow";
+  value: number;
+}) {
+  return (
+    <div className="flex items-center gap-4 rounded-ui border border-white/10 bg-white/[0.035] px-4 py-4">
+      <span
+        className={
+          tone === "danger"
+            ? "flex size-9 shrink-0 items-center justify-center rounded-ui border border-danger/20 bg-danger/10 text-danger"
+            : tone === "yellow"
+              ? "flex size-9 shrink-0 items-center justify-center rounded-ui border border-yellow/20 bg-yellow/10 text-yellow"
+              : "flex size-9 shrink-0 items-center justify-center rounded-ui border border-white/10 bg-white/5 text-muted"
+        }
+      >
+        {icon}
+      </span>
+      <div>
+        <p className="text-xl font-semibold leading-none text-ivory">{value}</p>
+        <p className="mt-1.5 text-xs text-muted">{label}</p>
+      </div>
     </div>
   );
 }

@@ -1,7 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useState } from "react";
+import { Activity, AlertTriangle, FileStack, MessageSquareText, Stethoscope, TicketCheck } from "lucide-react";
 
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -88,11 +90,18 @@ export function AdminReports() {
   });
   const [status, setStatus] = useState("");
   const [newInviteCode, setNewInviteCode] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   function refresh() {
     fetch("/api/admin/reports")
-      .then((response) => response.json())
-      .then((body: AdminData) => setData(body));
+      .then((response) => {
+        if (!response.ok) throw new Error("Admin data request failed");
+        return response.json();
+      })
+      .then((body: AdminData) => setData(body))
+      .catch(() => setLoadError("The admin workspace could not be loaded."))
+      .finally(() => setLoading(false));
   }
 
   useEffect(() => {
@@ -173,38 +182,49 @@ export function AdminReports() {
     if (response.ok) refresh();
   }
 
+  if (loading) {
+    return <Alert>Loading the admin workspace.</Alert>;
+  }
+
+  if (loadError) {
+    return <Alert className="border-danger/30 bg-danger/10">{loadError}</Alert>;
+  }
+
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-7">
       {status ? <p className="text-sm text-muted">{status}</p> : null}
-      <Card>
-        <CardHeader>
-          <CardTitle>Private beta summary</CardTitle>
-          <CardContent>Operational snapshot for invite, upload, review, payment, and feedback activity.</CardContent>
-        </CardHeader>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <QueueStat label="Invites" value={data.betaInvites.length} />
-          <QueueStat label="Reports" value={data.reportFiles.length} />
-          <QueueStat label="Doctor reviews" value={data.doctorReviews.length} />
-          <QueueStat label="Payments" value={data.payments.length} />
-          <QueueStat label="Feedback" value={data.feedbackEvents.length} />
+      <section className="grid gap-4">
+        <div>
+          <h2 className="text-xl font-semibold text-ivory">Private beta activity</h2>
+          <p className="mt-1 text-sm text-muted">A current snapshot of the core operating flow.</p>
         </div>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Safety queues</CardTitle>
-          <CardContent>Operational queues for manual correction and doctor review.</CardContent>
-        </CardHeader>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <QueueStat label="Failed extraction" value={data.queues.failedExtraction.length} />
-          <QueueStat label="Blocked jobs" value={data.queues.blockedJobs.length} />
-          <QueueStat label="OCR required" value={data.queues.ocrRequiredReports.length} />
-          <QueueStat label="Unknown classification" value={data.queues.unknownClassification.length} />
-          <QueueStat label="Low confidence" value={data.queues.lowConfidenceExtraction.length} />
-          <QueueStat label="Unsupported" value={data.queues.unsupportedReports.length} />
-          <QueueStat label="Critical flags" value={data.queues.criticalFlaggedReports.length} />
-          <QueueStat label="Correction needed" value={data.queues.manualCorrectionNeeded.length} />
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <QueueStat icon={<TicketCheck className="size-4" aria-hidden />} label="Invites" value={data.betaInvites.length} />
+          <QueueStat icon={<FileStack className="size-4" aria-hidden />} label="Reports" value={data.reportFiles.length} />
+          <QueueStat icon={<Stethoscope className="size-4" aria-hidden />} label="Doctor reviews" value={data.doctorReviews.length} />
+          <QueueStat icon={<Activity className="size-4" aria-hidden />} label="Payments" value={data.payments.length} />
+          <QueueStat icon={<MessageSquareText className="size-4" aria-hidden />} label="Feedback" value={data.feedbackEvents.length} />
         </div>
-      </Card>
+      </section>
+      <section className="grid gap-4 border-t border-white/10 pt-7">
+        <div>
+          <h2 className="flex items-center gap-2 text-xl font-semibold text-ivory">
+            <AlertTriangle className="size-5 text-yellow" aria-hidden />
+            Safety queues
+          </h2>
+          <p className="mt-1 text-sm text-muted">Cases that may need operational or clinical attention.</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <QueueStat label="Failed extraction" tone="danger" value={data.queues.failedExtraction.length} />
+          <QueueStat label="Blocked jobs" tone="danger" value={data.queues.blockedJobs.length} />
+          <QueueStat label="OCR required" tone="yellow" value={data.queues.ocrRequiredReports.length} />
+          <QueueStat label="Unknown classification" tone="yellow" value={data.queues.unknownClassification.length} />
+          <QueueStat label="Low confidence" tone="yellow" value={data.queues.lowConfidenceExtraction.length} />
+          <QueueStat label="Unsupported" tone="yellow" value={data.queues.unsupportedReports.length} />
+          <QueueStat label="Critical flags" tone="danger" value={data.queues.criticalFlaggedReports.length} />
+          <QueueStat label="Correction needed" tone="yellow" value={data.queues.manualCorrectionNeeded.length} />
+        </div>
+      </section>
       <Card>
         <CardHeader>
           <CardTitle>Private beta invites</CardTitle>
@@ -566,11 +586,38 @@ export function AdminReports() {
   );
 }
 
-function QueueStat({ label, value }: { label: string; value: number }) {
+function QueueStat({
+  icon,
+  label,
+  tone = "muted",
+  value
+}: {
+  icon?: ReactNode;
+  label: string;
+  tone?: "danger" | "muted" | "yellow";
+  value: number;
+}) {
   return (
-    <div className="rounded-ui border border-white/10 bg-white/[0.04] p-4">
-      <p className="text-2xl font-semibold text-ivory">{value}</p>
-      <p className="mt-1 text-sm text-muted">{label}</p>
+    <div className="flex min-h-20 items-center gap-3 rounded-ui border border-white/10 bg-white/[0.035] p-4">
+      {icon ? (
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-ui border border-white/10 bg-white/5 text-muted">
+          {icon}
+        </span>
+      ) : null}
+      <div>
+        <p
+          className={
+            tone === "danger"
+              ? "text-xl font-semibold leading-none text-danger"
+              : tone === "yellow"
+                ? "text-xl font-semibold leading-none text-yellow"
+                : "text-xl font-semibold leading-none text-ivory"
+          }
+        >
+          {value}
+        </p>
+        <p className="mt-1.5 text-xs text-muted">{label}</p>
+      </div>
     </div>
   );
 }

@@ -8,10 +8,11 @@ export default async function AdminDoctorsPage() {
   const [doctors, invites] = await Promise.all([listDoctorProfiles(), listDoctorInvites()]);
 
   return (
-    <div className="grid gap-8">
-      <header className="grid gap-2">
-        <h1 className="text-3xl text-ivory">Doctors</h1>
-        <p className="text-muted">
+    <div className="grid gap-7 sm:gap-8">
+      <header className="border-b border-white/10 pb-6">
+        <p className="text-sm font-medium text-orange">Admin workspace</p>
+        <h1 className="mt-2 text-3xl font-semibold text-ivory sm:text-4xl">Doctor access</h1>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-muted sm:text-base">
           Invite doctors, verify their registration details, and manage reviewing access. Approving
           a doctor grants them the reviewer role and adds them to the assignment pool.
         </p>

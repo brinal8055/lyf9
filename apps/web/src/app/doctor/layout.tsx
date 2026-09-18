@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { AppNav } from "@/components/app/app-nav";
 import {
   AUTH_COOKIE_NAME,
   getAuthSecret,
@@ -43,5 +44,10 @@ export default async function DoctorLayout({
     redirect("/app");
   }
 
-  return <>{children}</>;
+  return (
+    <div className="min-h-screen bg-ink text-ivory">
+      <AppNav role={user.role} userName={user.name} />
+      <main className="mx-auto w-full max-w-shell px-5 py-8 sm:px-8 sm:py-10">{children}</main>
+    </div>
+  );
 }

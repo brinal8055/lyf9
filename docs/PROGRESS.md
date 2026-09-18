@@ -12,6 +12,29 @@ No public launch, autonomous diagnosis, prescriptions, medicine-change advice, s
 
 ## Completed In This Pass
 
+### 2026-09-18 Admin And Doctor Workspace UI Alignment
+
+- Moved all admin and doctor routes into the authenticated Lyf9 AI navigation shell while preserving the existing server-side role and doctor-verification gates.
+- Standardized operational page widths, headings, spacing, status hierarchy, loading states, error states, empty states, and responsive stacking.
+- Redesigned doctor invitations and verification queues with compact activity counts, clearer account cards, visible expiry, and one-click copying for manually shared onboarding links.
+- Refined the admin report overview and safety queues for faster scanning without changing report, correction, assignment, data-rights, or audit behavior.
+- Refined the doctor review queue with assigned, flagged, and urgent counts plus clearer report actions.
+- Corrected doctor onboarding copy that implied automatic email delivery before an owned sender domain is available.
+
+Verification:
+
+```txt
+npm test          # 185 passed, 9 credential-gated live tests skipped
+npm run typecheck # passed
+npm run lint      # passed
+npm run copy:scan # passed
+npm run build:web # passed; 44 routes generated
+git diff --check  # passed
+desktop UI review # passed with synthetic fixture data
+```
+
+Deployment target: `dev` / `https://lyf9-dev.vercel.app`. Production is unchanged.
+
 ### 2026-09-14 Doctor Account Activation Hardening
 
 - Confirmed that the current doctor lifecycle is invite-only: admin creates a one-time hashed-token invite, the applicant submits registration details, and only a later admin approval grants the `doctor` role and assignment capacity.
