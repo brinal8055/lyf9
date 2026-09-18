@@ -12,6 +12,7 @@ export type StorageProviderName = "mock-private" | "s3-private";
 export type UploadUrlResult = {
   expiresAt: string;
   requiredHeaders?: Record<string, string>;
+  storageBucket: string;
   storageKey: string;
   uploadUrl: string;
 };
@@ -71,8 +72,11 @@ export function expiresAt(seconds: number) {
   return new Date(Date.now() + seconds * 1000).toISOString();
 }
 
-export function safeFilename(value: string) {
-  return value.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "report";
+export function reportExtensionForMimeType(mimeType: string) {
+  if (mimeType === "application/pdf") return ".pdf";
+  if (mimeType === "image/png") return ".png";
+  if (mimeType === "image/jpeg" || mimeType === "image/jpg") return ".jpg";
+  return "";
 }
 
 export function isLocalLikeAppEnv() {

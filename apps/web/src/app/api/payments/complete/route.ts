@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
   const body = (await request.json()) as {
     paymentId?: string;
     providerPaymentId?: string | null;
+    providerSignature?: string | null;
   };
 
   if (!body.paymentId) {
@@ -24,12 +25,16 @@ export async function POST(request: NextRequest) {
     const payment = await completePayment({
       paymentId: body.paymentId,
       providerPaymentId: body.providerPaymentId ?? null,
+      providerSignature: body.providerSignature ?? null,
       userId: user.id
     });
+    const sandbox = !payment.publicLaunchEnabled;
     return NextResponse.json({
       payment,
-      sandbox: true,
-      message: "Sandbox placeholder marked complete. Legal review is still required before public paid launch."
+      sandbox,
+      message: sandbox
+        ? "Sandbox placeholder marked complete. Legal review is still required before public paid launch."
+        : "Payment captured."
     });
   } catch (caught) {
     logError("payment_complete_failed", {

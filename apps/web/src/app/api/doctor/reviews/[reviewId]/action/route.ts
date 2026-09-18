@@ -34,7 +34,7 @@ export async function POST(
     const metadata = requestMetadata(request);
     const review = await applyDoctorReviewAction({
       action: action as DoctorReviewAction,
-      doctorEmail: auth.user.id,
+      doctorIdentity: auth.user.id,
       editedSummary: stringOrNull(body.editedSummary),
       ipAddress: metadata.ipAddress,
       notes: stringOrNull(body.notes),

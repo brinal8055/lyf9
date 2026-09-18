@@ -6,8 +6,26 @@ import type {
 } from "./ai-schemas";
 import type { NormalizedBiomarker } from "../biomarkers";
 
+export type AiProviderId = "gemini" | "mock" | "openai";
+export type AiTask = "biomarker_extraction" | "doctor_summary" | "patient_explanation";
+
+export type AiCapabilityStatus = {
+  configured: boolean;
+  model: string | null;
+};
+
+export type AiProviderConfiguration = {
+  capabilities: Record<AiTask, AiCapabilityStatus>;
+  providerId: AiProviderId;
+  providerName: string;
+  readyForReportPipeline: boolean;
+};
+
 export type AiProvider = {
   name: string;
+  providerId: AiProviderId;
+  getConfigurationStatus(): AiProviderConfiguration;
+  getModelName(task: AiTask): string | null;
   extractBiomarkers(params: {
     userId: string;
     reportFileId: string;

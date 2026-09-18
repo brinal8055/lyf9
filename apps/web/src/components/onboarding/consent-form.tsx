@@ -70,9 +70,36 @@ export function ConsentForm() {
   const requiredGranted = hasRequiredConsent(choices);
 
   useEffect(() => {
-    const savedRecords = loadConsentRecords();
-    setRecords(savedRecords);
-    setChoices({ ...defaultChoices, ...latestConsentChoices(savedRecords) });
+    let cancelled = false;
+
+    function applyRecords(savedRecords: ConsentRecord[]) {
+      setRecords(savedRecords);
+      setChoices({ ...defaultChoices, ...latestConsentChoices(savedRecords) });
+    }
+
+    async function loadExistingConsent() {
+      try {
+        const response = await fetch("/api/consent");
+        if (response.ok) {
+          const body = (await response.json()) as { records: ConsentRecord[] };
+          if (!cancelled && body.records.length > 0) {
+            applyRecords(body.records);
+            return;
+          }
+        }
+      } catch {
+        // Fall through to the local scaffold store below.
+      }
+
+      if (!cancelled) {
+        applyRecords(loadConsentRecords());
+      }
+    }
+
+    void loadExistingConsent();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   function update(key: keyof ConsentChoices, granted: boolean) {

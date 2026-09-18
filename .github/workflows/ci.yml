@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - dev
+      - feat/frontend-overhaul
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Web checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          cache: npm
+          node-version: 22
+      - name: Install copy-scan dependency
+        run: sudo apt-get update && sudo apt-get install --yes ripgrep
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run copy:scan
+      - run: npm test
+      - run: npm run build:web
+
+  python:
+    name: API and worker checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          cache: pip
+          python-version: "3.12"
+      - run: pip install -r apps/api/requirements.txt -r apps/worker/requirements.txt
+      - run: npm run api:test
+      - run: npm run api:health
+      - run: npm run worker:health

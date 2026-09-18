@@ -1,14 +1,14 @@
 {
   "checks": [
     {
-      "detail": "Missing required env: OCR_PROVIDER, AWS_TEXTRACT_REGION",
-      "name": "required_env_present",
-      "passed": false
+      "detail": "> @lyf9/web@0.1.0 test:textract-live\n> vitest run src/lib/document-extraction/staging-textract-live.test.ts\n\n\n RUN  v2.1.9 [workspace]/apps/web\n\n ✓ src/lib/document-extraction/staging-textract-live.test.ts (3 tests) 15562ms\n   ✓ live staging Textract document extraction > extracts a synthetic CBC scan, blocks a blank scan, persists provenance, and cleans up 15560ms\n\n Test Files  1 passed (1)\n      Tests  3 passed (3)\n   Start at  19:41:48\n   Duration  16.54s (transform 137ms, setup 0ms, collect 248ms, tests 15.56s, environment 0ms, prepare 121ms)",
+      "name": "live_textract_harness_passed",
+      "passed": true
     }
   ],
-  "endedAt": "2026-06-12T16:18:58.011Z",
+  "endedAt": "2026-09-03T14:12:05.293Z",
   "section": "textract",
-  "startedAt": "2026-06-12T16:18:58.011Z",
-  "status": "blocked",
+  "startedAt": "2026-09-03T14:11:48.120Z",
+  "status": "passed",
   "syntheticOnly": true
 }

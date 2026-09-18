@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1800" viewBox="0 0 1400 1800">
+  <rect width="1400" height="1800" fill="#ffffff"/>
+  <g fill="#111111" font-family="Arial, Helvetica, sans-serif">
+    <text x="110" y="160" font-size="48" font-weight="700">Lyf9 AI Synthetic Radiology Report</text>
+    <text x="110" y="245" font-size="34">MRI Brain Imaging</text>
+    <line x1="110" y1="300" x2="1290" y2="300" stroke="#333333" stroke-width="3"/>
+    <text x="110" y="390" font-size="30" font-weight="700">Findings</text>
+    <text x="110" y="460" font-size="28">Synthetic imaging findings for workflow verification only.</text>
+    <text x="110" y="525" font-size="28">This document contains no patient information.</text>
+    <text x="110" y="650" font-size="25">Generated fixture: OCR-RADIOLOGY-V1</text>
+  </g>
+</svg>

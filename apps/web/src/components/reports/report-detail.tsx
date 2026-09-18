@@ -1,7 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CalendarPlus, MessageSquareText, Stethoscope } from "lucide-react";
+import { AlertTriangle, CalendarPlus, ChevronDown, MessageSquareText, Stethoscope } from "lucide-react";
+
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +49,10 @@ export function ReportDetail({ reportFileId }: { reportFileId: string }) {
   const [error, setError] = useState("");
   const [reminderStatus, setReminderStatus] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState("");
+  const [doctorReviewState, setDoctorReviewState] = useState<
+    "idle" | "requesting" | "requested" | "error"
+  >("idle");
+  const [doctorReviewMessage, setDoctorReviewMessage] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -68,6 +74,35 @@ export function ReportDetail({ reportFileId }: { reportFileId: string }) {
   }, [reportFileId]);
 
   const groupedMarkers = useMemo(() => groupMarkers(report?.markerCards ?? []), [report]);
+
+  async function requestDoctorReview() {
+    if (!report) return;
+
+    setDoctorReviewState("requesting");
+    setDoctorReviewMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/reports/${report.reportFile.id}/request-doctor-review`,
+        { method: "POST" }
+      );
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+
+      if (!response.ok) {
+        setDoctorReviewState("error");
+        setDoctorReviewMessage(body.error ?? "Doctor review could not be requested.");
+        return;
+      }
+
+      setDoctorReviewState("requested");
+      setDoctorReviewMessage(
+        "Doctor review requested. A doctor will review this report and you will be notified."
+      );
+    } catch {
+      setDoctorReviewState("error");
+      setDoctorReviewMessage("Doctor review could not be requested.");
+    }
+  }
 
   async function createReminder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -112,11 +147,32 @@ export function ReportDetail({ reportFileId }: { reportFileId: string }) {
   }
 
   if (error) {
-    return <Alert className="border-danger/30 bg-danger/10">{error}</Alert>;
+    return <Alert variant="error">{error}</Alert>;
   }
 
   if (!report) {
-    return <Alert>Loading report explanation.</Alert>;
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="grid gap-5 lg:grid-cols-[1.3fr_0.7fr]">
+          <div className="rounded-card border border-white/10 bg-card p-6 space-y-4">
+            <Skeleton className="h-6 w-1/3" />
+            <Skeleton className="h-8 w-3/4" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+          </div>
+          <div className="rounded-card border border-white/10 bg-card p-6 space-y-4">
+            <Skeleton className="h-6 w-1/2" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Skeleton className="h-40 rounded-card" />
+          <Skeleton className="h-40 rounded-card" />
+          <Skeleton className="h-40 rounded-card" />
+          <Skeleton className="h-40 rounded-card" />
+        </div>
+      </div>
+    );
   }
 
   const reviewLabel = reviewLabelForStatus(report.healthInsight?.status);
@@ -168,10 +224,20 @@ export function ReportDetail({ reportFileId }: { reportFileId: string }) {
                 <p className="mt-1 text-sm text-muted">{flag.reason}</p>
               </div>
             ))}
-            <Button variant="secondary">
+            <Button
+              disabled={!report.healthInsight || doctorReviewState === "requesting"}
+              isLoading={doctorReviewState === "requesting"}
+              onClick={requestDoctorReview}
+              variant="secondary"
+            >
               <Stethoscope className="mr-2 size-4" aria-hidden />
               Request doctor review
             </Button>
+            {doctorReviewMessage ? (
+              <Alert variant={doctorReviewState === "error" ? "error" : "success"}>
+                {doctorReviewMessage}
+              </Alert>
+            ) : null}
           </div>
         </Card>
       </section>
@@ -183,13 +249,15 @@ export function ReportDetail({ reportFileId }: { reportFileId: string }) {
       ) : null}
 
       <section className="grid gap-6">
-        {(Object.keys(groupLabels) as MarkerGroupKey[]).map((group) => (
-          <MarkerGroup
-            group={group}
-            key={group}
-            markers={groupedMarkers[group]}
-          />
-        ))}
+        {(Object.keys(groupLabels) as MarkerGroupKey[])
+          .filter((group) => groupedMarkers[group].length > 0)
+          .map((group) => (
+            <MarkerGroup
+              group={group}
+              key={group}
+              markers={groupedMarkers[group]}
+            />
+          ))}
       </section>
 
       <section className="grid gap-5 lg:grid-cols-2">
@@ -337,13 +405,23 @@ function MarkerCard({ marker }: { marker: MarkerCardModel }) {
   }
 
   return (
-    <article className="rounded-ui border border-white/10 bg-white/[0.04] p-4" onClick={trackMarkerOpen}>
+    <article
+      className="rounded-ui border border-white/10 bg-white/[0.04] p-4 transition-colors hover:border-white/20"
+      role="button"
+      tabIndex={0}
+      onClick={trackMarkerOpen}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") trackMarkerOpen(); }}
+    >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h4 className="font-medium text-ivory">{biomarker.canonicalName ?? biomarker.rawName}</h4>
-          <p className="mt-1 text-sm text-muted">{biomarker.rawName}</p>
+          {biomarker.canonicalName && biomarker.canonicalName !== biomarker.rawName ? (
+            <p className="mt-1 text-sm text-muted">{biomarker.rawName}</p>
+          ) : null}
         </div>
-        <Badge className={flagClassName(biomarker.systemFlag)}>{biomarker.systemFlag}</Badge>
+        <Badge className={flagClassName(biomarker.systemFlag)}>
+          {biomarker.systemFlag.charAt(0).toUpperCase() + biomarker.systemFlag.slice(1)}
+        </Badge>
       </div>
       <div className="mt-4 grid gap-3 text-sm text-muted sm:grid-cols-2">
         <p>
@@ -355,13 +433,15 @@ function MarkerCard({ marker }: { marker: MarkerCardModel }) {
         <p>Lab range: {biomarker.referenceRangeText ?? "Not provided"}</p>
         <p>Confidence: {Math.round(biomarker.confidenceScore * 100)}%</p>
         <p>Review: {biomarker.reviewRouting.replaceAll("_", " ")}</p>
-        <p>
-          Previous:{" "}
-          {marker.previousValue
-            ? `${marker.previousValue.value} ${marker.previousValue.unit ?? ""}`
-            : "No previous value"}
-        </p>
-        <p>Page: {biomarker.pageNumber ?? "Unknown"}</p>
+        {marker.previousValue ? (
+          <p>
+            Previous:{" "}
+            <span className="text-ivory">
+              {marker.previousValue.value} {marker.previousValue.unit ?? ""}
+            </span>
+          </p>
+        ) : null}
+        {biomarker.pageNumber ? <p>Page: {biomarker.pageNumber}</p> : null}
       </div>
       {biomarker.isManuallyCorrected ? (
         <div className="mt-3 rounded-ui border border-yellow/20 bg-yellow/10 p-3 text-xs leading-5 text-muted">
@@ -374,9 +454,15 @@ function MarkerCard({ marker }: { marker: MarkerCardModel }) {
         </div>
       ) : null}
       {marker.explanation ? <p className="mt-3 text-sm text-muted">{marker.explanation}</p> : null}
-      <div className="mt-3 rounded-ui border border-white/10 bg-black/20 p-3 text-xs leading-5 text-muted">
-        Source trace: {biomarker.sourceText}
-      </div>
+      <details className="mt-3 rounded-ui border border-white/10">
+        <summary className="flex cursor-pointer items-center gap-2 p-3 text-xs text-dim hover:text-muted">
+          <ChevronDown className="size-3 transition-transform group-open:rotate-180" aria-hidden />
+          Show source trace
+        </summary>
+        <div className="border-t border-white/10 bg-black/20 px-3 pb-3 pt-2 text-xs leading-5 text-muted">
+          {biomarker.sourceText}
+        </div>
+      </details>
     </article>
   );
 }

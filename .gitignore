@@ -4,7 +4,10 @@ dist/
 build/
 .env
 .env.*
+*.env.*
+!.env.example
 .local/
+supabase/.temp/
 __pycache__/
 .pytest_cache/
 .venv/

@@ -1,14 +1,14 @@
 {
   "checks": [
     {
-      "detail": "Missing required env: DOCUMENT_PARSER_PROVIDER",
-      "name": "required_env_present",
-      "passed": false
+      "detail": "Marker is optional; textract is the selected document parser.",
+      "name": "marker_optional_not_selected",
+      "passed": true
     }
   ],
-  "endedAt": "2026-06-12T16:18:58.011Z",
+  "endedAt": "2026-09-13T11:14:29.148Z",
   "section": "marker",
-  "startedAt": "2026-06-12T16:18:58.011Z",
-  "status": "blocked",
+  "startedAt": "2026-09-13T11:14:29.147Z",
+  "status": "passed",
   "syntheticOnly": true
 }

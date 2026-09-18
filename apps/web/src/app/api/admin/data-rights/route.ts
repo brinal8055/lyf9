@@ -28,8 +28,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ request: requestRecord });
   }
 
+  if (auth.user.role !== "superadmin") {
+    return NextResponse.json(
+      { error: "Only a superadmin can complete a data deletion." },
+      { status: 403 }
+    );
+  }
+
   const requestRecord = await createDataDeletion({
-    actorRole: auth.user.role === "superadmin" ? "superadmin" : "admin",
+    actorRole: "superadmin",
     actorUserId: auth.user.id,
     targetUserId: body.targetUserId
   });

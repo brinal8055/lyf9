@@ -12,6 +12,7 @@ export function createModelRunRecord(input: {
   extractedDocumentId?: string | null;
   input: Record<string, unknown>;
   job: ProcessingJobRecord;
+  latencyMs?: number | null;
   modelName: string;
   output?: Record<string, unknown> | null;
   promptVersion: string;
@@ -33,7 +34,7 @@ export function createModelRunRecord(input: {
     id: randomUUID(),
     inputHash: hashModelPayload(input.input),
     labReportId: input.job.labReportId,
-    latencyMs: 0,
+    latencyMs: input.latencyMs ?? 0,
     modelName: input.modelName,
     outputHash: output ? hashModelPayload(output) : null,
     outputJson: output,

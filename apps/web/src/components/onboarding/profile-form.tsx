@@ -30,7 +30,31 @@ export function ProfileForm() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    setProfile(loadHealthProfile() ?? emptyProfile);
+    let cancelled = false;
+
+    async function loadExistingProfile() {
+      try {
+        const response = await fetch("/api/profile");
+        if (response.ok) {
+          const body = (await response.json()) as { profile: HealthProfile | null };
+          if (!cancelled && body.profile) {
+            setProfile(body.profile);
+            return;
+          }
+        }
+      } catch {
+        // Fall through to the local scaffold store below.
+      }
+
+      if (!cancelled) {
+        setProfile(loadHealthProfile() ?? emptyProfile);
+      }
+    }
+
+    void loadExistingProfile();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   function update(key: keyof HealthProfile, value: string) {

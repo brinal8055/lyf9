@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { AUTH_COOKIE_NAME } from "./constants";
 import { getRequestUser, requireRequestRole } from "./request";
-import { getAuthProviderMode } from "./providers/supabase-server";
+import { getAuthProviderMode, getSupabaseServerKeyType } from "./providers/supabase-server";
 import { createSessionCookie } from "./session";
 
 const repoRoot = path.resolve(process.cwd(), "../..");
@@ -83,6 +83,14 @@ describe("Supabase auth foundation", () => {
     expect(getAuthProviderMode()).toBe("local_cookie_scaffold");
   });
 
+  it("classifies server keys without exposing their value", () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "sb_secret_example";
+    expect(getSupabaseServerKeyType()).toBe("secret");
+
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "eyJlegacy-service-role";
+    expect(getSupabaseServerKeyType()).toBe("legacy_service_role");
+  });
+
   it("returns a setup error instead of reading local cookies when fallback is disabled", async () => {
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -135,6 +143,46 @@ describe("Supabase auth foundation", () => {
     expect(migration).toContain("Doctors read assigned report files");
     expect(migration).toContain("Admins read processing job steps");
     expect(migration).toContain("Service inserts audit logs only");
+  });
+
+  it("enables authenticated read-only RLS for biomarker catalog tables", () => {
+    const migration = readFileSync(
+      path.join(repoRoot, "supabase/migrations/202609010001_biomarker_catalog_rls.sql"),
+      "utf8"
+    );
+
+    expect(migration).toContain("alter table public.biomarker_catalog enable row level security");
+    expect(migration).toContain("alter table public.biomarker_aliases enable row level security");
+    expect(migration).toContain('create policy "Authenticated users read biomarker catalog"');
+    expect(migration).toContain('create policy "Authenticated users read biomarker aliases"');
+    expect(migration).not.toContain("for insert");
+    expect(migration).not.toContain("for update");
+    expect(migration).not.toContain("for delete");
+  });
+
+  it("keeps the upload consent RPC inside caller RLS", () => {
+    const migration = readFileSync(
+      path.join(repoRoot, "supabase/migrations/202609010002_consent_rpc_rls_guard.sql"),
+      "utf8"
+    );
+
+    expect(migration).toContain("security invoker");
+    expect(migration).toContain("revoke all on function public.has_required_report_upload_consent(uuid) from anon");
+    expect(migration).toContain("grant execute on function public.has_required_report_upload_consent(uuid) to authenticated");
+    expect(migration).not.toContain("security definer");
+  });
+
+  it("restricts atomic workflow RPCs to service role and recovers stale step locks", () => {
+    const migration = readFileSync(
+      path.join(repoRoot, "supabase/migrations/202609020001_workflow_rpc_hardening.sql"),
+      "utf8"
+    );
+
+    expect(migration).toContain("from public, anon, authenticated");
+    expect(migration).toContain("to service_role");
+    expect(migration).toContain("update public.processing_job_steps step");
+    expect(migration).toContain("step.status = 'running'");
+    expect(migration).toContain("'lock_expired_max_attempts'");
   });
 
   it("keeps upload-init behind the server-side consent gate before metadata creation", () => {
